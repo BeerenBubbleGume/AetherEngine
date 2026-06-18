@@ -11,6 +11,9 @@ add_library(engine STATIC
         engine/src/window/Window.cpp
         engine/src/Engine.cpp
         engine/headers/Engine.hpp
+        engine/src/systems/SInputSystem.cpp
+        engine/headers/systems/SInputSystem.hpp
+        engine/headers/systems/ISystem.hpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)
