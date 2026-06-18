@@ -8,21 +8,28 @@
 #include <memory>
 #include <string_view>
 #include <SDL3/SDL.h>
+#include <expected>
 
 namespace engine {
+    class WindowError {
+        public:
+        int code;
+        const char* message;
+    };
     class Window {
+    public:
         struct WindowDeleter {
             void operator()(const Window* window) const {
                 delete window;
             }
         };
-    public:
         using Ptr = std::unique_ptr<Window, WindowDeleter>;
 
-        [[nodiscard]] bool initWindow(std::string_view title, int width, int height);
-        [[nodiscard]] SDL_Window* getSDLWindow() const;
-        [[nodiscard]] int Width() const;
-        [[nodiscard]] int Height() const;
+        [[nodiscard]] auto initWindow(std::string_view title, int width, int height) -> std::expected<void, WindowError>;
+        [[nodiscard]] auto shutdown() -> std::expected<void, WindowError>;
+        [[nodiscard]] auto getSDLWindow() const -> SDL_Window*;
+        [[nodiscard]] auto Width() const -> int;
+        [[nodiscard]] auto Height() const -> int;
         static Ptr createWindow();
 
     private:

@@ -1,6 +1,6 @@
 #include <SDL3/SDL.h>
 #include <entt/entt.hpp>
-#include "window/Window.hpp"
+#include "Engine.hpp"
 
 int main()
 {
@@ -10,32 +10,21 @@ int main()
         return 1;
     }
 
-    auto window = engine::Window::createWindow();
-
-    if (!window->initWindow("SMB Engine", 800, 600))
-    {
-        SDL_Quit();
+    auto engine = engine::Engine::createEngine();
+    if (!engine) {
+        SDL_Log("Failed to create engine");
         return 1;
     }
-
-    bool running = true;
-    SDL_Event event;
-
-    while (running)
-    {
-        while (SDL_PollEvent(&event))
-        {
-            SDL_SetWindowTitle(window->getSDLWindow(), "alive");
-            if (event.type == SDL_EVENT_QUIT)
-            {
-                running = false;
-            }
-        }
-
-        // пока ничего не рендерим — просто “жизнь окна”
-        SDL_Delay(1);
+    auto initResult = engine->initEngine();
+    if (!initResult) {
+        SDL_Log("Failed to init engine");
+        return 1;
     }
-
+    auto result = engine->run();
+    if (!result) {
+        SDL_Log("Failed to run engine");
+        return 1;
+    }
     SDL_Quit();
     return 0;
 }
