@@ -4,9 +4,6 @@
 
 #ifndef SMB_SINPUTSYSTEM_HPP
 #define SMB_SINPUTSYSTEM_HPP
-#include <expected>
-#include <memory>
-#include <unordered_set>
 
 #include "ISystem.hpp"
 
@@ -14,6 +11,11 @@ namespace engine::systems {
 
         class SInputSystem : public systems::ISystem {
         public:
+                SInputSystem(const SInputSystem&) = delete;
+                SInputSystem& operator=(const SInputSystem&) = delete;
+                SInputSystem(SInputSystem&&) = delete;
+                SInputSystem& operator=(SInputSystem&&) = delete;
+
                 struct SInputDeleter {
                         void operator()(SInputSystem* inputSystem) const {
                                 delete inputSystem;
@@ -23,16 +25,15 @@ namespace engine::systems {
 
                 static SInputPtr createInputSystem();
 
-                [[nodiscard]] auto processEvents(const SDL_Event &event) -> std::expected<void, ISystemError>;
+                [[nodiscard]] auto isKeyPressed(SDL_Scancode key) const -> bool;
+                auto processEvents(const SDL_Event &event) -> void;
                 auto update(float delta) -> void override;
 
         private:
                 SInputSystem() = default;
-                SInputSystem(const SInputSystem&) = delete;
-                SInputSystem& operator=(const SInputSystem&) = delete;
                 ~SInputSystem() override;
 
-                std::unordered_set<SDL_Keycode> keysPressed;
+                std::array<bool, SDL_SCANCODE_COUNT> keysPressed{};
         };
 }
 // systems

@@ -8,18 +8,23 @@ namespace engine::systems {
     SInputSystem::SInputPtr SInputSystem::createInputSystem() {
         return SInputPtr(new SInputSystem(), SInputDeleter{});
     }
-    auto SInputSystem::processEvents(const SDL_Event &event) -> std::expected<void, ISystemError> {
+    auto SInputSystem::processEvents(const SDL_Event &event) -> void {
         switch (event.type) {
             case SDL_EVENT_KEY_DOWN:
-                keysPressed.insert(event.key.scancode);
+                keysPressed[event.key.scancode] = true;
+                SDL_Log("Key pressed: %d", event.key.scancode);
                 break;
             case SDL_EVENT_KEY_UP:
-                keysPressed.erase(event.key.scancode);
+                keysPressed[event.key.scancode] = false;
+                SDL_Log("Key released: %d", event.key.scancode);
                 break;
 
             default: break;
         }
-        return {};
+    }
+
+    auto SInputSystem::isKeyPressed(SDL_Scancode key) const -> bool {
+        return keysPressed[key];
     }
 
     auto SInputSystem::update(float delta) -> void {

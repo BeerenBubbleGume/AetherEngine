@@ -18,6 +18,10 @@ namespace engine {
     };
     class Window {
     public:
+        Window(const Window&) = delete;
+        Window& operator=(const Window&) = delete;
+        Window(Window&&) = delete;
+        Window& operator=(Window&&) = delete;
         struct WindowDeleter {
             void operator()(const Window* window) const {
                 delete window;
@@ -35,11 +39,6 @@ namespace engine {
     private:
         SDL_Window* window;
         Window();
-        Window(const Window&) = delete;
-        Window& operator=(const Window&) = delete;
-        Window(Window&&) = delete;
-        Window& operator=(Window&&) = delete;
-
         ~Window();
         std::atomic<bool> isOpen{false};
         int width{0};

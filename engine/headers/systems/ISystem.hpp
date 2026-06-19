@@ -6,7 +6,10 @@
 #define SMB_ISYSTEM_HPP
 #include <expected>
 #include <SDL3/SDL_events.h>
-
+#include <SDL3/SDL_log.h>
+#include <array>
+#include <expected>
+#include <memory>
 
 namespace engine::systems {
         struct ISystemError {

@@ -5,7 +5,13 @@
 #ifndef SMB_ENGINE_HPP
 #define SMB_ENGINE_HPP
 
+#include <chrono>
 #include <expected>
+#include <chrono>
+#include <iostream>
+#include <ostream>
+#include <ratio>
+#include "systems/SInputSystem.hpp"
 #include "window/Window.hpp"
 
 namespace engine {
@@ -16,8 +22,13 @@ namespace engine {
     };
     class Engine {
     public:
+        Engine(const Engine&) = delete;
+        Engine& operator=(const Engine&) = delete;
+        Engine(Engine&&) = delete;
+        Engine& operator=(Engine&&) = delete;
+
         struct EngineDeleter {
-            void operator()(Engine* engine) const {
+            void operator()(const Engine* engine) const {
                 delete engine;
             }
         };
@@ -29,20 +40,26 @@ namespace engine {
         static EnginePtr createEngine();
     private:
         Engine() = default;
-        Engine(const Engine&) = delete;
-        Engine& operator=(const Engine&) = delete;
         ~Engine();
 
         bool isRunning{false};
 
-        [[nodiscard]] auto processEvents() -> std::expected<void, EngineError>;
         [[nodiscard]] auto render() -> std::expected<void, EngineError>;
-        [[nodiscard]] auto update(float delta) -> std::expected<void, EngineError>;
+
+        auto processEvents() -> void;
+        auto update(float delta) -> void;
 
 
         using WindowPtr = std::unique_ptr<Window, Window::WindowDeleter>;
-        WindowPtr window;
+        using SInputPtr = std::unique_ptr<systems::SInputSystem, systems::SInputSystem::SInputDeleter>;
+        using Clock = std::chrono::steady_clock;
+        using Duration = std::chrono::duration<float>;
+        using TimePoint = Clock::time_point;
+        WindowPtr sWindow;
+        SInputPtr sInput;
 
+        float accumulator = 0.0;
+        const float FIXED_DT = 1.0 / 120.0;
 
     };
 }
