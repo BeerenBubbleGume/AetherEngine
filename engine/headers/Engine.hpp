@@ -12,13 +12,14 @@
 #include <ostream>
 #include <ratio>
 #include "systems/SInputSystem.hpp"
+#include "systems/SRenderSystem.hpp"
 #include "window/Window.hpp"
 
 namespace engine {
     class EngineError {
         public:
         int code;
-        const char* message;
+        std::string message;
     };
     class Engine {
     public:
@@ -47,16 +48,18 @@ namespace engine {
         [[nodiscard]] auto render() -> std::expected<void, EngineError>;
 
         auto processEvents() -> void;
-        auto update(float delta) -> void;
+        auto update(float delta) const -> void;
 
 
         using WindowPtr = std::unique_ptr<Window, Window::WindowDeleter>;
         using SInputPtr = std::unique_ptr<systems::SInputSystem, systems::SInputSystem::SInputDeleter>;
+        using SRenderPtr = std::unique_ptr<systems::SRenderSystem, systems::SRenderSystem::SRenderSystemDeleter>;
         using Clock = std::chrono::steady_clock;
         using Duration = std::chrono::duration<float>;
         using TimePoint = Clock::time_point;
         WindowPtr sWindow;
         SInputPtr sInput;
+        SRenderPtr sRender;
 
         float accumulator = 0.0;
         const float FIXED_DT = 1.0 / 120.0;

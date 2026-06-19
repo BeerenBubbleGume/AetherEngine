@@ -7,16 +7,25 @@
 auto engine::Engine::initEngine() -> std::expected<void, EngineError> {
     sWindow = Window::createWindow();
     sInput = systems::SInputSystem::createInputSystem();
+    sRender = systems::SRenderSystem::createRenderSystem();
     if (!sWindow) {
         return std::unexpected{EngineError{1, "Failed to create window"}};
     }
     if (!sInput) {
         return std::unexpected{EngineError{1, "Failed to create input system"}};
     }
+    if (!sRender) {
+        return std::unexpected{EngineError{1, "Failed to create render system"}};
+    }
     auto resultInitWindow = sWindow->initWindow("SMB Engine", 800, 600);
     if (!resultInitWindow) {
         std::cerr << "Failed to init window: " << resultInitWindow.error().message << std::endl;
         return std::unexpected{EngineError{2, "Failed to init window"}};
+    }
+    auto resultInitRenderer = sRender->init(*sWindow->getSDLWindow());
+    if (!resultInitRenderer) {
+        std::cerr << "Failed to init renderer: " << resultInitRenderer.error().message << std::endl;
+        return std::unexpected{EngineError{2, "Failed to init renderer"}};
     }
     return std::expected<void, EngineError>{};
 }
@@ -31,7 +40,10 @@ auto engine::Engine::run() -> std::expected<void, EngineError> {
 
         accumulator += delta;
         processEvents();
-
+        while (accumulator >= FIXED_DT) {
+            accumulator -= FIXED_DT;
+        }
+        sRender->render();
         update(delta);
     }
     return std::expected<void, EngineError>{};
@@ -41,8 +53,11 @@ auto engine::Engine::shutdown() const -> std::expected<void, EngineError> {
     if (sWindow) {
         auto result = sWindow->shutdown();
         if (!result) {
-            return std::unexpected{EngineError{2, ("Failed to shutdown window: " + std::string(result.error().message)).c_str()}};
+            return std::unexpected{EngineError{2, ("Failed to shutdown window: " + result.error().message)}};
         }
+    }
+    if (sRender) {
+        // sRender->shutdown(); // Assuming shutdown is handled in the destructor
     }
     return std::expected<void, EngineError>{};
 }
@@ -77,6 +92,6 @@ auto engine::Engine::processEvents() -> void {
     }
 }
 
-auto engine::Engine::update(float delta) -> void {
-
+auto engine::Engine::update(float delta) const -> void {
+    sInput->update(delta);
 }

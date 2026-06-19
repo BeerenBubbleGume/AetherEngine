@@ -5,11 +5,11 @@
 #ifndef SMB_SINPUTSYSTEM_HPP
 #define SMB_SINPUTSYSTEM_HPP
 
-#include "ISystem.hpp"
+#include "interfaces/IUpdatable.hpp"
 
 namespace engine::systems {
 
-        class SInputSystem : public systems::ISystem {
+        class SInputSystem : public systems::IUpdatable {
         public:
                 SInputSystem(const SInputSystem&) = delete;
                 SInputSystem& operator=(const SInputSystem&) = delete;

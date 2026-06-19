@@ -10,15 +10,16 @@
 #include <array>
 #include <expected>
 #include <memory>
+#include <string>
 
 namespace engine::systems {
-        struct ISystemError {
+        struct IUpdatableError {
             int code;
-            const char* message;
+            std::string message;
         };
-        class ISystem {
+        class IUpdatable {
             public:
-            virtual ~ISystem() = default;
+            virtual ~IUpdatable() = default;
             virtual auto update(float delta) -> void = 0;
 
         };

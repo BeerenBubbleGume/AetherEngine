@@ -14,7 +14,7 @@ namespace engine {
     class WindowError {
         public:
         int code;
-        const char* message;
+        std::string message;
     };
     class Window {
     public:

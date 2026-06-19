@@ -13,7 +13,9 @@ add_library(engine STATIC
         engine/headers/Engine.hpp
         engine/src/systems/SInputSystem.cpp
         engine/headers/systems/SInputSystem.hpp
-        engine/headers/systems/ISystem.hpp
+        engine/headers/interfaces/IUpdatable.hpp
+        engine/src/systems/SRenderSystem.cpp
+        engine/headers/systems/SRenderSystem.hpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)

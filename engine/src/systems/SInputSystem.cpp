@@ -28,6 +28,7 @@ namespace engine::systems {
     }
 
     auto SInputSystem::update(float delta) -> void {
+
     }
 
     SInputSystem::~SInputSystem() = default;
