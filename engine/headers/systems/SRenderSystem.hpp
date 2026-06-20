@@ -13,6 +13,7 @@
 #include <bx/math.h>
 #include <SDL3/SDL_video.h>
 #include <fstream>
+#include "graphics/Mesh.hpp"
 
 namespace engine::systems {
     struct SRenderSystemError {
@@ -32,19 +33,20 @@ namespace engine::systems {
         };
         using SRenderSystemPtr = std::unique_ptr<SRenderSystem, SRenderSystemDeleter>;
         static SRenderSystemPtr createRenderSystem();
-        void render();
+        void render() const;
 
         [[nodiscard]] auto init(SDL_Window& window) -> std::expected<void, SRenderSystemError>;
+        [[nodiscard]] auto addMesh(graphics::GMesh::GMeshPtr mesh) -> std::expected<void, SRenderSystemError>;
     private:
         static bgfx::ShaderHandle loadShader(const char* _filename);
         SRenderSystem() = default;
         ~SRenderSystem();
         void shutdown() const;
 
-        SDL_Window* rWindow;
-        bgfx::VertexBufferHandle m_vbh = BGFX_INVALID_HANDLE;
-        bgfx::IndexBufferHandle  m_ibh = BGFX_INVALID_HANDLE;
+        SDL_Window* rWindow{};
         bgfx::ProgramHandle      m_program = BGFX_INVALID_HANDLE;
+
+        std::vector<graphics::GMesh::GMeshPtr> m_meshes;
     };
 }
 

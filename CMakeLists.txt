@@ -23,6 +23,8 @@ add_library(engine STATIC
         engine/headers/interfaces/IUpdatable.hpp
         engine/src/systems/SRenderSystem.cpp
         engine/headers/systems/SRenderSystem.hpp
+        engine/src/graphics/Mesh.cpp
+        engine/headers/graphics/Mesh.hpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)

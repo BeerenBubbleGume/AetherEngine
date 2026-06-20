@@ -33,6 +33,18 @@ auto engine::Engine::initEngine() -> std::expected<void, EngineError> {
 auto engine::Engine::run() -> std::expected<void, EngineError> {
     isRunning = true;
     TimePoint lastTime = Clock::now();
+    auto mesh = graphics::GMesh::createMesh();
+    if (!mesh) {
+        std::cerr << "Failed to create mesh" << std::endl;
+        return std::unexpected{EngineError{2, "Failed to create mesh"}};
+    }
+    mesh->createTriangle();
+    auto resultMeshAdd = sRender->addMesh(std::move(mesh));
+    if (!resultMeshAdd) {
+        std::cerr << "Failed to add mesh: " << resultMeshAdd.error().message << std::endl;
+        return std::unexpected{EngineError{2, "Failed to add mesh"}};
+    }
+
     while (isRunning) {
         TimePoint now = Clock::now();
         auto delta = std::chrono::duration<float>(now - lastTime).count();

@@ -4,37 +4,21 @@
 
 #include "systems/SRenderSystem.hpp"
 
-struct PosColorVertex {
-    float x, y, z;
-    uint32_t abgr;
-};
-
-static const PosColorVertex s_triangleVertices[3] = {
-    {-0.5f, -0.5f, 0.0f, 0xff0000ff}, // красный
-    { 0.5f, -0.5f, 0.0f, 0xff00ff00}, // зелёный
-    { 0.0f,  0.5f, 0.0f, 0xffff0000}  // синий
-};
-
-static const uint16_t s_triangleIndices[3] = { 0, 1, 2 };
-static bgfx::VertexLayout s_vertexLayout;
-
 engine::systems::SRenderSystem::SRenderSystemPtr engine::systems::SRenderSystem::createRenderSystem() {
     return SRenderSystemPtr(new SRenderSystem());
 }
 
-void engine::systems::SRenderSystem::render() {
+void engine::systems::SRenderSystem::render() const {
     int width, height;
     SDL_GetWindowSize(rWindow, &width, &height);
     bgfx::setViewRect(0, 0, 0, uint16_t(width), uint16_t(height));
 
     bgfx::touch(0); // на всякий случай
 
-    // === Рисуем треугольник ===
-    bgfx::setVertexBuffer(0, m_vbh);
-    bgfx::setIndexBuffer(m_ibh);
-
-    if (bgfx::isValid(m_program)) {
-        bgfx::submit(0, m_program);
+    for (const auto& mesh : m_meshes) {
+        if (mesh && mesh->isValid()) {
+            mesh->submit(m_program);
+        }
     }
 
     bgfx::frame();
@@ -78,22 +62,7 @@ auto engine::systems::SRenderSystem::init(SDL_Window &window) -> std::expected<v
         if (!bgfx::init(init)) {
             return std::unexpected{SRenderSystemError{1, "Failed to initialize bgfx"}};
         }
-        s_vertexLayout.begin()
-            .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-            .add(bgfx::Attrib::Color0,   4, bgfx::AttribType::Uint8, true) // normalized
-            .end();
 
-        // === Создаём буферы ===
-        m_vbh = bgfx::createVertexBuffer(
-            bgfx::makeRef(s_triangleVertices, sizeof(s_triangleVertices)),
-            s_vertexLayout
-        );
-
-        m_ibh = bgfx::createIndexBuffer(
-            bgfx::makeRef(s_triangleIndices, sizeof(s_triangleIndices))
-        );
-
-        // === Шейдеры ===
         bgfx::ShaderHandle vsh = loadShader("D:/smb/assets/shaders/bin/basic_vs.bin");
         bgfx::ShaderHandle fsh = loadShader("D:/smb/assets/shaders/bin/basic_fs.bin");
 
@@ -106,6 +75,18 @@ auto engine::systems::SRenderSystem::init(SDL_Window &window) -> std::expected<v
     } catch (const std::exception& e) {
         return std::unexpected{SRenderSystemError{1, e.what()}};
     }
+}
+
+auto engine::systems::SRenderSystem::addMesh(graphics::GMesh::GMeshPtr mesh) -> std::expected<void, SRenderSystemError> {
+    if (!mesh) {
+        return std::unexpected{SRenderSystemError{1, "Mesh is nullptr"}};
+    }
+    try {
+        m_meshes.push_back(std::move(mesh));
+    } catch (const std::exception& e) {
+        return std::unexpected{SRenderSystemError{1, e.what()}};
+    }
+    return {};
 }
 
 bgfx::ShaderHandle engine::systems::SRenderSystem::loadShader(const char *_filename) {
@@ -131,8 +112,6 @@ engine::systems::SRenderSystem::~SRenderSystem() {
 }
 
 void engine::systems::SRenderSystem::shutdown() const {
-    if (bgfx::isValid(m_vbh)) bgfx::destroy(m_vbh);
-    if (bgfx::isValid(m_ibh)) bgfx::destroy(m_ibh);
     if (bgfx::isValid(m_program)) bgfx::destroy(m_program);
     bgfx::shutdown();
 }
