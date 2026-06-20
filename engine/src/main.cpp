@@ -4,12 +4,6 @@
 
 int main()
 {
-    if (!SDL_Init(SDL_INIT_VIDEO))
-    {
-        SDL_Log("SDL_Init failed: %s", SDL_GetError());
-        return 1;
-    }
-
     auto engine = engine::Engine::createEngine();
     if (!engine) {
         SDL_Log("Failed to create engine");
@@ -25,6 +19,5 @@ int main()
         SDL_Log("Failed to run engine");
         return 1;
     }
-    SDL_Quit();
     return 0;
 }

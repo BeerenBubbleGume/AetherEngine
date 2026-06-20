@@ -34,7 +34,7 @@ auto engine::Window::shutdown() -> std::expected<void, WindowError> {
 }
 
 engine::Window::Ptr engine::Window::createWindow() {
-    return std::unique_ptr<Window, WindowDeleter>(new Window, WindowDeleter{});
+    return Ptr(new Window, WindowDeleter{});
 }
 
 SDL_Window * engine::Window::getSDLWindow() const {
@@ -55,5 +55,6 @@ engine::Window::Window() : window(nullptr) {
 engine::Window::~Window() {
     if (window) {
         SDL_DestroyWindow(window);
+        window = nullptr;
     }
 }

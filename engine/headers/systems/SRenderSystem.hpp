@@ -13,14 +13,16 @@
 #include <bx/math.h>
 #include <SDL3/SDL_video.h>
 #include <fstream>
-#include "graphics/Mesh.hpp"
+#include "graphics/GMesh.hpp"
+
+#include "graphics/GProgram.hpp"
 
 namespace engine::systems {
     struct SRenderSystemError {
         int code;
         std::string message;
     };
-    class SRenderSystem {
+    class SRenderSystem final {
     public:
         SRenderSystem(const SRenderSystem&) = delete;
         SRenderSystem(SRenderSystem&&) = delete;
@@ -36,17 +38,18 @@ namespace engine::systems {
         void render() const;
 
         [[nodiscard]] auto init(SDL_Window& window) -> std::expected<void, SRenderSystemError>;
+        [[nodiscard]] auto setProgram(graphics::GProgram::GProgramPtr program) -> std::expected<void, SRenderSystemError>;
         [[nodiscard]] auto addMesh(graphics::GMesh::GMeshPtr mesh) -> std::expected<void, SRenderSystemError>;
+        [[nodiscard]] auto getTransform() -> graphics::GTransform &;
     private:
-        static bgfx::ShaderHandle loadShader(const char* _filename);
         SRenderSystem() = default;
-        ~SRenderSystem();
-        void shutdown() const;
+        ~SRenderSystem() = default;
 
-        SDL_Window* rWindow{};
-        bgfx::ProgramHandle      m_program = BGFX_INVALID_HANDLE;
+        SDL_Window*                             rWindow{};
+        graphics::GProgram::GProgramPtr         m_program;
 
-        std::vector<graphics::GMesh::GMeshPtr> m_meshes;
+        std::vector<graphics::GMesh::GMeshPtr>  m_meshes;
+        graphics::GTransform                    m_testTransform;
     };
 }
 

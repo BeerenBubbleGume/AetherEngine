@@ -9,7 +9,10 @@
 #include <string>
 #include <bgfx/bgfx.h>
 #include <vector>
+#include <bx/math.h>
 
+
+namespace engine::systems { class SResourceManager; }
 
 namespace engine::graphics {
     struct PosColorVertex {
@@ -20,14 +23,26 @@ namespace engine::graphics {
         int code;
         std::string message;
     };
+    struct GTransform {
+        bx::Vec3 position = {0.0f, 0.0f, 0.0f};
+        bx::Vec3 rotation = {0.0f, 0.0f, 0.0f};  // в градусах (yaw, pitch, roll)
+        bx::Vec3 scale    = {1.0f, 1.0f, 1.0f};
+
+        void reset() {
+            position = {0, 0, 0};
+            rotation = {0, 0, 0};
+            scale = {1, 1, 1};
+        }
+    };
     class GMesh {
     public:
+        friend class engine::systems::SResourceManager;
         struct GMeshDeleter {
             void operator()(GMesh* mesh) const {
                 delete mesh;
             }
         };
-        using GMeshPtr = std::unique_ptr<GMesh, GMeshDeleter>;
+        using GMeshPtr = std::shared_ptr<GMesh>;
         static GMeshPtr createMesh();
 
         GMesh(const GMesh&) = delete;
@@ -38,11 +53,11 @@ namespace engine::graphics {
         void createTriangle();           // для теста
         // void createFromVertices(...); // позже
 
-        void submit(bgfx::ProgramHandle program) const;
+        void submit(bgfx::ProgramHandle program, const GTransform &transform, uint8_t viewId) const;
         [[nodiscard]] auto isValid() const -> bool;
     private:
         GMesh() = default;
-        ~GMesh() = default;
+        ~GMesh();
         bgfx::VertexBufferHandle m_vbh = BGFX_INVALID_HANDLE;
         bgfx::IndexBufferHandle  m_ibh = BGFX_INVALID_HANDLE;
         bgfx::VertexLayout       m_layout;

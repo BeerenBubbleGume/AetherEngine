@@ -13,6 +13,7 @@
 #include <ratio>
 #include "systems/SInputSystem.hpp"
 #include "systems/SRenderSystem.hpp"
+#include "systems/SResourceManager.hpp"
 #include "window/Window.hpp"
 
 namespace engine {
@@ -37,7 +38,6 @@ namespace engine {
 
         [[nodiscard]] auto initEngine() -> std::expected<void, EngineError>;
         [[nodiscard]] auto run() -> std::expected<void, EngineError>;
-        [[nodiscard]] auto shutdown() const -> std::expected<void, EngineError>;
         static EnginePtr createEngine();
     private:
         Engine() = default;
@@ -54,12 +54,14 @@ namespace engine {
         using WindowPtr = std::unique_ptr<Window, Window::WindowDeleter>;
         using SInputPtr = std::unique_ptr<systems::SInputSystem, systems::SInputSystem::SInputDeleter>;
         using SRenderPtr = std::unique_ptr<systems::SRenderSystem, systems::SRenderSystem::SRenderSystemDeleter>;
+        using SResourcePtr = std::unique_ptr<systems::SResourceManager, systems::SResourceManager::SResourceManagerDeleter>;
         using Clock = std::chrono::steady_clock;
         using Duration = std::chrono::duration<float>;
         using TimePoint = Clock::time_point;
         WindowPtr sWindow;
         SInputPtr sInput;
         SRenderPtr sRender;
+        SResourcePtr sResource;
 
         float accumulator = 0.0;
         const float FIXED_DT = 1.0 / 120.0;

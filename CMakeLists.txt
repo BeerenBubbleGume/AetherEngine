@@ -23,8 +23,12 @@ add_library(engine STATIC
         engine/headers/interfaces/IUpdatable.hpp
         engine/src/systems/SRenderSystem.cpp
         engine/headers/systems/SRenderSystem.hpp
-        engine/src/graphics/Mesh.cpp
-        engine/headers/graphics/Mesh.hpp
+        engine/src/graphics/GMesh.cpp
+        engine/headers/graphics/GMesh.hpp
+        engine/src/graphics/GProgram.cpp
+        engine/headers/graphics/GProgram.hpp
+        engine/src/systems/SResourceManager.cpp
+        engine/headers/systems/SResourceManager.hpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)
