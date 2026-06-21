@@ -17,6 +17,8 @@
 
 #include "graphics/GProgram.hpp"
 
+#include "resources/RResourceManager.hpp"
+
 namespace engine::systems {
     struct SRenderSystemError {
         int code;
@@ -35,20 +37,20 @@ namespace engine::systems {
         };
         using SRenderSystemPtr = std::unique_ptr<SRenderSystem, SRenderSystemDeleter>;
         static SRenderSystemPtr createRenderSystem();
-        void render() const;
+        void render(const resources::RResourceManager& resourceManager) const;
 
         [[nodiscard]] auto init(SDL_Window& window) -> std::expected<void, SRenderSystemError>;
-        [[nodiscard]] auto setProgram(graphics::GProgram::GProgramPtr program) -> std::expected<void, SRenderSystemError>;
-        [[nodiscard]] auto addMesh(graphics::GMesh::GMeshPtr mesh) -> std::expected<void, SRenderSystemError>;
+        [[nodiscard]] auto setProgram(resources::RProgramHandle program) -> std::expected<void, SRenderSystemError>;
+        [[nodiscard]] auto addMesh(resources::RMeshHandle mesh) -> std::expected<void, SRenderSystemError>;
         [[nodiscard]] auto getTransform() -> graphics::GTransform &;
     private:
         SRenderSystem() = default;
         ~SRenderSystem() = default;
 
         SDL_Window*                             rWindow{};
-        graphics::GProgram::GProgramPtr         m_program;
+        resources::RProgramHandle               m_program;
 
-        std::vector<graphics::GMesh::GMeshPtr>  m_meshes;
+        std::vector<resources::RMeshHandle>     m_meshes;
         graphics::GTransform                    m_testTransform;
     };
 }

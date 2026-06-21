@@ -13,7 +13,7 @@
 #include <ratio>
 #include "systems/SInputSystem.hpp"
 #include "systems/SRenderSystem.hpp"
-#include "systems/SResourceManager.hpp"
+#include "resources/RResourceManager.hpp"
 #include "window/Window.hpp"
 
 namespace engine {
@@ -54,7 +54,7 @@ namespace engine {
         using WindowPtr = std::unique_ptr<Window, Window::WindowDeleter>;
         using SInputPtr = std::unique_ptr<systems::SInputSystem, systems::SInputSystem::SInputDeleter>;
         using SRenderPtr = std::unique_ptr<systems::SRenderSystem, systems::SRenderSystem::SRenderSystemDeleter>;
-        using SResourcePtr = std::unique_ptr<systems::SResourceManager, systems::SResourceManager::SResourceManagerDeleter>;
+        using SResourcePtr = std::unique_ptr<resources::RResourceManager, resources::RResourceManager::SResourceManagerDeleter>;
         using Clock = std::chrono::steady_clock;
         using Duration = std::chrono::duration<float>;
         using TimePoint = Clock::time_point;

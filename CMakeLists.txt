@@ -27,8 +27,10 @@ add_library(engine STATIC
         engine/headers/graphics/GMesh.hpp
         engine/src/graphics/GProgram.cpp
         engine/headers/graphics/GProgram.hpp
-        engine/src/systems/SResourceManager.cpp
-        engine/headers/systems/SResourceManager.hpp
+        engine/src/resources/RResourceManager.cpp
+        engine/headers/resources/RResourceManager.hpp
+        engine/src/scene/SScene.cpp
+        engine/headers/scene/SScene.hpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)

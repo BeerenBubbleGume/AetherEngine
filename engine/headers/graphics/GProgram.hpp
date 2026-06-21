@@ -7,28 +7,24 @@
 #include <memory>
 #include <bgfx/bgfx.h>
 
-namespace engine::systems { class SResourceManager; }
+namespace engine::resources { class RResourceManager; }
 
 namespace engine::graphics {
     class GProgram {
     public:
-        friend class engine::systems::SResourceManager;
-        struct GProgramDeleter {
-            void operator()(GProgram* program) const {
-                delete program;
-            }
-        };
-        using GProgramPtr = std::shared_ptr<GProgram>;
+        friend class engine::resources::RResourceManager;
+        GProgram() = default;
+        ~GProgram();
+
         GProgram(const GProgram&) = delete;
         GProgram& operator=(const GProgram&) = delete;
         GProgram(GProgram&& other) noexcept;
         GProgram& operator=(GProgram&& other) noexcept;
 
-        bgfx::ProgramHandle handle() const;
+        [[nodiscard]] bgfx::ProgramHandle handle() const;
 
     private:
         explicit GProgram(bgfx::ProgramHandle handle);
-        ~GProgram();
         bgfx::ProgramHandle m_program = BGFX_INVALID_HANDLE;
     };
 }

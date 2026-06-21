@@ -6,9 +6,6 @@
 
 
 namespace engine::graphics {
-    GMesh::GMeshPtr GMesh::createMesh() {
-        return GMeshPtr(new GMesh(), GMeshDeleter{});
-    }
 
     GMesh::GMesh(GMesh &&other) noexcept {
         this->m_vbh = std::move(other.m_vbh);

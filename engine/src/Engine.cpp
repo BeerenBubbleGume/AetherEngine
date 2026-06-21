@@ -8,12 +8,12 @@ auto engine::Engine::initEngine() -> std::expected<void, EngineError> {
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
         SDL_Log("SDL_Init failed: %s", SDL_GetError());
-        return std::unexpected{EngineError{1, "Failed to initialize SDL"}}; // код 1 - ошибка инициализации
+        return std::unexpected{EngineError{1, "Failed to initialize SDL"}}; 
     }
     sWindow = Window::createWindow();
     sInput = systems::SInputSystem::createInputSystem();
     sRender = systems::SRenderSystem::createRenderSystem();
-    sResource = systems::SResourceManager::createResourceManager();
+    sResource = resources::RResourceManager::createResourceManager();
     if (!sWindow) {
         return std::unexpected{EngineError{2, "Failed to create window"}};
     }
@@ -47,17 +47,19 @@ auto engine::Engine::run() -> std::expected<void, EngineError> {
         "D:/smb/assets/shaders/bin/basic_vs.bin",
         "D:/smb/assets/shaders/bin/basic_fs.bin");
 
-    if (!program) {
+    if (!program.isValid()) {
         return std::unexpected{EngineError{3, "Failed to load program"}};
     }
-    sRender->setProgram(std::move(program));
-
+    auto resultSetProgram = sRender->setProgram(program);
+    if (!resultSetProgram) {
+        return std::unexpected{EngineError{3, "Failed to set program"}};
+    }
     auto mesh = sResource->createTriangleMesh("triangle");
-    if (!mesh) {
+    if (!mesh.isValid()) {
         std::cerr << "Failed to create mesh" << std::endl;
         return std::unexpected{EngineError{3, "Failed to create mesh"}};
     }
-    auto resultMeshAdd = sRender->addMesh(std::move(mesh));
+    auto resultMeshAdd = sRender->addMesh(mesh);
     if (!resultMeshAdd) {
         std::cerr << "Failed to add mesh: " << resultMeshAdd.error().message << std::endl;
         return std::unexpected{EngineError{4, "Failed to add mesh"}};
@@ -73,7 +75,7 @@ auto engine::Engine::run() -> std::expected<void, EngineError> {
         while (accumulator >= FIXED_DT) {
             accumulator -= FIXED_DT;
         }
-        sRender->render();
+        sRender->render(*sResource);
         update(delta);
     }
     return std::expected<void, EngineError>{};
@@ -116,10 +118,10 @@ auto engine::Engine::processEvents() -> void {
 auto engine::Engine::update(float delta) const -> void {
     sInput->update(delta);
 
-    auto& t = sRender->getTransform();   // через getter
+    auto& t = sRender->getTransform();
 
-    const float speed = 1.0f * delta;           // движение
-    const float rotSpeed = 90.0f * delta;       // градусов в секунду
+    const float speed = 1.0f * delta;
+    const float rotSpeed = 90.0f * delta;
 
     if (sInput->isKeyPressed(SDL_SCANCODE_A)) t.position.x += speed;
     if (sInput->isKeyPressed(SDL_SCANCODE_D)) t.position.x -= speed;
@@ -131,6 +133,5 @@ auto engine::Engine::update(float delta) const -> void {
     if (sInput->isKeyPressed(SDL_SCANCODE_UP))    t.rotation.x -= rotSpeed;
     if (sInput->isKeyPressed(SDL_SCANCODE_DOWN))  t.rotation.x += rotSpeed;
 
-    // Сброс
     if (sInput->isKeyPressed(SDL_SCANCODE_R)) t.reset();
 }

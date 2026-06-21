@@ -12,7 +12,7 @@
 #include <bx/math.h>
 
 
-namespace engine::systems { class SResourceManager; }
+namespace engine::resources { class RResourceManager; }
 
 namespace engine::graphics {
     struct PosColorVertex {
@@ -36,14 +36,9 @@ namespace engine::graphics {
     };
     class GMesh {
     public:
-        friend class engine::systems::SResourceManager;
-        struct GMeshDeleter {
-            void operator()(GMesh* mesh) const {
-                delete mesh;
-            }
-        };
-        using GMeshPtr = std::shared_ptr<GMesh>;
-        static GMeshPtr createMesh();
+        friend class engine::resources::RResourceManager;
+        GMesh() = default;
+        ~GMesh();
 
         GMesh(const GMesh&) = delete;
         GMesh(GMesh&&) noexcept;
@@ -56,8 +51,6 @@ namespace engine::graphics {
         void submit(bgfx::ProgramHandle program, const GTransform &transform, uint8_t viewId) const;
         [[nodiscard]] auto isValid() const -> bool;
     private:
-        GMesh() = default;
-        ~GMesh();
         bgfx::VertexBufferHandle m_vbh = BGFX_INVALID_HANDLE;
         bgfx::IndexBufferHandle  m_ibh = BGFX_INVALID_HANDLE;
         bgfx::VertexLayout       m_layout;

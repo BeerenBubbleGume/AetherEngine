@@ -3,13 +3,14 @@
 //
 
 #include "systems/SRenderSystem.hpp"
+#include "resources/RResourceManager.hpp"
 
 namespace engine::systems {
     SRenderSystem::SRenderSystemPtr SRenderSystem::createRenderSystem() {
         return SRenderSystemPtr(new SRenderSystem(), SRenderSystemDeleter{});
     }
 
-    void SRenderSystem::render() const {
+    void SRenderSystem::render(const resources::RResourceManager& resourceManager) const {
         int width, height;
         SDL_GetWindowSize(rWindow, &width, &height);
 
@@ -22,31 +23,29 @@ namespace engine::systems {
 
         const bgfx::Caps* caps = bgfx::getCaps();
 
-        // Камера (отодвинута назад, чтобы видеть объект)
         bx::mtxLookAt(view,
             { 0.0f, 0.0f, 5.0f },   // eye
             { 0.0f, 0.0f, 0.0f },   // at
             { 0.0f, 1.0f, 0.0f }    // up
         );
 
-        // Перспективная проекция (рекомендую для 3D)
         bx::mtxProj(proj,
             60.0f,                                    // FOV
             float(width) / float(height),             // aspect
             0.1f, 100.0f,                             // near, far
-            caps->homogeneousDepth                    // ← вот это важно!
+            caps->homogeneousDepth                    
         );
-
-        // Или ортографическая (если хочешь 2D-поведение):
-        // bx::mtxOrtho(proj, -2.0f, 2.0f, -2.0f, 2.0f, -10.0f, 10.0f, 0.0f, caps->homogeneousDepth);
 
         bgfx::setViewTransform(0, view, proj);
         bgfx::setViewMode(0, bgfx::ViewMode::Default);
 
-        // Рисуем
-        for (const auto& mesh : m_meshes) {
-            if (mesh && mesh->isValid() && m_program) {
-                mesh->submit(m_program->handle(), m_testTransform, 0);
+        auto program = resourceManager.getProgram(m_program);
+        if (!program) return;
+
+        for (const auto& meshHandle : m_meshes) {
+            auto mesh = resourceManager.getMesh(meshHandle);
+            if (mesh && mesh->isValid()) {
+                mesh->submit(program->handle(), m_testTransform, 0);
             }
         }
 
@@ -101,15 +100,11 @@ namespace engine::systems {
         }
     }
 
-    auto SRenderSystem::addMesh(graphics::GMesh::GMeshPtr mesh) -> std::expected<void, SRenderSystemError> {
-        if (!mesh) {
-            return std::unexpected{SRenderSystemError{1, "Mesh is nullptr"}};
+    auto SRenderSystem::addMesh(resources::RMeshHandle mesh) -> std::expected<void, SRenderSystemError> {
+        if (!mesh.isValid()) {
+            return std::unexpected{SRenderSystemError{1, "Mesh handle is invalid"}};
         }
-        try {
-            m_meshes.push_back(std::move(mesh));
-        } catch (const std::exception& e) {
-            return std::unexpected{SRenderSystemError{1, e.what()}};
-        }
+        m_meshes.push_back(mesh);
         return {};
     }
 
@@ -117,11 +112,11 @@ namespace engine::systems {
         return m_testTransform;
     }
 
-    auto SRenderSystem::setProgram(graphics::GProgram::GProgramPtr program) -> std::expected<void, SRenderSystemError> {
-        if (!program) {
-            return std::unexpected{SRenderSystemError{1, "Program is nullptr"}};
+    auto SRenderSystem::setProgram(resources::RProgramHandle program) -> std::expected<void, SRenderSystemError> {
+        if (!program.isValid()) {
+            return std::unexpected{SRenderSystemError{1, "Program handle is invalid"}};
         }
-        m_program = std::move(program);
+        m_program = program;
         return {};
     }
 }
