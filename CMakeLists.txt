@@ -31,6 +31,8 @@ add_library(engine STATIC
         engine/headers/resources/RResourceManager.hpp
         engine/src/scene/SScene.cpp
         engine/headers/scene/SScene.hpp
+        engine/src/scene/SCamera.cpp
+        engine/headers/scene/SCamera.hpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)

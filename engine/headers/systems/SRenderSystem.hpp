@@ -18,6 +18,7 @@
 #include "graphics/GProgram.hpp"
 
 #include "resources/RResourceManager.hpp"
+#include "scene/SCamera.hpp"
 
 namespace engine::systems {
     struct SRenderSystemError {
@@ -37,7 +38,7 @@ namespace engine::systems {
         };
         using SRenderSystemPtr = std::unique_ptr<SRenderSystem, SRenderSystemDeleter>;
         static SRenderSystemPtr createRenderSystem();
-        void render(const resources::RResourceManager& resourceManager) const;
+        void render(const resources::RResourceManager& resourceManager, scene::SCamera &camera) const;
 
         [[nodiscard]] auto init(SDL_Window& window) -> std::expected<void, SRenderSystemError>;
         [[nodiscard]] auto setProgram(resources::RProgramHandle program) -> std::expected<void, SRenderSystemError>;

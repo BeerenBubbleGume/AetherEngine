@@ -10,33 +10,20 @@ namespace engine::systems {
         return SRenderSystemPtr(new SRenderSystem(), SRenderSystemDeleter{});
     }
 
-    void SRenderSystem::render(const resources::RResourceManager& resourceManager) const {
+    void SRenderSystem::render(const resources::RResourceManager& resourceManager, scene::SCamera &camera) const {
         int width, height;
         SDL_GetWindowSize(rWindow, &width, &height);
 
         bgfx::setViewRect(0, 0, 0, uint16_t(width), uint16_t(height));
         bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
-
-        // === View + Projection ===
-        float view[16];
-        float proj[16];
-
-        const bgfx::Caps* caps = bgfx::getCaps();
-
-        bx::mtxLookAt(view,
-            { 0.0f, 0.0f, 5.0f },   // eye
-            { 0.0f, 0.0f, 0.0f },   // at
-            { 0.0f, 1.0f, 0.0f }    // up
+        bgfx::setState(BGFX_STATE_WRITE_RGB |
+            BGFX_STATE_WRITE_A |
+            BGFX_STATE_WRITE_Z |
+            BGFX_STATE_DEPTH_TEST_LESS
         );
-
-        bx::mtxProj(proj,
-            60.0f,                                    // FOV
-            float(width) / float(height),             // aspect
-            0.1f, 100.0f,                             // near, far
-            caps->homogeneousDepth                    
-        );
-
-        bgfx::setViewTransform(0, view, proj);
+        auto view = camera.getViewMatrix();
+        auto proj = camera.getProjectionMatrix({width, height});
+        bgfx::setViewTransform(0, view.data(), proj.data());
         bgfx::setViewMode(0, bgfx::ViewMode::Default);
 
         auto program = resourceManager.getProgram(m_program);

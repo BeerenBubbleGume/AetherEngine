@@ -14,6 +14,7 @@ auto engine::Engine::initEngine() -> std::expected<void, EngineError> {
     sInput = systems::SInputSystem::createInputSystem();
     sRender = systems::SRenderSystem::createRenderSystem();
     sResource = resources::RResourceManager::createResourceManager();
+
     if (!sWindow) {
         return std::unexpected{EngineError{2, "Failed to create window"}};
     }
@@ -64,6 +65,7 @@ auto engine::Engine::run() -> std::expected<void, EngineError> {
         std::cerr << "Failed to add mesh: " << resultMeshAdd.error().message << std::endl;
         return std::unexpected{EngineError{4, "Failed to add mesh"}};
     }
+    auto camera = scene::SCamera();
 
     while (isRunning) {
         TimePoint now = Clock::now();
@@ -75,7 +77,7 @@ auto engine::Engine::run() -> std::expected<void, EngineError> {
         while (accumulator >= FIXED_DT) {
             accumulator -= FIXED_DT;
         }
-        sRender->render(*sResource);
+        sRender->render(*sResource, camera);
         update(delta);
     }
     return std::expected<void, EngineError>{};
