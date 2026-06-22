@@ -4,8 +4,6 @@
 
 #include "window/Window.hpp"
 
-#include "Engine.hpp"
-
 
 auto engine::Window::initWindow(std::string_view title, int width_, int height_) -> std::expected<void, WindowError> {
     width = width_;

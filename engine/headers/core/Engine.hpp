@@ -15,14 +15,11 @@
 #include "systems/SYRenderSystem.hpp"
 #include "resources/RResourceManager.hpp"
 #include "window/Window.hpp"
+#include "EngineContext.hpp"
+#include "IApplication.hpp"
 
 namespace engine {
-    class EngineError {
-        public:
-        int code;
-        std::string message;
-    };
-    class Engine {
+    class Engine final {
     public:
         Engine(const Engine&) = delete;
         Engine& operator=(const Engine&) = delete;
@@ -36,8 +33,8 @@ namespace engine {
         };
         using EnginePtr = std::unique_ptr<Engine, EngineDeleter>;
 
-        [[nodiscard]] auto initEngine() -> std::expected<void, EngineError>;
-        [[nodiscard]] auto run() -> std::expected<void, EngineError>;
+        [[nodiscard]] auto initEngine() -> std::expected<void, core::EngineError>;
+        [[nodiscard]] auto run(core::IApplication &app) -> std::expected<void, core::EngineError>;
         static EnginePtr createEngine();
     private:
         Engine() = default;
@@ -45,16 +42,17 @@ namespace engine {
 
         bool isRunning{false};
 
-        [[nodiscard]] auto render() -> std::expected<void, EngineError>;
+        [[nodiscard]] auto render() -> std::expected<void, core::EngineError>;
 
         auto processEvents() -> void;
-        auto update(float delta, scene::SCScene &scene, scene::SObjectId objectId) const -> void;
+        auto update(float delta) const -> void;
 
 
         using WindowPtr = std::unique_ptr<Window, Window::WindowDeleter>;
         using SInputPtr = std::unique_ptr<systems::SYInputSystem, systems::SYInputSystem::SInputDeleter>;
         using SRenderPtr = std::unique_ptr<systems::SYRenderSystem, systems::SYRenderSystem::SRenderSystemDeleter>;
         using SResourcePtr = std::unique_ptr<resources::RResourceManager, resources::RResourceManager::SResourceManagerDeleter>;
+        using SCScenePtr = std::unique_ptr<scene::SCScene, scene::SCScene::SCSceneDeleter>;
         using Clock = std::chrono::steady_clock;
         using Duration = std::chrono::duration<float>;
         using TimePoint = Clock::time_point;
@@ -62,10 +60,10 @@ namespace engine {
         SInputPtr sInput;
         SRenderPtr sRender;
         SResourcePtr sResource;
+        SCScenePtr sScene;
 
         float accumulator = 0.0;
         const float FIXED_DT = 1.0 / 120.0;
-
     };
 }
 

@@ -24,16 +24,15 @@ namespace engine::scene {
     };
     class SCScene {
     public:
-        struct SSceneDeleter {
+        struct SCSceneDeleter {
             void operator()(SCScene* scene) const {
                 delete scene;
             }
         };
-        using SScenePtr = std::unique_ptr<SCScene, SSceneDeleter>;
+        using SScenePtr = std::unique_ptr<SCScene, SCSceneDeleter>;
         SCScene(const SCScene&) = delete;
         SCScene& operator=(const SCScene&) = delete;
-        SCScene() = default;
-        ~SCScene() = default;
+
 
         static SScenePtr createScene();
         auto addObject(SRenderObject object) -> SObjectId;
@@ -42,6 +41,8 @@ namespace engine::scene {
         [[nodiscard]] auto renderObjects() const -> std::span<const SRenderObject>;
         [[nodiscard]] auto getObject(SObjectId id) -> SRenderObject&;
     private:
+        SCScene() = default;
+        ~SCScene() = default;
         std::vector<SRenderObject> m_objects;
         std::unique_ptr<SCCamera> m_camera;
 

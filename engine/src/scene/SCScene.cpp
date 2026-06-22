@@ -7,7 +7,7 @@
 
 namespace engine::scene {
     SCScene::SScenePtr SCScene::createScene() {
-        return SScenePtr(new SCScene(), SSceneDeleter{});
+        return SScenePtr(new SCScene(), SCSceneDeleter{});
     }
 
     auto SCScene::addObject(SRenderObject object) -> SObjectId {

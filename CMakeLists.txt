@@ -16,8 +16,8 @@ endif()
 
 add_library(engine STATIC
         engine/src/window/Window.cpp
-        engine/src/Engine.cpp
-        engine/headers/Engine.hpp
+        engine/src/core/Engine.cpp
+        engine/headers/core/Engine.hpp
         engine/src/systems/SYInputSystem.cpp
         engine/headers/systems/SYInputSystem.hpp
         engine/headers/interfaces/IUpdatable.hpp
@@ -33,6 +33,9 @@ add_library(engine STATIC
         engine/headers/scene/SCScene.hpp
         engine/src/scene/SCCamera.cpp
         engine/headers/scene/SCCamera.hpp
+        engine/headers/core/IApplication.hpp
+        engine/src/core/EngineContext.cpp
+        engine/headers/core/EngineContext.hpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)
@@ -42,8 +45,37 @@ if (MSVC)
 endif()
 
 add_executable(smb
-        engine/src/main.cpp
+        smb/src/core/Smb.cpp
+        smb/headers/core/Smb.hpp
+        smb/src/main.cpp
 )
+
+target_include_directories(smb PRIVATE smb/headers)
+
+set(ENGINE_ASSETS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/assets")
+set(ENGINE_ASSETS_RUNTIME_DIR "$<TARGET_FILE_DIR:smb>/assets")
+
+if (WIN32)
+    add_custom_command(TARGET smb POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E rm -rf
+            "${ENGINE_ASSETS_RUNTIME_DIR}"
+            COMMAND cmd /C mklink /J
+            "$<SHELL_PATH:${ENGINE_ASSETS_RUNTIME_DIR}>"
+            "$<SHELL_PATH:${ENGINE_ASSETS_SOURCE_DIR}>"
+            COMMENT "Creating engine assets junction"
+            VERBATIM
+    )
+else()
+    add_custom_command(TARGET smb POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E rm -rf
+            "${ENGINE_ASSETS_RUNTIME_DIR}"
+            COMMAND ${CMAKE_COMMAND} -E create_symlink
+            "${ENGINE_ASSETS_SOURCE_DIR}"
+            "${ENGINE_ASSETS_RUNTIME_DIR}"
+            COMMENT "Creating engine assets symlink"
+            VERBATIM
+    )
+endif()
 
 target_link_libraries(engine PUBLIC
         SDL3::SDL3
