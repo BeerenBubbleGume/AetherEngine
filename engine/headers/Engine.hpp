@@ -11,8 +11,8 @@
 #include <iostream>
 #include <ostream>
 #include <ratio>
-#include "systems/SInputSystem.hpp"
-#include "systems/SRenderSystem.hpp"
+#include "systems/SYInputSystem.hpp"
+#include "systems/SYRenderSystem.hpp"
 #include "resources/RResourceManager.hpp"
 #include "window/Window.hpp"
 
@@ -48,12 +48,12 @@ namespace engine {
         [[nodiscard]] auto render() -> std::expected<void, EngineError>;
 
         auto processEvents() -> void;
-        auto update(float delta) const -> void;
+        auto update(float delta, scene::SCScene &scene, scene::SObjectId objectId) const -> void;
 
 
         using WindowPtr = std::unique_ptr<Window, Window::WindowDeleter>;
-        using SInputPtr = std::unique_ptr<systems::SInputSystem, systems::SInputSystem::SInputDeleter>;
-        using SRenderPtr = std::unique_ptr<systems::SRenderSystem, systems::SRenderSystem::SRenderSystemDeleter>;
+        using SInputPtr = std::unique_ptr<systems::SYInputSystem, systems::SYInputSystem::SInputDeleter>;
+        using SRenderPtr = std::unique_ptr<systems::SYRenderSystem, systems::SYRenderSystem::SRenderSystemDeleter>;
         using SResourcePtr = std::unique_ptr<resources::RResourceManager, resources::RResourceManager::SResourceManagerDeleter>;
         using Clock = std::chrono::steady_clock;
         using Duration = std::chrono::duration<float>;

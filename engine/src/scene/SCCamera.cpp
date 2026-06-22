@@ -2,11 +2,11 @@
 // Created by drhaz on 21.06.2026.
 //
 
-#include "scene/SCamera.hpp"
+#include "scene/SCCamera.hpp"
 
 
 namespace engine::scene {
-    SCamera::SCamera(const SCamera &other) {
+    SCCamera::SCCamera(const SCCamera &other) {
         m_transform = other.m_transform;
         m_viewMatrix = other.m_viewMatrix;
         m_projectionMatrix = other.m_projectionMatrix;
@@ -14,9 +14,9 @@ namespace engine::scene {
         *this = other;
     }
 
-    SCamera & SCamera::operator=(const SCamera &other) = default;
+    SCCamera & SCCamera::operator=(const SCCamera &other) = default;
 
-    auto SCamera::getViewMatrix() -> const std::array<float, 16> & {
+    auto SCCamera::getViewMatrix() -> const std::array<float, 16> & {
         bx::mtxLookAt(m_viewMatrix.data(),
             { 0.0f, 0.0f, 5.0f },
             { 0.0f, 0.0f, 0.0f },
@@ -25,7 +25,7 @@ namespace engine::scene {
         return m_viewMatrix;
     }
 
-    auto SCamera::getProjectionMatrix(std::tuple<int, int> viewShape) -> const std::array<float, 16> & {
+    auto SCCamera::getProjectionMatrix(std::tuple<int, int> viewShape) -> const std::array<float, 16> & {
         const auto [width, height] = viewShape;
         const auto caps = bgfx::getCaps();
         bx::mtxProj(m_projectionMatrix.data(),
@@ -37,7 +37,7 @@ namespace engine::scene {
         return m_projectionMatrix;
     }
 
-    auto SCamera::setTransform(const graphics::GTransform &transform) -> void {
+    auto SCCamera::setTransform(const graphics::GTransform &transform) -> void {
         m_transform = transform;
     }
 } // scene

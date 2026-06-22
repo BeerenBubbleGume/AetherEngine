@@ -2,13 +2,13 @@
 // Created by drhaz on 18.06.2026.
 //
 
-#include "systems/SInputSystem.hpp"
+#include "systems/SYInputSystem.hpp"
 
 namespace engine::systems {
-    SInputSystem::SInputPtr SInputSystem::createInputSystem() {
-        return SInputPtr(new SInputSystem(), SInputDeleter{});
+    SYInputSystem::SInputPtr SYInputSystem::createInputSystem() {
+        return SInputPtr(new SYInputSystem(), SInputDeleter{});
     }
-    auto SInputSystem::processEvents(const SDL_Event &event) -> void {
+    auto SYInputSystem::processEvents(const SDL_Event &event) -> void {
         switch (event.type) {
             case SDL_EVENT_KEY_DOWN:
                 keysPressed[event.key.scancode] = true;
@@ -23,15 +23,15 @@ namespace engine::systems {
         }
     }
 
-    auto SInputSystem::isKeyPressed(SDL_Scancode key) const -> bool {
+    auto SYInputSystem::isKeyPressed(SDL_Scancode key) const -> bool {
         return keysPressed[key];
     }
 
-    auto SInputSystem::update(float delta) -> void {
+    auto SYInputSystem::update(float delta) -> void {
 
     }
 
-    SInputSystem::~SInputSystem() = default;
+    SYInputSystem::~SYInputSystem() = default;
 }
 
 

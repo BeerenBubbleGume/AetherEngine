@@ -18,21 +18,21 @@ add_library(engine STATIC
         engine/src/window/Window.cpp
         engine/src/Engine.cpp
         engine/headers/Engine.hpp
-        engine/src/systems/SInputSystem.cpp
-        engine/headers/systems/SInputSystem.hpp
+        engine/src/systems/SYInputSystem.cpp
+        engine/headers/systems/SYInputSystem.hpp
         engine/headers/interfaces/IUpdatable.hpp
-        engine/src/systems/SRenderSystem.cpp
-        engine/headers/systems/SRenderSystem.hpp
+        engine/src/systems/SYRenderSystem.cpp
+        engine/headers/systems/SYRenderSystem.hpp
         engine/src/graphics/GMesh.cpp
         engine/headers/graphics/GMesh.hpp
         engine/src/graphics/GProgram.cpp
         engine/headers/graphics/GProgram.hpp
         engine/src/resources/RResourceManager.cpp
         engine/headers/resources/RResourceManager.hpp
-        engine/src/scene/SScene.cpp
-        engine/headers/scene/SScene.hpp
-        engine/src/scene/SCamera.cpp
-        engine/headers/scene/SCamera.hpp
+        engine/src/scene/SCScene.cpp
+        engine/headers/scene/SCScene.hpp
+        engine/src/scene/SCCamera.cpp
+        engine/headers/scene/SCCamera.hpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)

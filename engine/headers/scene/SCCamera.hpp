@@ -13,15 +13,15 @@
 
 
 namespace engine::scene {
-    class SCamera {
+    class SCCamera {
     public:
-        SCamera() = default;
-        ~SCamera() = default;
+        SCCamera() = default;
+        ~SCCamera() = default;
 
-        SCamera(const SCamera& other);
-        SCamera& operator=(const SCamera& other);
-        SCamera(SCamera&& other) noexcept = default;
-        SCamera& operator=(SCamera&& other) noexcept = default;
+        SCCamera(const SCCamera& other);
+        SCCamera& operator=(const SCCamera& other);
+        SCCamera(SCCamera&& other) noexcept = default;
+        SCCamera& operator=(SCCamera&& other) noexcept = default;
 
         [[nodiscard]] auto getViewMatrix() -> const std::array<float, 16> &;
         [[nodiscard]] auto getProjectionMatrix(std::tuple<int, int> viewShape) -> const std::array<float, 16> &;

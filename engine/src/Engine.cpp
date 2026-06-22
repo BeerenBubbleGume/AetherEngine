@@ -11,8 +11,8 @@ auto engine::Engine::initEngine() -> std::expected<void, EngineError> {
         return std::unexpected{EngineError{1, "Failed to initialize SDL"}}; 
     }
     sWindow = Window::createWindow();
-    sInput = systems::SInputSystem::createInputSystem();
-    sRender = systems::SRenderSystem::createRenderSystem();
+    sInput = systems::SYInputSystem::createInputSystem();
+    sRender = systems::SYRenderSystem::createRenderSystem();
     sResource = resources::RResourceManager::createResourceManager();
 
     if (!sWindow) {
@@ -51,21 +51,23 @@ auto engine::Engine::run() -> std::expected<void, EngineError> {
     if (!program.isValid()) {
         return std::unexpected{EngineError{3, "Failed to load program"}};
     }
-    auto resultSetProgram = sRender->setProgram(program);
-    if (!resultSetProgram) {
-        return std::unexpected{EngineError{3, "Failed to set program"}};
-    }
     auto mesh = sResource->createTriangleMesh("triangle");
     if (!mesh.isValid()) {
         std::cerr << "Failed to create mesh" << std::endl;
         return std::unexpected{EngineError{3, "Failed to create mesh"}};
     }
-    auto resultMeshAdd = sRender->addMesh(mesh);
-    if (!resultMeshAdd) {
-        std::cerr << "Failed to add mesh: " << resultMeshAdd.error().message << std::endl;
-        return std::unexpected{EngineError{4, "Failed to add mesh"}};
-    }
-    auto camera = scene::SCamera();
+    auto scene = scene::SCScene::createScene();
+    auto camera = scene::SCCamera();
+    scene->addCamera(std::move(camera));
+    scene->addObject({
+        .transform = graphics::GTransform{
+            .position = {0.0f, 0.0f, 0.0f},
+            .rotation = {0.0f, 0.0f, 0.0f},
+            .scale = {1.0f, 1.0f, 1.0f}
+        },
+        .mesh = mesh,
+        .program = program
+    });
 
     while (isRunning) {
         TimePoint now = Clock::now();
@@ -77,8 +79,8 @@ auto engine::Engine::run() -> std::expected<void, EngineError> {
         while (accumulator >= FIXED_DT) {
             accumulator -= FIXED_DT;
         }
-        sRender->render(*sResource, camera);
-        update(delta);
+        sRender->render(*scene, *sResource);
+        update(delta, *scene, 0);
     }
     return std::expected<void, EngineError>{};
 }
@@ -117,10 +119,11 @@ auto engine::Engine::processEvents() -> void {
     }
 }
 
-auto engine::Engine::update(float delta) const -> void {
+auto engine::Engine::update(float delta, scene::SCScene &scene, scene::SObjectId objectId) const -> void {
     sInput->update(delta);
 
-    auto& t = sRender->getTransform();
+    auto& object = scene.getObject(objectId);
+    auto& t = object.transform;
 
     const float speed = 1.0f * delta;
     const float rotSpeed = 90.0f * delta;

@@ -2,15 +2,14 @@
 // Created by drhaz on 19.06.2026.
 //
 
-#include "systems/SRenderSystem.hpp"
-#include "resources/RResourceManager.hpp"
+#include "systems/SYRenderSystem.hpp"
 
 namespace engine::systems {
-    SRenderSystem::SRenderSystemPtr SRenderSystem::createRenderSystem() {
-        return SRenderSystemPtr(new SRenderSystem(), SRenderSystemDeleter{});
+    SYRenderSystem::SRenderSystemPtr SYRenderSystem::createRenderSystem() {
+        return SRenderSystemPtr(new SYRenderSystem(), SRenderSystemDeleter{});
     }
 
-    void SRenderSystem::render(const resources::RResourceManager& resourceManager, scene::SCamera &camera) const {
+    void SYRenderSystem::render(scene::SCScene &scene, const resources::RResourceManager& resourcesManager) const {
         int width, height;
         SDL_GetWindowSize(rWindow, &width, &height);
 
@@ -21,25 +20,27 @@ namespace engine::systems {
             BGFX_STATE_WRITE_Z |
             BGFX_STATE_DEPTH_TEST_LESS
         );
+        auto& camera = scene.getCamera();
         auto view = camera.getViewMatrix();
         auto proj = camera.getProjectionMatrix({width, height});
         bgfx::setViewTransform(0, view.data(), proj.data());
         bgfx::setViewMode(0, bgfx::ViewMode::Default);
 
-        auto program = resourceManager.getProgram(m_program);
-        if (!program) return;
-
-        for (const auto& meshHandle : m_meshes) {
-            auto mesh = resourceManager.getMesh(meshHandle);
-            if (mesh && mesh->isValid()) {
-                mesh->submit(program->handle(), m_testTransform, 0);
+        for (const auto& resource : scene.renderObjects()) {
+            const auto& mesh = resourcesManager.getMesh(resource.mesh);
+            const auto& program = resourcesManager.getProgram(resource.program);
+            if (!mesh || !program) {
+                continue;
+            }
+            if (mesh->isValid()) {
+                mesh->submit(program->handle(), resource.transform, 0);
             }
         }
 
         bgfx::frame();
     }
 
-    auto SRenderSystem::init(SDL_Window &window) -> std::expected<void, SRenderSystemError> {
+    auto SYRenderSystem::init(SDL_Window &window) -> std::expected<void, SRenderSystemError> {
         try {
             rWindow = &window;
             SDL_PropertiesID props = SDL_GetWindowProperties(rWindow);
@@ -85,25 +86,5 @@ namespace engine::systems {
         } catch (const std::exception& e) {
             return std::unexpected{SRenderSystemError{1, e.what()}};
         }
-    }
-
-    auto SRenderSystem::addMesh(resources::RMeshHandle mesh) -> std::expected<void, SRenderSystemError> {
-        if (!mesh.isValid()) {
-            return std::unexpected{SRenderSystemError{1, "Mesh handle is invalid"}};
-        }
-        m_meshes.push_back(mesh);
-        return {};
-    }
-
-    auto SRenderSystem::getTransform() -> graphics::GTransform & {
-        return m_testTransform;
-    }
-
-    auto SRenderSystem::setProgram(resources::RProgramHandle program) -> std::expected<void, SRenderSystemError> {
-        if (!program.isValid()) {
-            return std::unexpected{SRenderSystemError{1, "Program handle is invalid"}};
-        }
-        m_program = program;
-        return {};
     }
 }

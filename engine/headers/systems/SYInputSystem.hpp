@@ -9,19 +9,19 @@
 
 namespace engine::systems {
 
-        class SInputSystem : public systems::IUpdatable {
+        class SYInputSystem : public systems::IUpdatable {
         public:
-                SInputSystem(const SInputSystem&) = delete;
-                SInputSystem& operator=(const SInputSystem&) = delete;
-                SInputSystem(SInputSystem&&) = delete;
-                SInputSystem& operator=(SInputSystem&&) = delete;
+                SYInputSystem(const SYInputSystem&) = delete;
+                SYInputSystem& operator=(const SYInputSystem&) = delete;
+                SYInputSystem(SYInputSystem&&) = delete;
+                SYInputSystem& operator=(SYInputSystem&&) = delete;
 
                 struct SInputDeleter {
-                        void operator()(SInputSystem* inputSystem) const {
+                        void operator()(SYInputSystem* inputSystem) const {
                                 delete inputSystem;
                         }
                 };
-                using SInputPtr = std::unique_ptr<SInputSystem, SInputDeleter>;
+                using SInputPtr = std::unique_ptr<SYInputSystem, SInputDeleter>;
 
                 static SInputPtr createInputSystem();
 
@@ -30,8 +30,8 @@ namespace engine::systems {
                 auto update(float delta) -> void override;
 
         private:
-                SInputSystem() = default;
-                ~SInputSystem() override;
+                SYInputSystem() = default;
+                ~SYInputSystem() override;
 
                 std::array<bool, SDL_SCANCODE_COUNT> keysPressed{};
         };
