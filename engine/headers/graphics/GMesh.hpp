@@ -5,7 +5,9 @@
 #ifndef SMB_MESH_HPP
 #define SMB_MESH_HPP
 
+#include <expected>
 #include <memory>
+#include <span>
 #include <string>
 #include <bgfx/bgfx.h>
 #include <vector>
@@ -15,13 +17,17 @@
 namespace engine::resources { class RResourceManager; }
 
 namespace engine::graphics {
-    struct PosColorVertex {
+    struct GVertex {
         float x, y, z;
-        uint32_t abgr;
+        float nx, ny, nz;
     };
     struct GMeshError {
         int code;
         std::string message;
+    };
+    struct GMeshGroup {
+        bgfx::VertexBufferHandle vbh = BGFX_INVALID_HANDLE;
+        bgfx::IndexBufferHandle ibh = BGFX_INVALID_HANDLE;
     };
     struct GTransform {
         bx::Vec3 position = {0.0f, 0.0f, 0.0f};
@@ -46,13 +52,19 @@ namespace engine::graphics {
         GMesh& operator=(GMesh&&) noexcept;
 
         void createTriangle();           // для теста
+        void createFromVertices(
+            std::span<const GVertex> vertices,
+            std::span<const uint16_t> indices
+        );
         // void createFromVertices(...); // позже
 
+        [[nodiscard]] auto loadFromBgfxGeometry(std::string_view filename) -> std::expected<void, GMeshError>;
         void submit(bgfx::ProgramHandle program, const GTransform &transform, uint8_t viewId) const;
         [[nodiscard]] auto isValid() const -> bool;
     private:
-        bgfx::VertexBufferHandle m_vbh = BGFX_INVALID_HANDLE;
-        bgfx::IndexBufferHandle  m_ibh = BGFX_INVALID_HANDLE;
+        auto destroyHandles() -> void;
+
+        std::vector<GMeshGroup> m_groups;
         bgfx::VertexLayout       m_layout;
     };
 } // graphics

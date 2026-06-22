@@ -7,6 +7,7 @@
 #include <memory>
 #include <unordered_map>
 #include <fstream>
+#include <vector>
 
 #include "graphics/GMesh.hpp"
 #include "graphics/GProgram.hpp"
@@ -43,7 +44,6 @@ namespace engine::resources {
         [[nodiscard]] auto getProgram(RProgramHandle handle) const -> const graphics::GProgram*;
 
     private:
-
         static auto loadShaderBinary(std::string_view filename) -> bgfx::ShaderHandle;
 
         RResourceManager() = default;

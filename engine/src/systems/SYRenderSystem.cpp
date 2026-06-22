@@ -12,7 +12,7 @@ namespace engine::systems {
     void SYRenderSystem::render(scene::SCScene &scene, const resources::RResourceManager& resourcesManager) const {
         int width, height;
         SDL_GetWindowSize(rWindow, &width, &height);
-
+        bgfx::reset(width, height, BGFX_RESET_VSYNC);
         bgfx::setViewRect(0, 0, 0, uint16_t(width), uint16_t(height));
         bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
         bgfx::setState(BGFX_STATE_WRITE_RGB |

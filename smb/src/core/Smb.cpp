@@ -12,13 +12,18 @@ namespace smb {
             return std::unexpected(engine::core::EngineError{1, "Failed to load shader program"});
         }
 
-        auto mesh = ctx.resources.createTriangleMesh("triangle");
+        auto mesh = ctx.resources.loadMesh((ctx.paths.assetsRoot / "meshes/bin/bunny.bin").string());
 
         if (!mesh.isValid()) {
-            return std::unexpected(engine::core::EngineError{1, "Failed to create triangle mesh"});
+            return std::unexpected(engine::core::EngineError{1, "Failed to load bunny mesh"});
         }
-
-        ctx.scene.addCamera(engine::scene::SCCamera{});
+        auto camera = engine::scene::SCCamera();
+        camera.setTransform({
+            .position = { 0.0f, 0.0f, 5.0f },
+            .rotation = {0.0f, 0.0f, 0.0f},
+            .scale = { 0.0f, 1.0f, 0.0f }
+        });
+        ctx.scene.addCamera(camera);
 
         playerObjectId = ctx.scene.addObject({
             .transform = engine::graphics::GTransform{

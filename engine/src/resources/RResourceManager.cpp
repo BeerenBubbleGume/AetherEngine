@@ -4,6 +4,8 @@
 
 #include "resources/RResourceManager.hpp"
 
+#include <iostream>
+
 
 namespace engine::resources {
     RResourceManager::SResourceManagerPtr RResourceManager::createResourceManager() {
@@ -11,16 +13,35 @@ namespace engine::resources {
     }
 
     auto RResourceManager::loadMesh(std::string_view filename) -> RMeshHandle {
-        if (m_meshCache.contains(filename.data())) {
-            return { m_meshCache[filename.data()] };
+        const std::string key{filename};
+
+        if (auto it = m_meshCache.find(key); it != m_meshCache.end()) {
+            return { it->second };
         }
-        // Пока не реализовано чтение из файла
-        return {};
+
+        graphics::GMesh mesh;
+        auto loadResult = mesh.loadFromBgfxGeometry(key);
+        if (!loadResult) {
+            std::cerr << "Failed to load mesh '" << key << "': " << loadResult.error().message << std::endl;
+            return {};
+        }
+
+        if (!mesh.isValid()) {
+            return {};
+        }
+
+        m_meshes.push_back(std::move(mesh));
+
+        const auto id = static_cast<uint32_t>(m_meshes.size());
+        m_meshCache[key] = id;
+
+        return { id };
     }
 
     auto RResourceManager::createTriangleMesh(std::string_view name) -> RMeshHandle {
         if (m_meshCache.contains(name.data())) {
-            return { m_meshCache[name.data()] };
+            std::string key = name.data();
+            return { m_meshCache[key] };
         }
         
         graphics::GMesh mesh;
@@ -28,25 +49,30 @@ namespace engine::resources {
         
         m_meshes.push_back(std::move(mesh));
         uint32_t id = static_cast<uint32_t>(m_meshes.size());
-        m_meshCache[name.data()] = id;
+        std::string key = name.data();
+        m_meshCache[key] = id;
         
         return { id };
     }
 
     auto RResourceManager::loadProgram(std::string_view name, std::string_view vertexShaderFilename, std::string_view fragmentShaderFilename) -> RProgramHandle {
         if (m_programCache.contains(name.data())) {
-            return { m_programCache[name.data()] };
+            std::string key = name.data();
+            return { m_programCache[key] };
         }
 
         bgfx::ShaderHandle vsh = loadShaderBinary(vertexShaderFilename);
         bgfx::ShaderHandle fsh = loadShaderBinary(fragmentShaderFilename);
-
+        if (!bgfx::isValid(vsh) || !bgfx::isValid(fsh)) {
+            return {};
+        }
         bgfx::ProgramHandle ph = bgfx::createProgram(vsh, fsh, true);
         if (bgfx::isValid(ph)) {
             graphics::GProgram program(ph);
             m_programs.push_back(std::move(program));
             uint32_t id = static_cast<uint32_t>(m_programs.size());
-            m_programCache[name.data()] = id;
+            std::string key = name.data();
+            m_programCache[key] = id;
             return { id };
         }
         return {};

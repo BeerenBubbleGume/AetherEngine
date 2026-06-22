@@ -17,11 +17,12 @@ namespace engine::scene {
     SCCamera & SCCamera::operator=(const SCCamera &other) = default;
 
     auto SCCamera::getViewMatrix() -> const std::array<float, 16> & {
-        bx::mtxLookAt(m_viewMatrix.data(),
-            { 0.0f, 0.0f, 5.0f },
-            { 0.0f, 0.0f, 0.0f },
-            { 0.0f, 1.0f, 0.0f }
-        );
+        const auto eye = m_transform.position;
+        const bx::Vec3 at = {0.0f, 0.0f, 0.0f};
+        const bx::Vec3 up = {0.0f, 1.0f, 0.0f};
+
+        bx::mtxLookAt(m_viewMatrix.data(), eye, at, up);
+
         return m_viewMatrix;
     }
 
