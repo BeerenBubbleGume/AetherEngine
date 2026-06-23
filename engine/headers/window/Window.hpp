@@ -9,6 +9,8 @@
 #include <string_view>
 #include <SDL3/SDL.h>
 #include <expected>
+#include <atomic>
+#include <string>
 
 namespace engine {
     class WindowError {

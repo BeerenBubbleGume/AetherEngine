@@ -6,7 +6,7 @@
 
 namespace smb {
     auto SMB::init(engine::core::EngineContext &ctx) -> std::expected<void, engine::core::EngineError> {
-        auto program = ctx.resources.loadProgram("basic", (ctx.paths.shadersRoot/"bin/basic_vs.bin").string(), (ctx.paths.shadersRoot/"bin/basic_fs.bin").string());
+        auto program = ctx.resources.loadProgram("basic", (ctx.paths.shadersRoot/"bin/osx_arm/basic_vs.bin").string(), (ctx.paths.shadersRoot/"bin/osx_arm/basic_fs.bin").string());
 
         if (!program.isValid()) {
             return std::unexpected(engine::core::EngineError{1, "Failed to load shader program"});

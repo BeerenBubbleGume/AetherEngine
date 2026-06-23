@@ -38,7 +38,7 @@ namespace engine::systems {
         };
         using SRenderSystemPtr = std::unique_ptr<SYRenderSystem, SRenderSystemDeleter>;
         static SRenderSystemPtr createRenderSystem();
-        void render(scene::SCScene &scene, const resources::RResourceManager& recourceManager) const;
+        void render(scene::SCScene &scene, const resources::RResourceManager& recourceManager);
 
         [[nodiscard]] auto init(SDL_Window& window) -> std::expected<void, SRenderSystemError>;
     private:
@@ -46,6 +46,8 @@ namespace engine::systems {
         ~SYRenderSystem() = default;
 
         SDL_Window*                             rWindow{};
+        int mCurrentWidth {};
+        int mCurrentHeight {};
     };
 }
 

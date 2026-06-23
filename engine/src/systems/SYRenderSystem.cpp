@@ -9,23 +9,24 @@ namespace engine::systems {
         return SRenderSystemPtr(new SYRenderSystem(), SRenderSystemDeleter{});
     }
 
-    void SYRenderSystem::render(scene::SCScene &scene, const resources::RResourceManager& resourcesManager) const {
+    void SYRenderSystem::render(scene::SCScene &scene, const resources::RResourceManager& resourcesManager) {
         int width, height;
         SDL_GetWindowSize(rWindow, &width, &height);
-        bgfx::reset(width, height, BGFX_RESET_VSYNC);
+        if (mCurrentHeight != height || mCurrentWidth != width) {
+            mCurrentHeight = height;
+            mCurrentWidth = width;
+            bgfx::reset(width, height, BGFX_RESET_VSYNC);
+        }
         bgfx::setViewRect(0, 0, 0, uint16_t(width), uint16_t(height));
-        bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
-        bgfx::setState(BGFX_STATE_WRITE_RGB |
-            BGFX_STATE_WRITE_A |
-            BGFX_STATE_WRITE_Z |
-            BGFX_STATE_DEPTH_TEST_LESS
-        );
+        bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, 0x303030ff, 1.0f, 0);
+
         auto& camera = scene.getCamera();
         auto view = camera.getViewMatrix();
         auto proj = camera.getProjectionMatrix({width, height});
         bgfx::setViewTransform(0, view.data(), proj.data());
-        bgfx::setViewMode(0, bgfx::ViewMode::Default);
+        bgfx::setViewMode(0, bgfx::ViewMode::Count);
 
+        bgfx::touch(0);
         for (const auto& resource : scene.renderObjects()) {
             const auto& mesh = resourcesManager.getMesh(resource.mesh);
             const auto& program = resourcesManager.getProgram(resource.program);
@@ -50,7 +51,8 @@ namespace engine::systems {
             pd.ndt = nullptr;
 
 #elif defined(SDL_PLATFORM_MACOS)
-            pd.nwh = SDL_GetProperty(props, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+            bgfx::renderFrame();
+            pd.nwh = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
             pd.ndt = nullptr;
 
 #elif defined(SDL_PLATFORM_LINUX)
