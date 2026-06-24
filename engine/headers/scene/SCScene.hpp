@@ -8,20 +8,15 @@
 #include <vector>
 #include <array>
 #include <span>
+#include <entt/entt.hpp>
 
 #include "SCCamera.hpp"
 #include "graphics/GMesh.hpp"
 #include "graphics/GProgram.hpp"
 #include "resources/RResourceManager.hpp"
+#include "Entity.hpp"
 
 namespace engine::scene {
-    using SObjectId = std::size_t;
-    struct SRenderObject {
-        graphics::GTransform transform;
-
-        engine::resources::RMeshHandle mesh;
-        engine::resources::RProgramHandle program;
-    };
     class SCScene {
     public:
         struct SCSceneDeleter {
@@ -35,18 +30,43 @@ namespace engine::scene {
 
 
         static SScenePtr createScene();
-        auto addObject(SRenderObject object) -> SObjectId;
         auto addCamera(SCCamera camera) -> void;
+        auto createEntity() -> Entity;
         [[nodiscard]] auto getCamera() -> SCCamera &;
-        [[nodiscard]] auto renderObjects() const -> std::span<const SRenderObject>;
-        [[nodiscard]] auto getObject(SObjectId id) -> SRenderObject&;
+
+        template<typename T, typename... Args>
+        constexpr T& addComponent(Entity entt, Args&&... args);
+        template<typename T>T& getComponent(Entity entt);
+        template <typename... T> auto view();
     private:
         SCScene() = default;
         ~SCScene() = default;
-        std::vector<SRenderObject> m_objects;
         std::unique_ptr<SCCamera> m_camera;
+        entt::registry m_registry;
 
     };
+
+    template<typename T, typename ... Args>
+    constexpr T & SCScene::addComponent(Entity entt, Args &&...args) {
+        if (entt.isValid()) {
+            return m_registry.emplace<T>(entt.handle, std::forward<Args>(args)...);
+        } else {
+            throw std::runtime_error("Invalid entity");
+        }
+    }
+
+    template<typename T>
+    T & SCScene::getComponent(Entity entt) {
+        if (!entt.isValid()) {
+            throw std::runtime_error("Invalid entity");
+        }
+        return m_registry.get<T>(entt.handle);
+    }
+
+    template<typename... T>
+    auto SCScene::view() {
+        return m_registry.view<T...>();
+    }
 } // scene
 // engine
 

@@ -10,13 +10,12 @@ namespace engine::scene {
         return SScenePtr(new SCScene(), SCSceneDeleter{});
     }
 
-    auto SCScene::addObject(SRenderObject object) -> SObjectId {
-        m_objects.push_back(std::move(object));
-        return m_objects.size() - 1;
-    }
-
     auto SCScene::addCamera(SCCamera camera) -> void {
         m_camera = std::make_unique<SCCamera>(std::move(camera));
+    }
+
+    auto SCScene::createEntity() -> Entity {
+        return Entity({m_registry.create(), this});
     }
 
     auto SCScene::getCamera() -> SCCamera & {
@@ -24,13 +23,5 @@ namespace engine::scene {
             throw std::runtime_error("No camera added to scene");
         }
         return *m_camera;
-    }
-
-    auto SCScene::renderObjects() const -> std::span<const SRenderObject> {
-        return m_objects;
-    }
-
-    auto SCScene::getObject(SObjectId id) -> SRenderObject& {
-        return m_objects.at(id);
     }
 } // scene

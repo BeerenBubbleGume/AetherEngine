@@ -19,6 +19,9 @@
 
 #include "resources/RResourceManager.hpp"
 #include "scene/SCScene.hpp"
+#include "components/ICameraComponent.hpp"
+#include "components/IMeshComponent.hpp"
+#include "components/ITransformComponent.hpp"
 
 namespace engine::systems {
     struct SRenderSystemError {

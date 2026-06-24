@@ -2,9 +2,10 @@
   "name": "smb",
   "version": "0.1.0",
   "dependencies": [
-    "sdl3",
-    "entt",
     "bgfx",
-    "shaderc"
+    "entt",
+    "sdl3",
+    "shaderc",
+    "glm"
   ]
 }

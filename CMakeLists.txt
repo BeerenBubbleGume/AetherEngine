@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 23)
 find_package(SDL3 CONFIG REQUIRED)
 find_package(EnTT CONFIG REQUIRED)
 find_package(bgfx CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
 
 if (MSVC)
     add_compile_options("/Zc:__cplusplus" "/Zc:preprocessor")
@@ -36,6 +37,10 @@ add_library(engine STATIC
         engine/headers/core/IApplication.hpp
         engine/src/core/EngineContext.cpp
         engine/headers/core/EngineContext.hpp
+        engine/headers/components/ICameraComponent.hpp
+        engine/headers/components/IMeshComponent.hpp
+        engine/headers/components/ITransformComponent.hpp
+        engine/headers/scene/Entity.hpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)
@@ -81,6 +86,7 @@ target_link_libraries(engine PUBLIC
         SDL3::SDL3
         EnTT::EnTT
         bgfx::bgfx
+        glm::glm
 )
 
 target_link_libraries(smb PRIVATE

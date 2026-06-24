@@ -28,9 +28,9 @@ namespace smb {
 
     private:
         SMB() = default;
-        ~SMB();
+        ~SMB() override;
 
-        std::optional<engine::scene::SObjectId> playerObjectId {std::nullopt};
+        std::optional<engine::scene::Entity> playerEntity {std::nullopt};
     };
 } // smb
 

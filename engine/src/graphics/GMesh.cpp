@@ -4,11 +4,6 @@
 
 #include "graphics/GMesh.hpp"
 
-#include <bx/bounds.h>
-#include <bx/readerwriter.h>
-#include <fstream>
-#include <vector>
-
 namespace bgfx {
     int32_t read(bx::ReaderI* reader, bgfx::VertexLayout& layout, bx::Error* err);
 }
@@ -260,23 +255,17 @@ namespace engine::graphics {
             return;
         }
 
-        float mtx[16];
-        bx::mtxSRT(mtx,
-            transform.scale.x, transform.scale.y, transform.scale.z,   // scale
-            bx::toRad(transform.rotation.x),
-            bx::toRad(transform.rotation.y),
-            bx::toRad(transform.rotation.z),   // rotation (в радианах)
-            transform.position.x,
-            transform.position.y,
-            transform.position.z                   // position
-        );
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), transform.position)
+                        * glm::mat4_cast(glm::normalize(transform.rotation))
+                        * glm::scale(glm::mat4(1.0f), transform.scale);
+
 
         for (const auto& group : m_groups) {
             if (!isValidGroup(group)) {
                 continue;
             }
 
-            bgfx::setTransform(mtx);
+            bgfx::setTransform(glm::value_ptr(model));
             bgfx::setState(BGFX_STATE_WRITE_RGB |
                 BGFX_STATE_WRITE_A |
                 BGFX_STATE_WRITE_Z |
@@ -284,12 +273,12 @@ namespace engine::graphics {
                 BGFX_STATE_MSAA
             );
 
-        bgfx::setVertexBuffer(0, group.vbh);
-        if (bgfx::isValid(group.ibh)) {
-            bgfx::setIndexBuffer(group.ibh);
-        }
+            bgfx::setVertexBuffer(0, group.vbh);
+            if (bgfx::isValid(group.ibh)) {
+                bgfx::setIndexBuffer(group.ibh);
+            }
 
-        bgfx::submit(viewId, program);
+            bgfx::submit(viewId, program);
         }
     }
 

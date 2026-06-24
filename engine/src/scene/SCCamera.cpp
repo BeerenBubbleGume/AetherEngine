@@ -16,25 +16,33 @@ namespace engine::scene {
 
     SCCamera & SCCamera::operator=(const SCCamera &other) = default;
 
-    auto SCCamera::getViewMatrix() -> const std::array<float, 16> & {
+    auto SCCamera::getViewMatrix() -> const glm::mat4 & {
         const auto eye = m_transform.position;
-        const bx::Vec3 at = {0.0f, 0.0f, 0.0f};
-        const bx::Vec3 up = {0.0f, 1.0f, 0.0f};
+        const glm::vec3 at = {0.0f, 0.0f, 0.0f};
+        const glm::vec3 up = {0.0f, 1.0f, 0.0f};
 
-        bx::mtxLookAt(m_viewMatrix.data(), eye, at, up);
+        m_viewMatrix = glm::lookAtLH(eye, at, up);
 
         return m_viewMatrix;
     }
 
-    auto SCCamera::getProjectionMatrix(std::tuple<int, int> viewShape) -> const std::array<float, 16> & {
+    auto SCCamera::getProjectionMatrix(std::tuple<int, int> viewShape) -> const glm::mat4 & {
         const auto [width, height] = viewShape;
-        const auto caps = bgfx::getCaps();
-        bx::mtxProj(m_projectionMatrix.data(),
+        const float safeWidth = static_cast<float>(std::max(width, 1));
+        const float safeHeight = static_cast<float>(std::max(height, 1));
+        const float aspectRatio = safeWidth / safeHeight;
+
+        const bgfx::Caps* caps = bgfx::getCaps();
+
+        bx::mtxProj(
+            glm::value_ptr(m_projectionMatrix),
             60.0f,
-            float(width) / float(height),
-            0.1f, 100.0f,
+            aspectRatio,
+            0.1f,
+            100.0f,
             caps->homogeneousDepth
         );
+
         return m_projectionMatrix;
     }
 

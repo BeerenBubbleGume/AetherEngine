@@ -21,20 +21,25 @@ namespace engine::systems {
         bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, 0x303030ff, 1.0f, 0);
 
         auto& camera = scene.getCamera();
-        auto view = camera.getViewMatrix();
-        auto proj = camera.getProjectionMatrix({width, height});
-        bgfx::setViewTransform(0, view.data(), proj.data());
+        auto viewMatrix = camera.getViewMatrix();
+        auto projectionMatrix = camera.getProjectionMatrix({width, height});
+        bgfx::setViewTransform(0, glm::value_ptr(viewMatrix), glm::value_ptr(projectionMatrix));
         bgfx::setViewMode(0, bgfx::ViewMode::Count);
 
         bgfx::touch(0);
-        for (const auto& resource : scene.renderObjects()) {
-            const auto& mesh = resourcesManager.getMesh(resource.mesh);
-            const auto& program = resourcesManager.getProgram(resource.program);
+
+        auto renderables = scene.view<engine::components::ITransformComponent, engine::components::IMeshComponent>();
+        for (const auto entity : renderables) {
+            auto& transform = renderables.get<engine::components::ITransformComponent>(entity);
+            auto& renderer = renderables.get<engine::components::IMeshComponent>(entity);
+
+            const auto* mesh = resourcesManager.getMesh(renderer.mesh);
+            const auto* program = resourcesManager.getProgram(renderer.program);
             if (!mesh || !program) {
                 continue;
             }
             if (mesh->isValid()) {
-                mesh->submit(program->handle(), resource.transform, 0);
+                mesh->submit(program->handle(), transform.transform, 0);
             }
         }
 
@@ -46,12 +51,13 @@ namespace engine::systems {
             rWindow = &window;
             SDL_PropertiesID props = SDL_GetWindowProperties(rWindow);
             bgfx::PlatformData pd;
+            bgfx::renderFrame();
 #if defined(SDL_PLATFORM_WIN32)
             pd.nwh = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
             pd.ndt = nullptr;
 
 #elif defined(SDL_PLATFORM_MACOS)
-            bgfx::renderFrame();
+
             pd.nwh = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
             pd.ndt = nullptr;
 
