@@ -15,12 +15,18 @@ namespace engine::graphics {
     }
 
     GProgram::GProgram(GProgram &&other) noexcept {
-        this->m_program = std::move(other.m_program);
+        this->m_program = other.m_program;
         other.m_program = BGFX_INVALID_HANDLE;
     }
 
     GProgram & GProgram::operator=(GProgram &&other) noexcept {
-        this->m_program = std::move(other.m_program);
+        if (this == &other) {
+            return *this;
+        }
+        if (bgfx::isValid(m_program)) {
+            bgfx::destroy(m_program);
+        }
+        this->m_program = other.m_program;
         other.m_program = BGFX_INVALID_HANDLE;
         return *this;
     }

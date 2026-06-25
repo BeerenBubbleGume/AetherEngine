@@ -39,9 +39,10 @@ namespace engine::resources {
     }
 
     auto RResourceManager::createTriangleMesh(std::string_view name) -> RMeshHandle {
-        if (m_meshCache.contains(name.data())) {
-            std::string key = name.data();
-            return { m_meshCache[key] };
+        const std::string key{name};
+
+        if (auto it = m_meshCache.find(key); it != m_meshCache.end()) {
+            return { it->second };
         }
         
         graphics::GMesh mesh;
@@ -49,16 +50,16 @@ namespace engine::resources {
         
         m_meshes.push_back(std::move(mesh));
         uint32_t id = static_cast<uint32_t>(m_meshes.size());
-        std::string key = name.data();
         m_meshCache[key] = id;
         
         return { id };
     }
 
     auto RResourceManager::loadProgram(std::string_view name, std::string_view vertexShaderFilename, std::string_view fragmentShaderFilename) -> RProgramHandle {
-        if (m_programCache.contains(name.data())) {
-            std::string key = name.data();
-            return { m_programCache[key] };
+        const std::string key{name};
+
+        if (auto it = m_programCache.find(key); it != m_programCache.end()) {
+            return { it->second };
         }
 
         bgfx::ShaderHandle vsh = loadShaderBinary(vertexShaderFilename);
@@ -71,7 +72,6 @@ namespace engine::resources {
             graphics::GProgram program(ph);
             m_programs.push_back(std::move(program));
             uint32_t id = static_cast<uint32_t>(m_programs.size());
-            std::string key = name.data();
             m_programCache[key] = id;
             return { id };
         }

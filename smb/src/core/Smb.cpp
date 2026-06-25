@@ -6,8 +6,14 @@
 
 #include "components/IMeshComponent.hpp"
 #include "components/ITransformComponent.hpp"
+#include "math/UTypes.hpp"
 
 namespace smb {
+    namespace {
+        using engine::math::TQuat;
+        using engine::math::TVec3;
+    }
+
     auto SMB::init(engine::core::EngineContext &ctx) -> std::expected<void, engine::core::EngineError> {
 #ifdef WIN32
         auto program = ctx.resources.loadProgram("basic", (ctx.paths.shadersRoot/"bin/win32/basic_vs.bin").string(),
@@ -31,8 +37,8 @@ namespace smb {
         auto camera = engine::scene::SCCamera();
         camera.setTransform({
             .position = { 0.0f, 0.0f, 5.0f },
-            .rotation = glm::quat{1.0f, 0.0f, 0.0f, 0.0f},
-            .scale = { 0.0f, 1.0f, 0.0f }
+            .rotation = TQuat::identity(),
+            .scale = TVec3::one()
         });
         ctx.scene.addCamera(camera);
 
@@ -40,7 +46,7 @@ namespace smb {
         ctx.scene.addComponent<engine::components::ITransformComponent>(player, engine::components::ITransformComponent {
             .transform = engine::graphics::GTransform{
                 .position = {0.0f, 0.0f, 0.0f},
-                .rotation = glm::quat{1.0f, 0.0f, 0.0f, 0.0f},
+                .rotation = TQuat::identity(),
                 .scale = {1.0f, 1.0f, 1.0f}
             }
         });
@@ -53,7 +59,8 @@ namespace smb {
         ctx.scene.addComponent<engine::components::ITransformComponent>(secondBunny, engine::components::ITransformComponent {
             .transform = engine::graphics::GTransform{
                 .position = {-5.0f, -5.0f, -5.0f},
-                .rotation = glm::quat{1.0f, 30.0f, 40.0f, 0.0f},
+                .rotation = TQuat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, 30.0f) *
+                            TQuat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, 40.0f),
                 .scale = {2.0f, 2.0f, 2.0f}
             },
         });
@@ -66,7 +73,8 @@ namespace smb {
         ctx.scene.addComponent<engine::components::ITransformComponent>(triangle, engine::components::ITransformComponent {
             .transform = engine::graphics::GTransform{
                 .position = {5.0f, -5.0f, -5.0f},
-                .rotation = glm::quat{1.0f, 10.0f, 0.0f, 5.0f},
+                .rotation = TQuat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, 10.0f) *
+                            TQuat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, 5.0f),
                 .scale = {2.0f, 2.0f, 2.0f}
             },
         });
@@ -88,29 +96,29 @@ namespace smb {
         auto& t = object.transform;
 
         const float speed = 1.0f * dt;
-        const float angularSpeed = glm::radians(90.0f) * dt;
+        const float angularSpeedDegrees = 90.0f * dt;
 
         if (ctx.input.isKeyPressed(SDL_SCANCODE_A)) t.position.x += speed;
         if (ctx.input.isKeyPressed(SDL_SCANCODE_D)) t.position.x -= speed;
         if (ctx.input.isKeyPressed(SDL_SCANCODE_W)) t.position.y += speed;
         if (ctx.input.isKeyPressed(SDL_SCANCODE_S)) t.position.y -= speed;
 
-        glm::quat delta = glm::quat{1.0f, 0.0f, 0.0f, 0.0f};
+        TQuat delta = TQuat::identity();
 
         if (ctx.input.isKeyPressed(SDL_SCANCODE_LEFT)) {
-            delta = glm::angleAxis(-angularSpeed, glm::vec3{0.0f, 1.0f, 0.0f}) * delta;
+            delta = TQuat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, -angularSpeedDegrees) * delta;
         }
         if (ctx.input.isKeyPressed(SDL_SCANCODE_RIGHT)) {
-            delta = glm::angleAxis(angularSpeed, glm::vec3{0.0f, 1.0f, 0.0f}) * delta;
+            delta = TQuat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, angularSpeedDegrees) * delta;
         }
         if (ctx.input.isKeyPressed(SDL_SCANCODE_UP)) {
-            delta = glm::angleAxis(-angularSpeed, glm::vec3{1.0f, 0.0f, 0.0f}) * delta;
+            delta = TQuat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, -angularSpeedDegrees) * delta;
         }
         if (ctx.input.isKeyPressed(SDL_SCANCODE_DOWN)) {
-            delta = glm::angleAxis(angularSpeed, glm::vec3{1.0f, 0.0f, 0.0f}) * delta;
+            delta = TQuat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, angularSpeedDegrees) * delta;
         }
 
-        t.rotation = glm::normalize(delta * t.rotation);
+        t.rotation = (delta * t.rotation).normalized();
 
         if (ctx.input.isKeyPressed(SDL_SCANCODE_R)) t.reset();
         if (ctx.input.isKeyPressed(SDL_SCANCODE_Q)) ctx.requestQuit();

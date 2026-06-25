@@ -4,6 +4,13 @@
 
 #include "graphics/GMesh.hpp"
 
+#include <algorithm>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include "math/Detail.hpp"
+
 namespace bgfx {
     int32_t read(bx::ReaderI* reader, bgfx::VertexLayout& layout, bx::Error* err);
 }
@@ -255,9 +262,13 @@ namespace engine::graphics {
             return;
         }
 
-        glm::mat4 model = glm::translate(glm::mat4(1.0f), transform.position)
-                        * glm::mat4_cast(glm::normalize(transform.rotation))
-                        * glm::scale(glm::mat4(1.0f), transform.scale);
+        const auto position = math::detail::toGlm(transform.position);
+        const auto rotation = math::detail::toGlm(transform.rotation);
+        const auto scale = math::detail::toGlm(transform.scale);
+
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), position)
+                        * glm::mat4_cast(glm::normalize(rotation))
+                        * glm::scale(glm::mat4(1.0f), scale);
 
 
         for (const auto& group : m_groups) {
@@ -283,12 +294,7 @@ namespace engine::graphics {
     }
 
     auto GMesh::isValid() const -> bool {
-        for (const auto& group : m_groups) {
-            if (isValidGroup(group)) {
-                return true;
-            }
-        }
-        return false;
+        return std::ranges::any_of(m_groups, [](const auto& group) { return !isValidGroup(group); });
     }
 
     auto GMesh::destroyHandles() -> void {

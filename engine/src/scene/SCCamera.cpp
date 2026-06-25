@@ -4,6 +4,8 @@
 
 #include "scene/SCCamera.hpp"
 
+#include "math/Detail.hpp"
+
 
 namespace engine::scene {
     SCCamera::SCCamera(const SCCamera &other) {
@@ -17,7 +19,7 @@ namespace engine::scene {
     SCCamera & SCCamera::operator=(const SCCamera &other) = default;
 
     auto SCCamera::getViewMatrix() -> const glm::mat4 & {
-        const auto eye = m_transform.position;
+        const auto eye = math::detail::toGlm(m_transform.position);
         const glm::vec3 at = {0.0f, 0.0f, 0.0f};
         const glm::vec3 up = {0.0f, 1.0f, 0.0f};
 

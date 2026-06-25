@@ -12,18 +12,18 @@
 #include <bgfx/bgfx.h>
 #include <vector>
 #include <bx/math.h>
-#include <glm/fwd.hpp>
-#include <glm/vec3.hpp>
-#include <glm/detail/type_quat.hpp>
 #include <bx/bounds.h>
 #include <bx/readerwriter.h>
 #include <fstream>
 #include <vector>
-#include <glm/gtc/type_ptr.hpp>
+
+#include "math/UTypes.hpp"
 
 namespace engine::resources { class RResourceManager; }
 
 namespace engine::graphics {
+    using GTransform = engine::math::GTransform;
+
     struct GVertex {
         float x, y, z;
         float nx, ny, nz;
@@ -35,17 +35,6 @@ namespace engine::graphics {
     struct GMeshGroup {
         bgfx::VertexBufferHandle vbh = BGFX_INVALID_HANDLE;
         bgfx::IndexBufferHandle ibh = BGFX_INVALID_HANDLE;
-    };
-    struct GTransform {
-        glm::vec3 position = {0.0f, 0.0f, 0.0f};
-        glm::quat rotation = {1, 0, 0, 0};  // в градусах (yaw, pitch, roll)
-        glm::vec3 scale    = {1.0f, 1.0f, 1.0f};
-
-        void reset() {
-            position = {0, 0, 0};
-            rotation = glm::quat{1, 0, 0, 0};
-            scale = {1, 1, 1};
-        }
     };
     class GMesh {
     public:

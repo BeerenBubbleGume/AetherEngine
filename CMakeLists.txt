@@ -41,6 +41,10 @@ add_library(engine STATIC
         engine/headers/components/IMeshComponent.hpp
         engine/headers/components/ITransformComponent.hpp
         engine/headers/scene/Entity.hpp
+        engine/src/math/UTypes.cpp
+        engine/headers/math/UTypes.hpp
+        engine/headers/math/Detail.hpp
+        engine/src/math/Detail.cpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)
