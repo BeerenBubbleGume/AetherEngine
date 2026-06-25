@@ -294,7 +294,7 @@ namespace engine::graphics {
     }
 
     auto GMesh::isValid() const -> bool {
-        return std::ranges::any_of(m_groups, [](const auto& group) { return !isValidGroup(group); });
+        return std::ranges::any_of(m_groups, [](const auto& group) { return isValidGroup(group); });
     }
 
     auto GMesh::destroyHandles() -> void {
