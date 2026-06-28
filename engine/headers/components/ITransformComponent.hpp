@@ -5,11 +5,11 @@
 #ifndef SMB_ITRANSFORMCOMPONENT_HPP
 #define SMB_ITRANSFORMCOMPONENT_HPP
 
-#include "graphics/GMesh.hpp"
+#include "math/UTypes.hpp"
 
 namespace engine::components {
     struct ITransformComponent {
-        graphics::GTransform transform;
+        math::Transform transform;
     };
 }
 

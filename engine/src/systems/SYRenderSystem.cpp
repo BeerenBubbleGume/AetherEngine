@@ -4,6 +4,8 @@
 
 #include "systems/SYRenderSystem.hpp"
 
+#include <complex>
+
 namespace engine::systems {
     SYRenderSystem::SRenderSystemPtr SYRenderSystem::createRenderSystem() {
         return SRenderSystemPtr(new SYRenderSystem(), SRenderSystemDeleter{});
@@ -20,10 +22,14 @@ namespace engine::systems {
         bgfx::setViewRect(0, 0, 0, uint16_t(width), uint16_t(height));
         bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, 0x303030ff, 1.0f, 0);
 
-        auto& camera = scene.getCamera();
-        auto viewMatrix = camera.getViewMatrix();
-        auto projectionMatrix = camera.getProjectionMatrix({width, height});
-        bgfx::setViewTransform(0, glm::value_ptr(viewMatrix), glm::value_ptr(projectionMatrix));
+        const auto cameraEntity = scene.getActiveCamera();
+        const auto& cameraTransform = scene.getComponent<engine::components::ITransformComponent>(cameraEntity);
+        const auto& camera = scene.getComponent<engine::components::ICameraComponent>(cameraEntity);
+
+        const auto view = math::CameraMatrices::makeView(cameraTransform);
+        const auto projection = math::CameraMatrices::makeProjection(camera, width, height);
+
+        bgfx::setViewTransform(0, view.data(), projection.data());
         bgfx::setViewMode(0, bgfx::ViewMode::Count);
 
         bgfx::touch(0);

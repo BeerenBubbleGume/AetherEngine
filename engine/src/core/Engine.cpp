@@ -70,11 +70,11 @@ auto engine::Engine::run(core::IApplication &app) -> std::expected<void, core::E
         lastTime = now;
 
         accumulator += delta;
+        update(delta);
         processEvents();
         while (accumulator >= FIXED_DT) {
             accumulator -= FIXED_DT;
         }
-        update(delta);
         app.update(delta, ctx);
         sRender->render(*sScene, *sResource);
     }

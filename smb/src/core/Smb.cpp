@@ -4,6 +4,7 @@
 
 #include "core/Smb.hpp"
 
+#include "components/ICameraComponent.hpp"
 #include "components/IMeshComponent.hpp"
 #include "components/ITransformComponent.hpp"
 #include "math/UTypes.hpp"
@@ -34,13 +35,23 @@ namespace smb {
         if (!mesh.isValid()) {
             return std::unexpected(engine::core::EngineError{1, "Failed to load bunny mesh"});
         }
-        auto camera = engine::scene::SCCamera();
-        camera.setTransform({
-            .position = { 0.0f, 0.0f, 5.0f },
-            .rotation = TQuat::identity(),
-            .scale = TVec3::one()
+        auto camera = ctx.scene.createEntity();
+
+        ctx.scene.addComponent<engine::components::ITransformComponent>(camera, engine::components::ITransformComponent{
+            .transform = {
+                .position = {0.0f, 0.0f, 5.0f},
+                .rotation = TQuat::identity(),
+                .scale = TVec3::one()
+            }
         });
-        ctx.scene.addCamera(camera);
+
+        ctx.scene.addComponent<engine::components::ICameraComponent>(camera, engine::components::ICameraComponent{
+            .fovYDegrees = 60.0f,
+            .nearPlane = 0.1f,
+            .farPlane = 100.0f
+        });
+
+        ctx.scene.setActiveCamera(camera);
 
         auto player = ctx.scene.createEntity();
         ctx.scene.addComponent<engine::components::ITransformComponent>(player, engine::components::ITransformComponent {
@@ -69,20 +80,18 @@ namespace smb {
             .program = program
         });
 
-        auto triangle = ctx.scene.createEntity();
-        ctx.scene.addComponent<engine::components::ITransformComponent>(triangle, engine::components::ITransformComponent {
-            .transform = engine::graphics::GTransform{
-                .position = {5.0f, -5.0f, -5.0f},
-                .rotation = TQuat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, 10.0f) *
-                            TQuat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, 5.0f),
-                .scale = {2.0f, 2.0f, 2.0f}
-            },
-        });
-        ctx.scene.addComponent<engine::components::IMeshComponent>(triangle, engine::components::IMeshComponent {
-            .mesh = ctx.resources.createTriangleMesh("triangle"),
-            .program = program
-        });
         playerEntity = player;
+        ctx.input.bindKey(engine::systems::SYInputAction::MoveLeft, engine::systems::SYKey::A);
+        ctx.input.bindKey(engine::systems::SYInputAction::MoveRight, engine::systems::SYKey::D);
+        ctx.input.bindKey(engine::systems::SYInputAction::MoveForward, engine::systems::SYKey::W);
+        ctx.input.bindKey(engine::systems::SYInputAction::MoveBackward, engine::systems::SYKey::S);
+        ctx.input.bindKey(engine::systems::SYInputAction::RotateLeft, engine::systems::SYKey::Left);
+        ctx.input.bindKey(engine::systems::SYInputAction::RotateRight, engine::systems::SYKey::Right);
+        ctx.input.bindKey(engine::systems::SYInputAction::LookUp, engine::systems::SYKey::Up);
+        ctx.input.bindKey(engine::systems::SYInputAction::LookDown, engine::systems::SYKey::Down);
+        ctx.input.bindKey(engine::systems::SYInputAction::Reset, engine::systems::SYKey::R);
+        ctx.input.bindKey(engine::systems::SYInputAction::Quit, engine::systems::SYKey::Escape);
+
         return {};
     }
 
@@ -90,7 +99,6 @@ namespace smb {
         if (!playerEntity) {
             return;
         }
-        //auto& object = ctx.scene.getObject(*playerObjectId);
         auto& object = ctx.scene.getComponent<engine::components::ITransformComponent>(*playerEntity);
 
         auto& t = object.transform;
@@ -98,30 +106,35 @@ namespace smb {
         const float speed = 1.0f * dt;
         const float angularSpeedDegrees = 90.0f * dt;
 
-        if (ctx.input.isKeyPressed(SDL_SCANCODE_A)) t.position.x += speed;
-        if (ctx.input.isKeyPressed(SDL_SCANCODE_D)) t.position.x -= speed;
-        if (ctx.input.isKeyPressed(SDL_SCANCODE_W)) t.position.y += speed;
-        if (ctx.input.isKeyPressed(SDL_SCANCODE_S)) t.position.y -= speed;
+        if (ctx.input.isActionDown(engine::systems::SYInputAction::MoveLeft)) t.position.x += speed;
+        if (ctx.input.isActionDown(engine::systems::SYInputAction::MoveRight)) t.position.x -= speed;
+        if (ctx.input.isActionDown(engine::systems::SYInputAction::MoveForward)) t.position.y += speed;
+        if (ctx.input.isActionDown(engine::systems::SYInputAction::MoveBackward)) t.position.y -= speed;
 
         TQuat delta = TQuat::identity();
 
-        if (ctx.input.isKeyPressed(SDL_SCANCODE_LEFT)) {
+        if (ctx.input.isActionDown(engine::systems::SYInputAction::RotateLeft)) {
             delta = TQuat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, -angularSpeedDegrees) * delta;
         }
-        if (ctx.input.isKeyPressed(SDL_SCANCODE_RIGHT)) {
+        if (ctx.input.isActionDown(engine::systems::SYInputAction::RotateRight)) {
             delta = TQuat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, angularSpeedDegrees) * delta;
         }
-        if (ctx.input.isKeyPressed(SDL_SCANCODE_UP)) {
+        if (ctx.input.isActionDown(engine::systems::SYInputAction::LookUp)) {
             delta = TQuat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, -angularSpeedDegrees) * delta;
         }
-        if (ctx.input.isKeyPressed(SDL_SCANCODE_DOWN)) {
+        if (ctx.input.isActionDown(engine::systems::SYInputAction::LookDown)) {
             delta = TQuat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, angularSpeedDegrees) * delta;
         }
 
         t.rotation = (delta * t.rotation).normalized();
 
-        if (ctx.input.isKeyPressed(SDL_SCANCODE_R)) t.reset();
-        if (ctx.input.isKeyPressed(SDL_SCANCODE_Q)) ctx.requestQuit();
+        if (ctx.input.wasActionPressed(engine::systems::SYInputAction::Reset)) {
+            t.reset();
+        }
+
+        if (ctx.input.wasActionPressed(engine::systems::SYInputAction::Quit)) {
+            ctx.requestQuit();
+        }
     }
 
     auto SMB::run() -> void {

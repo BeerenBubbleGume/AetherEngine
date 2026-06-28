@@ -45,6 +45,9 @@ add_library(engine STATIC
         engine/headers/math/UTypes.hpp
         engine/headers/math/Detail.hpp
         engine/src/math/Detail.cpp
+        engine/headers/components/IMaterialComponent.hpp
+        engine/headers/math/CameraMatricies.hpp
+        engine/src/math/CameraMatricies.cpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)

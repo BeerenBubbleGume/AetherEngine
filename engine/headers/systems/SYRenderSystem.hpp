@@ -22,6 +22,7 @@
 #include "components/ICameraComponent.hpp"
 #include "components/IMeshComponent.hpp"
 #include "components/ITransformComponent.hpp"
+#include "math/CameraMatricies.hpp"
 
 namespace engine::systems {
     struct SRenderSystemError {

@@ -4,7 +4,12 @@
 
 #include "math/UTypes.hpp"
 
+#include "math/Detail.hpp"
+
 #include <cmath>
+
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 
 namespace engine::math {
@@ -118,6 +123,14 @@ namespace engine::math {
                 return x * other.x + y * other.y + z * other.z;
         }
 
+        TVec3 TVec3::cross(const TVec3 &other) const {
+                return {
+                        y * other.z - z * other.y,
+                        z * other.x - x * other.z,
+                        x * other.y - y * other.x
+                };
+        }
+
         float TVec3::length() const {
                 return std::sqrt(dot(*this));
         }
@@ -131,6 +144,116 @@ namespace engine::math {
         }
 
         TVec3 operator*(float scalar, const TVec3& vec) {
+                return vec * scalar;
+        }
+
+        TVec2 & TVec2::operator+=(const TVec2 &other) {
+                x += other.x;
+                y += other.y;
+                return *this;
+        }
+
+        TVec2 & TVec2::operator-=(const TVec2 &other) {
+                x -= other.x;
+                y -= other.y;
+                return *this;
+        }
+
+        TVec2 & TVec2::operator*=(const TVec2 &other) {
+                x *= other.x;
+                y *= other.y;
+                return *this;
+        }
+
+        TVec2 & TVec2::operator/=(const TVec2 &other) {
+                x /= other.x;
+                y /= other.y;
+                return *this;
+        }
+
+        TVec2 & TVec2::operator*=(float scalar) {
+                x *= scalar;
+                y *= scalar;
+                return *this;
+        }
+
+        TVec2 & TVec2::operator/=(float scalar) {
+                x /= scalar;
+                y /= scalar;
+                return *this;
+        }
+
+        TVec2 TVec2::operator+(const TVec2 &other) const {
+                return {x + other.x, y + other.y};
+        }
+
+        TVec2 TVec2::operator-(const TVec2 &other) const {
+                return {x - other.x, y - other.y};
+        }
+
+        TVec2 TVec2::operator*(const TVec2 &other) const {
+                return {x * other.x, y * other.y};
+        }
+
+        TVec2 TVec2::operator/(const TVec2 &other) const {
+                return {x / other.x, y / other.y};
+        }
+
+        TVec2 TVec2::operator*(float scalar) const {
+                return {x * scalar, y * scalar};
+        }
+
+        TVec2 TVec2::operator/(float scalar) const {
+                return {x / scalar, y / scalar};
+        }
+
+        TVec2 TVec2::operator-() const {
+                return {-x, -y};
+        }
+
+        TVec2 & TVec2::operator=(const TVec2 &other) {
+                if (this == &other) {
+                        return *this;
+                }
+                x = other.x;
+                y = other.y;
+                return *this;
+        }
+
+        TVec2 & TVec2::operator=(TVec2 &&other) noexcept {
+                if (this == &other) {
+                        return *this;
+                }
+                x = other.x;
+                y = other.y;
+                return *this;
+        }
+
+        bool TVec2::operator==(const TVec2 &other) const {
+                return x == other.x && y == other.y;
+        }
+
+        bool TVec2::operator!=(const TVec2 &other) const {
+                return !(*this == other);
+        }
+
+        float TVec2::dot(const TVec2 &other) const {
+                return x * other.x + y * other.y;
+        }
+
+        float TVec2::length() const {
+                return std::sqrt(dot(*this));
+        }
+
+        TVec2 TVec2::normalized() const {
+                const float len = length();
+                if (len <= 0.0f) {
+                        return zero();
+                }
+                return *this / len;
+        }
+
+        TVec2 operator*(float scalar, const TVec2& vec) {
                 return vec * scalar;
         }
 
@@ -190,6 +313,16 @@ namespace engine::math {
                 return {w / len, x / len, y / len, z / len};
         }
 
+        TVec3 TQuat::rotate(TVec3 vector) const {
+                const TQuat q = normalized();
+                const TVec3 u{q.x, q.y, q.z};
+                const float s = q.w;
+
+                return (2.0f * u.dot(vector)) * u +
+                       (s * s - u.dot(u)) * vector +
+                       (2.0f * s) * u.cross(vector);
+        }
+
         TQuat TQuat::identity() {
                 return {1.0f, 0.0f, 0.0f, 0.0f};
         }
@@ -215,15 +348,15 @@ namespace engine::math {
                 };
         }
 
-        TQuat TQuat::fromEulerDegrees(TVec3 pitchYawRoll) {
-                return fromEulerRadians({
+        TQuat TQuat::fromEulerXYZDegrees(TVec3 pitchYawRoll) {
+                return fromEulerXYZRadians({
                         toRadians(pitchYawRoll.x),
                         toRadians(pitchYawRoll.y),
                         toRadians(pitchYawRoll.z)
                 });
         }
 
-        TQuat TQuat::fromEulerRadians(TVec3 pitchYawRoll) {
+        TQuat TQuat::fromEulerXYZRadians(TVec3 pitchYawRoll) {
                 const TVec3 halfAngles = pitchYawRoll * 0.5f;
 
                 const TVec3 c{
@@ -245,21 +378,101 @@ namespace engine::math {
                 };
         }
 
-        void GTransform::reset() {
+        TMat4::TMat4() : TMat4(1.0f) {
+        }
+
+        TMat4::TMat4(float diagonal) : m{} {
+                m[0] = diagonal;
+                m[5] = diagonal;
+                m[10] = diagonal;
+                m[15] = diagonal;
+        }
+
+        TMat4::TMat4(std::array<float, 16> values) : m(values) {
+        }
+
+        float* TMat4::data() {
+                return m.data();
+        }
+
+        const float* TMat4::data() const {
+                return m.data();
+        }
+
+        float& TMat4::operator[](std::size_t index) {
+                return m[index];
+        }
+
+        const float& TMat4::operator[](std::size_t index) const {
+                return m[index];
+        }
+
+        TMat4& TMat4::operator*=(const TMat4& other) {
+                *this = *this * other;
+                return *this;
+        }
+
+        TMat4 TMat4::operator*(const TMat4& other) const {
+                return detail::fromGlm(detail::toGlm(*this) * detail::toGlm(other));
+        }
+
+        bool TMat4::operator==(const TMat4& other) const {
+                return m == other.m;
+        }
+
+        bool TMat4::operator!=(const TMat4& other) const {
+                return !(*this == other);
+        }
+
+        TMat4 TMat4::zero() {
+                return TMat4{std::array<float, 16>{}};
+        }
+
+        TMat4 TMat4::identity() {
+                return TMat4{1.0f};
+        }
+
+        TMat4 TMat4::translation(TVec3 translation) {
+                return detail::fromGlm(glm::translate(glm::mat4{1.0f}, detail::toGlm(translation)));
+        }
+
+        TMat4 TMat4::rotation(TQuat rotation) {
+                return detail::fromGlm(glm::mat4_cast(detail::toGlm(rotation.normalized())));
+        }
+
+        TMat4 TMat4::scale(TVec3 scale) {
+                return detail::fromGlm(glm::scale(glm::mat4{1.0f}, detail::toGlm(scale)));
+        }
+
+        TMat4 TMat4::fromTransform(const Transform& transform) {
+                return translation(transform.position) *
+                       rotation(transform.rotation) *
+                       scale(transform.scale);
+        }
+
+        TMat4 TMat4::lookAtLeftHanded(TVec3 eye, TVec3 at, TVec3 up) {
+                return detail::fromGlm(glm::lookAtLH(
+                        detail::toGlm(eye),
+                        detail::toGlm(at),
+                        detail::toGlm(up)
+                ));
+        }
+
+        void Transform::reset() {
                 position = TVec3::zero();
                 rotation = TQuat::identity();
                 scale = TVec3::one();
         }
 
-        void GTransform::setPosition(TVec3 pos) {
+        void Transform::setPosition(TVec3 pos) {
                 position = pos;
         }
 
-        void GTransform::setRotation(TQuat rot) {
+        void Transform::setRotation(TQuat rot) {
                 rotation = rot;
         }
 
-        void GTransform::setScale(TVec3 newScale) {
+        void Transform::setScale(TVec3 newScale) {
                 scale = newScale;
         }
 } // namespace engine::math

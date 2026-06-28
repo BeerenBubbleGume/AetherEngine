@@ -16,12 +16,12 @@
 namespace engine::resources {
     struct RMeshHandle final {
         uint32_t id = 0;
-        bool isValid() const { return id != 0; }
+        [[nodiscard]] bool isValid() const { return id != 0; }
         bool operator==(const RMeshHandle& other) const { return id == other.id; }
     };
     struct RProgramHandle final {
         uint32_t id = 0;
-        bool isValid() const { return id != 0; }
+        [[nodiscard]] bool isValid() const { return id != 0; }
         bool operator==(const RProgramHandle& other) const { return id == other.id; }
     };
     class RResourceManager final {
@@ -37,7 +37,6 @@ namespace engine::resources {
         static SResourceManagerPtr createResourceManager();
 
         [[nodiscard]] auto loadMesh(std::string_view filename) -> RMeshHandle;
-        [[nodiscard]] auto createTriangleMesh(std::string_view name) -> RMeshHandle;
         [[nodiscard]] auto loadProgram(std::string_view name, std::string_view vertexShaderFilename, std::string_view fragmentShaderFilename) -> RProgramHandle;
 
         [[nodiscard]] auto getMesh(RMeshHandle handle) const -> const graphics::GMesh*;

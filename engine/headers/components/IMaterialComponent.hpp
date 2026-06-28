@@ -1,0 +1,10 @@
+//
+// Created by drhaz on 26.06.2026.
+//
+
+#ifndef SMB_IMATERIALCOMPONENT_HPP
+#define SMB_IMATERIALCOMPONENT_HPP
+
+
+
+#endif //SMB_IMATERIALCOMPONENT_HPP

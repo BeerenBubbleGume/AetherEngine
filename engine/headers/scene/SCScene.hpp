@@ -10,7 +10,6 @@
 #include <span>
 #include <entt/entt.hpp>
 
-#include "SCCamera.hpp"
 #include "graphics/GMesh.hpp"
 #include "graphics/GProgram.hpp"
 #include "resources/RResourceManager.hpp"
@@ -30,20 +29,25 @@ namespace engine::scene {
 
 
         static SScenePtr createScene();
-        auto addCamera(SCCamera camera) -> void;
         auto createEntity() -> Entity;
-        [[nodiscard]] auto getCamera() -> SCCamera &;
 
         template<typename T, typename... Args>
         constexpr T& addComponent(Entity entt, Args&&... args);
-        template<typename T>T& getComponent(Entity entt);
+        template<typename T>
+        constexpr T &getComponent(Entity entt);
         template <typename... T> auto view();
+        template <typename... T> void destroyEntity(Entity entt);
+        template <typename... T> void removeComponent(Entity entt);
+        template <typename... T> [[nodiscard]] bool hasComponent(Entity entt) const;
+        template <typename... T> auto tryGetComponent(Entity entt);
+
+        auto setActiveCamera(Entity camera) -> void;
+        [[nodiscard]] auto getActiveCamera() const -> Entity;
     private:
         SCScene() = default;
         ~SCScene() = default;
-        std::unique_ptr<SCCamera> m_camera;
         entt::registry m_registry;
-
+        std::optional<Entity> m_activeCamera;
     };
 
     template<typename T, typename ... Args>
@@ -56,7 +60,7 @@ namespace engine::scene {
     }
 
     template<typename T>
-    T & SCScene::getComponent(Entity entt) {
+    constexpr T &SCScene::getComponent(const Entity entt) {
         if (!entt.isValid()) {
             throw std::runtime_error("Invalid entity");
         }
@@ -66,6 +70,26 @@ namespace engine::scene {
     template<typename... T>
     auto SCScene::view() {
         return m_registry.view<T...>();
+    }
+
+    template<typename ... T>
+    void SCScene::destroyEntity(Entity entt) {
+        m_registry.destroy(entt.handle);
+    }
+
+    template<typename ... T>
+    void SCScene::removeComponent(Entity entt) {
+        m_registry.remove<T...>(entt.handle);
+    }
+
+    template<typename ... T>
+    bool SCScene::hasComponent(Entity entt) const {
+        return m_registry.all_of<T...>(entt.handle);
+    }
+
+    template<typename ... T>
+    auto SCScene::tryGetComponent(Entity entt) {
+        return m_registry.try_get<T...>(entt.handle);
     }
 } // scene
 // engine

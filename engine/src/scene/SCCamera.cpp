@@ -4,7 +4,10 @@
 
 #include "scene/SCCamera.hpp"
 
-#include "math/Detail.hpp"
+#include <algorithm>
+
+#include <bgfx/bgfx.h>
+#include <bx/math.h>
 
 
 namespace engine::scene {
@@ -18,17 +21,16 @@ namespace engine::scene {
 
     SCCamera & SCCamera::operator=(const SCCamera &other) = default;
 
-    auto SCCamera::getViewMatrix() -> const glm::mat4 & {
-        const auto eye = math::detail::toGlm(m_transform.position);
-        const glm::vec3 at = {0.0f, 0.0f, 0.0f};
-        const glm::vec3 up = {0.0f, 1.0f, 0.0f};
+    auto SCCamera::getViewMatrix() -> const math::TMat4 & {
+        const auto eye = m_transform.position;
+        const math::TVec3 at{0.0f, 0.0f, 0.0f};
+        const math::TVec3 up{0.0f, 1.0f, 0.0f};
 
-        m_viewMatrix = glm::lookAtLH(eye, at, up);
-
+        m_viewMatrix = math::TMat4::lookAtLeftHanded(eye, at, up);
         return m_viewMatrix;
     }
 
-    auto SCCamera::getProjectionMatrix(std::tuple<int, int> viewShape) -> const glm::mat4 & {
+    auto SCCamera::getProjectionMatrix(std::tuple<int, int> viewShape) -> const math::TMat4 & {
         const auto [width, height] = viewShape;
         const float safeWidth = static_cast<float>(std::max(width, 1));
         const float safeHeight = static_cast<float>(std::max(height, 1));
@@ -37,7 +39,7 @@ namespace engine::scene {
         const bgfx::Caps* caps = bgfx::getCaps();
 
         bx::mtxProj(
-            glm::value_ptr(m_projectionMatrix),
+            m_projectionMatrix.data(),
             60.0f,
             aspectRatio,
             0.1f,

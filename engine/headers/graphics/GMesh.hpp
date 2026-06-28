@@ -22,12 +22,7 @@
 namespace engine::resources { class RResourceManager; }
 
 namespace engine::graphics {
-    using GTransform = engine::math::GTransform;
-
-    struct GVertex {
-        float x, y, z;
-        float nx, ny, nz;
-    };
+    using GTransform = engine::math::Transform;
     struct GMeshError {
         int code;
         std::string message;
@@ -47,12 +42,10 @@ namespace engine::graphics {
         GMesh& operator=(const GMesh&) = delete;
         GMesh& operator=(GMesh&&) noexcept;
 
-        void createTriangle();           // для теста
         void createFromVertices(
-            std::span<const GVertex> vertices,
+            std::span<const engine::math::TVec3> vertices,
             std::span<const uint16_t> indices
         );
-        // void createFromVertices(...); // позже
 
         [[nodiscard]] auto loadFromBgfxGeometry(std::string_view filename) -> std::expected<void, GMeshError>;
         void submit(bgfx::ProgramHandle program, const GTransform &transform, uint8_t viewId) const;

@@ -1,0 +1,44 @@
+//
+// Created by drhaz on 26.06.2026.
+//
+
+#include "math/CameraMatricies.hpp"
+
+#include <algorithm>
+
+#include <bgfx/bgfx.h>
+#include <bx/math.h>
+
+namespace engine::math {
+    TMat4 CameraMatrices::makeView(const components::ITransformComponent & transform) {
+        const auto& cameraTransform = transform.transform;
+        const auto eye = cameraTransform.position;
+
+        const TVec3 forward = cameraTransform.rotation.rotate({0.0f, 0.0f, -1.0f});
+        const TVec3 up = cameraTransform.rotation.rotate({0.0f, 1.0f, 0.0f});
+
+        return TMat4::lookAtLeftHanded(eye, eye + forward, up);
+    }
+
+    TMat4 CameraMatrices::makeProjection(const engine::components::ICameraComponent &camera,
+        int width, int height) {
+        const float safeWidth = static_cast<float>(std::max(width, 1));
+        const float safeHeight = static_cast<float>(std::max(height, 1));
+        const float aspectRatio = safeWidth / safeHeight;
+
+        TMat4 projection = TMat4::identity();
+
+        const bgfx::Caps* caps = bgfx::getCaps();
+
+        bx::mtxProj(
+            projection.data(),
+            camera.fovYDegrees,
+            aspectRatio,
+            camera.nearPlane,
+            camera.farPlane,
+            caps->homogeneousDepth
+        );
+
+        return projection;
+    }
+}

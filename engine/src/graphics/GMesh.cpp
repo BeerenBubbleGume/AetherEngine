@@ -5,11 +5,6 @@
 #include "graphics/GMesh.hpp"
 
 #include <algorithm>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#include "math/Detail.hpp"
 
 namespace bgfx {
     int32_t read(bx::ReaderI* reader, bgfx::VertexLayout& layout, bx::Error* err);
@@ -74,37 +69,7 @@ namespace engine::graphics {
         return *this;
     }
 
-    void GMesh::createTriangle() {
-        static const GVertex vertices[3] = {
-            {-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, -1.0f},
-            { 0.5f, -0.5f, 0.0f, 0.0f, 0.0f, -1.0f},
-            { 0.0f,  0.5f, 0.0f, 0.0f, 0.0f, -1.0f}
-        };
-
-        static const uint16_t indices[3] = { 0, 2, 1 };
-
-        destroyHandles();
-
-        m_layout.begin()
-            .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-            .add(bgfx::Attrib::Normal,   3, bgfx::AttribType::Float)
-            .end();
-
-        GMeshGroup group;
-        group.vbh = bgfx::createVertexBuffer(
-            bgfx::makeRef(vertices, sizeof(vertices)),
-            m_layout
-        );
-
-        group.ibh = bgfx::createIndexBuffer(
-            bgfx::makeRef(indices, sizeof(indices))
-        );
-        if (isValidGroup(group)) {
-            m_groups.push_back(group);
-        }
-    }
-
-    void GMesh::createFromVertices(std::span<const GVertex> vertices, std::span<const uint16_t> indices) {
+    void GMesh::createFromVertices(std::span<const engine::math::TVec3> vertices, std::span<const uint16_t> indices) {
         destroyHandles();
 
         m_layout.begin()
@@ -262,21 +227,14 @@ namespace engine::graphics {
             return;
         }
 
-        const auto position = math::detail::toGlm(transform.position);
-        const auto rotation = math::detail::toGlm(transform.rotation);
-        const auto scale = math::detail::toGlm(transform.scale);
-
-        glm::mat4 model = glm::translate(glm::mat4(1.0f), position)
-                        * glm::mat4_cast(glm::normalize(rotation))
-                        * glm::scale(glm::mat4(1.0f), scale);
-
+        const auto model = math::TMat4::fromTransform(transform);
 
         for (const auto& group : m_groups) {
             if (!isValidGroup(group)) {
                 continue;
             }
 
-            bgfx::setTransform(glm::value_ptr(model));
+            bgfx::setTransform(model.data());
             bgfx::setState(BGFX_STATE_WRITE_RGB |
                 BGFX_STATE_WRITE_A |
                 BGFX_STATE_WRITE_Z |
@@ -296,18 +254,17 @@ namespace engine::graphics {
     auto GMesh::isValid() const -> bool {
         return std::ranges::any_of(m_groups, [](const auto& group) { return isValidGroup(group); });
     }
-
-    auto GMesh::destroyHandles() -> void {
-        for (auto& group : m_groups) {
-            if (bgfx::isValid(group.vbh)) {
-                bgfx::destroy(group.vbh);
-                group.vbh = BGFX_INVALID_HANDLE;
-            }
-            if (bgfx::isValid(group.ibh)) {
-                bgfx::destroy(group.ibh);
-                group.ibh = BGFX_INVALID_HANDLE;
-            }
+    auto destroy_if_valid(auto& handle) {
+        if (bgfx::isValid(handle)) {
+            bgfx::destroy(handle);
+            handle = BGFX_INVALID_HANDLE;
         }
+    }
+    auto GMesh::destroyHandles() -> void {
+        std::ranges::for_each(m_groups, [&](auto& group) {
+            destroy_if_valid(group.vbh);
+            destroy_if_valid(group.ibh);
+        });
         m_groups.clear();
     }
 

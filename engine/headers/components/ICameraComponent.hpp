@@ -6,9 +6,37 @@
 #define SMB_ICAMERACOMPONENT_HPP
 
 
+namespace engine::components {
+    enum class ProjectionType {
+        Perspective = 0,
+        Orthographic = 1
+    };
+    enum CameraClearFlags {
+        ClearNone = 0,
+        ClearColor = 1,
+        ClearDepth = 2,
+        ClearStencil = 3
+    };
+    struct ICameraComponent {
+        bool enabled = true;
 
-struct ICameraComponent {
-};
+        ProjectionType projection{ProjectionType::Perspective};
+        float fovYDegrees{60.0f};
+        float nearPlane{0.1f};
+        float farPlane{100.0f};
+
+        float orthographicHeight{10.0f};
+
+        uint8_t clearFlags{ClearColor | ClearDepth};
+        uint32_t clearColor{0x303030ff};
+
+        uint16_t viewId{0};
+        int priority{0};
+
+        uint32_t layerMask{0xffffffff};
+    };
+}
+
 
 
 #endif //SMB_ICAMERACOMPONENT_HPP

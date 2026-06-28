@@ -38,23 +38,6 @@ namespace engine::resources {
         return { id };
     }
 
-    auto RResourceManager::createTriangleMesh(std::string_view name) -> RMeshHandle {
-        const std::string key{name};
-
-        if (auto it = m_meshCache.find(key); it != m_meshCache.end()) {
-            return { it->second };
-        }
-        
-        graphics::GMesh mesh;
-        mesh.createTriangle();
-        
-        m_meshes.push_back(std::move(mesh));
-        uint32_t id = static_cast<uint32_t>(m_meshes.size());
-        m_meshCache[key] = id;
-        
-        return { id };
-    }
-
     auto RResourceManager::loadProgram(std::string_view name, std::string_view vertexShaderFilename, std::string_view fragmentShaderFilename) -> RProgramHandle {
         const std::string key{name};
 
