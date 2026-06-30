@@ -5,148 +5,13 @@
 #ifndef SMB_SINPUTSYSTEM_HPP
 #define SMB_SINPUTSYSTEM_HPP
 
+#include <optional>
 #include <unordered_map>
 
 #include "interfaces/IUpdatable.hpp"
+#include "SYTypes.hpp"
 
 namespace engine::systems {
-
-        enum class SYInputAction {
-                MoveForward,
-                MoveBackward,
-                MoveLeft,
-                MoveRight,
-                MoveUp,
-                MoveDown,
-                Jump,
-                Crouch,
-                Sprint,
-                Interact,
-                Interact2,
-                RotateLeft,
-                RotateRight,
-                LookUp,
-                LookDown,
-                LookLeft,
-                LookRight,
-                CameraMoveForward,
-                CameraMoveBackward,
-                CameraMoveLeft,
-                CameraMoveRight,
-                CameraMoveUp,
-                Reset,
-                Quit
-        };
-
-        enum class SYKey {
-                A,
-                B,
-                C,
-                D,
-                E,
-                F,
-                G,
-                H,
-                I,
-                J,
-                K,
-                L,
-                M,
-                N,
-                O,
-                P,
-                Q,
-                R,
-                S,
-                T,
-                U,
-                V,
-                W,
-                X,
-                Y,
-                Z,
-                One,
-                Two,
-                Three,
-                Four,
-                Five,
-                Six,
-                Seven,
-                Eight,
-                Nine,
-                Zero,
-                Space,
-                Escape,
-                Enter,
-                Backspace,
-                Tab,
-                Shift,
-                Control,
-                Alt,
-                Left,
-                Right,
-                Up,
-                Down,
-                PageUp,
-                PageDown,
-                Home,
-                End,
-                Insert,
-                Delete,
-                F1,
-                F2,
-                F3,
-                F4,
-                F5,
-                F6,
-                F7,
-                F8,
-                F9,
-                F10,
-                F11,
-                F12,
-                NumPad0,
-                NumPad1,
-                NumPad2,
-                NumPad3,
-                NumPad4,
-                NumPad5,
-                NumPad6,
-                NumPad7,
-                NumPad8,
-                NumPad9,
-                NumPadAdd,
-                NumPadSubtract,
-                NumPadMultiply,
-                NumPadDivide,
-                NumPadDecimal,
-                NumPadEnter,
-                NumPadEqual,
-                NumPadComma,
-                NumPadMinus,
-                NumPadPeriod,
-                NumPadSlash,
-                NumPadLeftBracket,
-                NumPadRightBracket,
-                NumPadBackslash,
-                NumPadSemicolon,
-                NumPadApostrophe,
-                NumPadGrave,
-                NumLock,
-                CapsLock,
-                Minus,
-                Equal,
-                LeftBracket,
-                RightBracket,
-                Backslash,
-                Semicolon,
-                Apostrophe,
-                Grave,
-                Comma,
-                Period,
-                Slash,
-                Return,
-        };
 
         class SYInputSystem : public systems::IUpdatable {
         public:
@@ -167,6 +32,16 @@ namespace engine::systems {
                 [[nodiscard]] auto isActionDown(SYInputAction key) const -> bool;
                 [[nodiscard]] auto wasActionPressed(SYInputAction key) const -> bool;
                 [[nodiscard]] auto wasActionReleased(SYInputAction key) const -> bool;
+                [[nodiscard]] auto mouseX() const -> float;
+                [[nodiscard]] auto mouseY() const -> float;
+                [[nodiscard]] auto mouseDeltaX() const -> float;
+                [[nodiscard]] auto mouseDeltaY() const -> float;
+                [[nodiscard]] auto mouseWheelX() const -> float;
+                [[nodiscard]] auto mouseWheelY() const -> float;
+
+                [[nodiscard]] auto isMouseButtonDown(SYMouseButton button) const -> bool;
+                [[nodiscard]] auto wasMouseButtonPressed(SYMouseButton button) const -> bool;
+                [[nodiscard]] auto wasMouseButtonReleased(SYMouseButton button) const -> bool;
                 auto processEvents(const SDL_Event &event) -> void;
                 auto update(float delta) -> void override;
                 auto bindKey(SYInputAction action, SYKey key) -> void;
@@ -175,12 +50,22 @@ namespace engine::systems {
                 ~SYInputSystem() override;
 
                 [[nodiscard]] static auto toSdlKey(SYKey key) -> SDL_Scancode;
+                [[nodiscard]] static auto toMouseIndex(SYMouseButton button) -> int;
                 [[nodiscard]] auto isKeyDown(SDL_Scancode key) const -> bool;
+                [[nodiscard]] static auto fromSdlMouseButtons(Uint8 button) -> std::optional<int>;
 
                 std::array<bool, SDL_SCANCODE_COUNT> m_keyDown{};
                 std::array<bool, SDL_SCANCODE_COUNT> m_keyPressed{};
                 std::array<bool, SDL_SCANCODE_COUNT> m_keyReleased{};
                 std::unordered_map<SYInputAction, std::vector<SYKey>> m_actionBindings;
+
+                static constexpr size_t MouseButtonCount = 5;
+
+                std::array<bool, MouseButtonCount> m_mouseDown{};
+                std::array<bool, MouseButtonCount> m_mousePressed{};
+                std::array<bool, MouseButtonCount> m_mouseReleased{};
+
+                SYMouseState m_mouse{};
         };
 }
 // systems

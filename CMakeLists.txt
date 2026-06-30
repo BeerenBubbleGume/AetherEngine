@@ -48,6 +48,10 @@ add_library(engine STATIC
         engine/headers/components/IMaterialComponent.hpp
         engine/headers/math/CameraMatricies.hpp
         engine/src/math/CameraMatricies.cpp
+        engine/headers/systems/SYTypes.hpp
+        engine/headers/resources/RTypes.hpp
+        engine/src/graphics/GTexture.cpp
+        engine/headers/graphics/GTexture.hpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)

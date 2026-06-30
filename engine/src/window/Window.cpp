@@ -8,7 +8,7 @@
 auto engine::Window::initWindow(std::string_view title, int width_, int height_) -> std::expected<void, WindowError> {
     width = width_;
     height = height_;
-    window = SDL_CreateWindow(title.data(), width, height, SDL_WINDOW_RESIZABLE);
+    window = SDL_CreateWindow(title.data(), width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_INPUT_FOCUS);
     if (!window) {
         SDL_Log("Failed to create window: %s", SDL_GetError());
         return std::unexpected{WindowError{1, "Failed to create window"}};

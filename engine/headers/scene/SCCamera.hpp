@@ -23,9 +23,9 @@ namespace engine::scene {
         [[nodiscard]] auto getViewMatrix() -> const math::TMat4 &;
         [[nodiscard]] auto getProjectionMatrix(std::tuple<int, int> viewShape) -> const math::TMat4 &;
 
-        auto setTransform(const graphics::GTransform& transform) -> void;
+        auto setTransform(const graphics::Transform& transform) -> void;
     private:
-        graphics::GTransform m_transform;
+        graphics::Transform m_transform;
         math::TMat4 m_viewMatrix {1.0f};
         math::TMat4 m_projectionMatrix {1.0f};
     };

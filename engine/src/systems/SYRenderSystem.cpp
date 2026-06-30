@@ -6,6 +6,8 @@
 
 #include <complex>
 
+#include "components/IMaterialComponent.hpp"
+
 namespace engine::systems {
     SYRenderSystem::SRenderSystemPtr SYRenderSystem::createRenderSystem() {
         return SRenderSystemPtr(new SYRenderSystem(), SRenderSystemDeleter{});
@@ -34,13 +36,14 @@ namespace engine::systems {
 
         bgfx::touch(0);
 
-        auto renderables = scene.view<engine::components::ITransformComponent, engine::components::IMeshComponent>();
+        auto renderables = scene.view<engine::components::ITransformComponent, engine::components::IMeshComponent, engine::components::IMaterialComponent>();
         for (const auto entity : renderables) {
             auto& transform = renderables.get<engine::components::ITransformComponent>(entity);
-            auto& renderer = renderables.get<engine::components::IMeshComponent>(entity);
-
-            const auto* mesh = resourcesManager.getMesh(renderer.mesh);
-            const auto* program = resourcesManager.getProgram(renderer.program);
+            auto& meshComponent = renderables.get<engine::components::IMeshComponent>(entity);
+            auto& materialComponent = renderables.get<engine::components::IMaterialComponent>(entity);
+            const auto* mesh = resourcesManager.getMesh(meshComponent.mesh);
+            const auto* program = resourcesManager.getProgram(materialComponent.program.program);
+            const auto& baseColor = materialComponent.program.baseColor;
             if (!mesh || !program) {
                 continue;
             }

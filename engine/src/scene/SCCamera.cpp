@@ -50,7 +50,7 @@ namespace engine::scene {
         return m_projectionMatrix;
     }
 
-    auto SCCamera::setTransform(const graphics::GTransform &transform) -> void {
+    auto SCCamera::setTransform(const graphics::Transform &transform) -> void {
         m_transform = transform;
     }
 } // scene

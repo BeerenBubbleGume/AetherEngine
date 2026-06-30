@@ -21,29 +21,92 @@ namespace engine::systems {
 
     auto SYInputSystem::processEvents(const SDL_Event &event) -> void {
         switch (event.type) {
-            case SDL_EVENT_KEY_DOWN:
+            case SDL_EVENT_KEY_DOWN: {
                 m_keyPressed[event.key.scancode] = true;
                 if (m_keyReleased[event.key.scancode]) {
                     m_keyReleased[event.key.scancode] = false;
                 }
                 m_keyDown[event.key.scancode] = true;
-                SDL_Log("Key pressed: %d", event.key.scancode);
                 break;
-            case SDL_EVENT_KEY_UP:
+            }
+            case SDL_EVENT_KEY_UP: {
                 m_keyPressed[event.key.scancode] = false;
                 if (m_keyDown[event.key.scancode]) {
                     m_keyReleased[event.key.scancode] = true;
                 }
                 m_keyDown[event.key.scancode] = false;
-                SDL_Log("Key released: %d", event.key.scancode);
                 break;
-            
+            }
+            case SDL_EVENT_MOUSE_MOTION: {
+                m_mouse.x = event.motion.x;
+                m_mouse.y = event.motion.y;
+                m_mouse.deltaX += event.motion.xrel;
+                m_mouse.deltaY += event.motion.yrel;
+                break;
+            }
+            case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+                m_mouse.x = event.button.x;
+                m_mouse.y = event.button.y;
+
+                auto index = fromSdlMouseButtons(event.button.button);
+                if (!index) break;
+
+                if (!m_mouseDown[*index]) {
+                    m_mousePressed[*index] = true;
+                }
+
+                m_mouseDown[*index] = true;
+                break;
+            }
+            case SDL_EVENT_MOUSE_BUTTON_UP: {
+                m_mouse.x = event.button.x;
+                m_mouse.y = event.button.y;
+
+                auto index = fromSdlMouseButtons(event.button.button);
+                if (!index) break;
+
+                if (m_mouseDown[*index]) {
+                    m_mouseReleased[*index] = true;
+                }
+
+                m_mouseDown[*index] = false;
+                break;
+            }
+            case SDL_EVENT_MOUSE_WHEEL:
+                m_mouse.wheelX += event.wheel.x;
+                m_mouse.wheelY += event.wheel.y;
+                m_mouse.x = event.wheel.mouse_x;
+                m_mouse.y = event.wheel.mouse_y;
+                break;
             default: break;
         }
     }
 
     auto SYInputSystem::isKeyDown(SDL_Scancode key) const -> bool {
         return m_keyDown[key];
+    }
+
+    auto SYInputSystem::fromSdlMouseButtons(Uint8 button) -> std::optional<int> {
+        switch (button) {
+            case SDL_BUTTON_LEFT: return 0;
+            case SDL_BUTTON_MIDDLE: return 1;
+            case SDL_BUTTON_RIGHT: return 2;
+            case SDL_BUTTON_X1: return 3;
+            case SDL_BUTTON_X2: return 4;
+            default: return std::nullopt;
+        }
+    }
+
+    auto SYInputSystem::toMouseIndex(SYMouseButton button) -> int {
+        switch (button) {
+            case SYMouseButton::Left: return 0;
+            case SYMouseButton::Middle: return 1;
+            case SYMouseButton::Right: return 2;
+            case SYMouseButton::X1: return 3;
+            case SYMouseButton::X2: return 4;
+        }
+
+        return 0;
     }
 
     auto SYInputSystem::wasActionPressed(SYInputAction action) const -> bool {
@@ -70,9 +133,56 @@ namespace engine::systems {
         });
     }
 
+    auto SYInputSystem::mouseX() const -> float {
+        return m_mouse.x;
+    }
+
+    auto SYInputSystem::mouseY() const -> float {
+        return m_mouse.y;
+    }
+
+    auto SYInputSystem::mouseDeltaX() const -> float {
+        return m_mouse.deltaX;
+    }
+
+    auto SYInputSystem::mouseDeltaY() const -> float {
+        return m_mouse.deltaY;
+    }
+
+    auto SYInputSystem::mouseWheelX() const -> float {
+        return m_mouse.wheelX;
+    }
+
+    auto SYInputSystem::mouseWheelY() const -> float {
+        return m_mouse.wheelY;
+    }
+
+    auto SYInputSystem::isMouseButtonDown(SYMouseButton button) const -> bool {
+        auto index = toMouseIndex(button);
+        return m_mouseDown[index];
+    }
+
+    auto SYInputSystem::wasMouseButtonPressed(SYMouseButton button) const -> bool {
+        auto index = toMouseIndex(button);
+        return m_mousePressed[index];
+    }
+
+    auto SYInputSystem::wasMouseButtonReleased(SYMouseButton button) const -> bool {
+        auto index = toMouseIndex(button);
+        return m_mouseReleased[index];
+    }
+
     auto SYInputSystem::update(float delta) -> void {
-        m_keyReleased.fill(false);
         m_keyPressed.fill(false);
+        m_keyReleased.fill(false);
+
+        m_mousePressed.fill(false);
+        m_mouseReleased.fill(false);
+
+        m_mouse.deltaX = 0.0f;
+        m_mouse.deltaY = 0.0f;
+        m_mouse.wheelX = 0.0f;
+        m_mouse.wheelY = 0.0f;
     }
 
     auto SYInputSystem::bindKey(SYInputAction action, SYKey key) -> void {

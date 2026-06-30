@@ -15,8 +15,8 @@ namespace engine::resources {
     auto RResourceManager::loadMesh(std::string_view filename) -> RMeshHandle {
         const std::string key{filename};
 
-        if (auto it = m_meshCache.find(key); it != m_meshCache.end()) {
-            return { it->second };
+        if (m_meshCache.contains(key)) {
+            return { m_meshCache.at(key) };
         }
 
         graphics::GMesh mesh;
@@ -41,8 +41,8 @@ namespace engine::resources {
     auto RResourceManager::loadProgram(std::string_view name, std::string_view vertexShaderFilename, std::string_view fragmentShaderFilename) -> RProgramHandle {
         const std::string key{name};
 
-        if (auto it = m_programCache.find(key); it != m_programCache.end()) {
-            return { it->second };
+        if (m_programCache.contains(key)) {
+            return { m_programCache.at(key) };
         }
 
         bgfx::ShaderHandle vsh = loadShaderBinary(vertexShaderFilename);
@@ -54,11 +54,37 @@ namespace engine::resources {
         if (bgfx::isValid(ph)) {
             graphics::GProgram program(ph);
             m_programs.push_back(std::move(program));
-            uint32_t id = static_cast<uint32_t>(m_programs.size());
+            auto id = static_cast<uint32_t>(m_programs.size());
             m_programCache[key] = id;
             return { id };
         }
         return {};
+    }
+
+    auto RResourceManager::loadTexture(std::string_view filename) -> RTextureHandle {
+        const std::string key{filename};
+
+        if (m_textureCache.contains(key)) {
+            return { m_textureCache.at(key) };
+        }
+
+        bgfx::TextureHandle th = loadTextureBinary(key);
+        if (!bgfx::isValid(th)) {
+            return {};
+        }
+
+        graphics::GTexture texture(th);
+        m_textures.push_back(std::move(texture));
+        auto id = static_cast<uint32_t>(m_textures.size());
+        m_textureCache[key] = id;
+        return { id };
+    }
+
+    auto RResourceManager::getTexture(RTextureHandle handle) const -> const graphics::GTexture * {
+        if (handle.id > 0 && handle.id <= m_textures.size()) {
+            return &m_textures[handle.id - 1];
+        }
+        return nullptr;
     }
 
     auto RResourceManager::getMesh(RMeshHandle handle) const -> const graphics::GMesh* {
@@ -91,5 +117,38 @@ namespace engine::resources {
         }
 
         return BGFX_INVALID_HANDLE;
+    }
+
+    auto RResourceManager::loadTextureBinary(std::string_view filename) -> bgfx::TextureHandle {
+        std::ifstream file(std::string{filename}, std::ios::binary | std::ios::ate);
+        if (!file.is_open()) {
+            return BGFX_INVALID_HANDLE;
+        }
+
+        const auto size = file.tellg();
+        if (size <= 0) {
+            return BGFX_INVALID_HANDLE;
+        }
+
+        file.seekg(0, std::ios::beg);
+
+        const bgfx::Memory* mem = bgfx::alloc(static_cast<uint32_t>(size));
+        if (!file.read(reinterpret_cast<char*>(mem->data), size)) {
+            return BGFX_INVALID_HANDLE;
+        }
+
+        bgfx::TextureInfo info{};
+        const auto handle = bgfx::createTexture(
+            mem,
+            BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE,
+            0,
+            &info
+        );
+
+        if (!bgfx::isValid(handle)) {
+            return BGFX_INVALID_HANDLE;
+        }
+
+        return handle;
     }
 } // engine

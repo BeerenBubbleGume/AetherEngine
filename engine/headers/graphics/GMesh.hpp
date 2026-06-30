@@ -22,7 +22,7 @@
 namespace engine::resources { class RResourceManager; }
 
 namespace engine::graphics {
-    using GTransform = engine::math::Transform;
+    using Transform = engine::math::Transform;
     struct GMeshError {
         int code;
         std::string message;
@@ -48,7 +48,7 @@ namespace engine::graphics {
         );
 
         [[nodiscard]] auto loadFromBgfxGeometry(std::string_view filename) -> std::expected<void, GMeshError>;
-        void submit(bgfx::ProgramHandle program, const GTransform &transform, uint8_t viewId) const;
+        void submit(bgfx::ProgramHandle program, const Transform &transform, uint8_t viewId) const;
         [[nodiscard]] auto isValid() const -> bool;
     private:
         auto destroyHandles() -> void;

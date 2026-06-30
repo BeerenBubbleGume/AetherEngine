@@ -4,8 +4,10 @@
   "dependencies": [
     "bgfx",
     "entt",
+    "glm",
+    "imgui",
     "sdl3",
     "shaderc",
-    "glm"
+    "physx"
   ]
 }

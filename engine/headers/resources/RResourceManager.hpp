@@ -11,19 +11,10 @@
 
 #include "graphics/GMesh.hpp"
 #include "graphics/GProgram.hpp"
-
+#include "graphics/GTexture.hpp"
+#include "RTypes.hpp"
 
 namespace engine::resources {
-    struct RMeshHandle final {
-        uint32_t id = 0;
-        [[nodiscard]] bool isValid() const { return id != 0; }
-        bool operator==(const RMeshHandle& other) const { return id == other.id; }
-    };
-    struct RProgramHandle final {
-        uint32_t id = 0;
-        [[nodiscard]] bool isValid() const { return id != 0; }
-        bool operator==(const RProgramHandle& other) const { return id == other.id; }
-    };
     class RResourceManager final {
     public:
         RResourceManager(const RResourceManager&) = delete;
@@ -38,12 +29,14 @@ namespace engine::resources {
 
         [[nodiscard]] auto loadMesh(std::string_view filename) -> RMeshHandle;
         [[nodiscard]] auto loadProgram(std::string_view name, std::string_view vertexShaderFilename, std::string_view fragmentShaderFilename) -> RProgramHandle;
+        [[nodiscard]] auto loadTexture(std::string_view filename) -> RTextureHandle;
 
         [[nodiscard]] auto getMesh(RMeshHandle handle) const -> const graphics::GMesh*;
         [[nodiscard]] auto getProgram(RProgramHandle handle) const -> const graphics::GProgram*;
-
+        [[nodiscard]] auto getTexture(RTextureHandle handle) const -> const graphics::GTexture*;
     private:
         static auto loadShaderBinary(std::string_view filename) -> bgfx::ShaderHandle;
+        static auto loadTextureBinary(std::string_view filename) -> bgfx::TextureHandle;
 
         RResourceManager() = default;
         ~RResourceManager() = default;
@@ -53,6 +46,9 @@ namespace engine::resources {
 
         std::vector<graphics::GProgram> m_programs;
         std::unordered_map<std::string, uint32_t> m_programCache;
+
+        std::vector<graphics::GTexture> m_textures;
+        std::unordered_map<std::string, uint32_t> m_textureCache;
     };
 } // systems
 // engine

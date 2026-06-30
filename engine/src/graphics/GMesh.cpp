@@ -222,7 +222,7 @@ namespace engine::graphics {
         return {};
     }
 
-    void GMesh::submit(bgfx::ProgramHandle program, const GTransform &transform, uint8_t viewId) const {
+    void GMesh::submit(bgfx::ProgramHandle program, const Transform &transform, uint8_t viewId) const {
         if (m_groups.empty() || !bgfx::isValid(program)) {
             return;
         }

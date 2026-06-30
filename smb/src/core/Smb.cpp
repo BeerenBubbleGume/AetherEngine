@@ -5,6 +5,7 @@
 #include "core/Smb.hpp"
 
 #include "components/ICameraComponent.hpp"
+#include "components/IMaterialComponent.hpp"
 #include "components/IMeshComponent.hpp"
 #include "components/ITransformComponent.hpp"
 #include "math/UTypes.hpp"
@@ -55,7 +56,7 @@ namespace smb {
 
         auto player = ctx.scene.createEntity();
         ctx.scene.addComponent<engine::components::ITransformComponent>(player, engine::components::ITransformComponent {
-            .transform = engine::graphics::GTransform{
+            .transform = engine::graphics::Transform{
                 .position = {0.0f, 0.0f, 0.0f},
                 .rotation = TQuat::identity(),
                 .scale = {1.0f, 1.0f, 1.0f}
@@ -63,12 +64,17 @@ namespace smb {
         });
         ctx.scene.addComponent<engine::components::IMeshComponent>(player, engine::components::IMeshComponent {
             .mesh = mesh,
-            .program = program
+        });
+        ctx.scene.addComponent<engine::components::IMaterialComponent>(player, engine::components::IMaterialComponent {
+            .program = {
+                .program = program,
+                .baseColor = {0.0f, 0.0f, 1.0f, 1.0f}
+            }
         });
 
         auto secondBunny = ctx.scene.createEntity();
         ctx.scene.addComponent<engine::components::ITransformComponent>(secondBunny, engine::components::ITransformComponent {
-            .transform = engine::graphics::GTransform{
+            .transform = engine::graphics::Transform{
                 .position = {-5.0f, -5.0f, -5.0f},
                 .rotation = TQuat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, 30.0f) *
                             TQuat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, 40.0f),
@@ -77,7 +83,12 @@ namespace smb {
         });
         ctx.scene.addComponent<engine::components::IMeshComponent>(secondBunny, engine::components::IMeshComponent {
             .mesh = mesh,
-            .program = program
+        });
+        ctx.scene.addComponent<engine::components::IMaterialComponent>(secondBunny, engine::components::IMaterialComponent {
+            .program = {
+                .program = program,
+                .baseColor = {1.0f, 0.0f, 0.0f, 1.0f}
+            }
         });
 
         playerEntity = player;
@@ -128,6 +139,26 @@ namespace smb {
 
         t.rotation = (delta * t.rotation).normalized();
 
+        if (ctx.input.isMouseButtonDown(engine::systems::SYMouseButton::Right)) {
+            constexpr float sensitivity = 0.1f;
+
+            const float yaw = ctx.input.mouseDeltaX() * sensitivity;
+            const float pitch = ctx.input.mouseDeltaY() * sensitivity;
+
+            const auto mouseDelta =
+                TQuat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, yaw) *
+                TQuat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, pitch);
+
+            t.rotation = (mouseDelta * t.rotation).normalized();
+        }
+        if (ctx.input.mouseWheelY() != 0.0f) {
+            auto& camera = ctx.scene.getComponent<engine::components::ICameraComponent>(
+                ctx.scene.getActiveCamera()
+            );
+
+            camera.fovYDegrees -= ctx.input.mouseWheelY() * 2.0f;
+            camera.fovYDegrees = std::clamp(camera.fovYDegrees, 20.0f, 100.0f);
+        }
         if (ctx.input.wasActionPressed(engine::systems::SYInputAction::Reset)) {
             t.reset();
         }
