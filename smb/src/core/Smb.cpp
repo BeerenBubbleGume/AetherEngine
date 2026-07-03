@@ -11,6 +11,7 @@
 #include "components/IIdentityComponent.hpp"
 #include "components/IMaterialComponent.hpp"
 #include "components/IMeshComponent.hpp"
+#include "components/IPhysicsComponents.hpp"
 #include "components/ITransformComponent.hpp"
 #include "math/UTypes.hpp"
 
@@ -141,6 +142,8 @@ namespace smb {
             .vertexShaderPath = vertexShaderAssetPath.generic_string(),
             .fragmentShaderPath = fragmentShaderAssetPath.generic_string()
         });
+        ctx.scene.addComponent<engine::components::IColliderComponent>(secondBunny, engine::components::IColliderComponent {});
+        ctx.scene.addComponent<engine::components::IRigidbodyComponent>(secondBunny, engine::components::IRigidbodyComponent {});
         playerEntity = player;
         auto serializeResult = ctx.sceneSerializer.serializeScene(ctx.scene);
         if (!serializeResult) {

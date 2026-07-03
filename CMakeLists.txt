@@ -8,6 +8,7 @@ find_package(EnTT CONFIG REQUIRED)
 find_package(bgfx CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(unofficial-omniverse-physx-sdk CONFIG REQUIRED)
 
 if (MSVC)
     add_compile_options("/Zc:__cplusplus" "/Zc:preprocessor")
@@ -56,9 +57,12 @@ add_library(engine STATIC
         engine/headers/graphics/GTexture.hpp
         engine/src/systems/SySceneSerializerSystem.cpp
         engine/headers/systems/SySceneSerializerSystem.hpp
+        engine/headers/components/IPhysicsComponents.hpp
+        engine/src/systems/SyPhysicsSystem.cpp
+        engine/headers/systems/SyPhysicsSystem.hpp
 )
 
-target_include_directories(engine PUBLIC engine/headers PRIVATE vcpkg_installed/x64-windows/include)
+target_include_directories(engine PUBLIC engine/headers)
 
 if (MSVC)
     target_compile_options(engine PRIVATE "/Zc:__cplusplus" "/Zc:preprocessor")
@@ -103,6 +107,7 @@ target_link_libraries(engine PUBLIC
         bgfx::bgfx
         glm::glm
         nlohmann_json::nlohmann_json
+        unofficial::omniverse-physx-sdk::sdk
 )
 
 target_link_libraries(smb PRIVATE

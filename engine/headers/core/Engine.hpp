@@ -17,6 +17,7 @@
 #include "window/Window.hpp"
 #include "EngineContext.hpp"
 #include "IApplication.hpp"
+#include "systems/SyPhysicsSystem.hpp"
 #include "systems/SySceneSerializerSystem.hpp"
 
 namespace engine {
@@ -53,6 +54,7 @@ namespace engine {
         using SResourcePtr = std::unique_ptr<resources::RResourceManager, resources::RResourceManager::SResourceManagerDeleter>;
         using SCScenePtr = std::unique_ptr<scene::SCScene, scene::SCScene::SCSceneDeleter>;
         using SYSceneSerializerPtr = std::unique_ptr<systems::SYSceneSerializerSystem, systems::SYSceneSerializerSystem::SYSceneSerializerDeleter>;
+        using SYPhysicsPtr = std::unique_ptr<systems::SYPhysicsSystem, systems::SYPhysicsSystem::SYPhysicsSystemDeleter>;
         using Clock = std::chrono::steady_clock;
         using Duration = std::chrono::duration<float>;
         using TimePoint = Clock::time_point;
@@ -62,6 +64,7 @@ namespace engine {
         SResourcePtr sResource;
         SCScenePtr sScene;
         SYSceneSerializerPtr sSceneSerializer;
+        SYPhysicsPtr sPhysics;
 
         float accumulator = 0.0;
         const float FIXED_DT = 1.0 / 120.0;

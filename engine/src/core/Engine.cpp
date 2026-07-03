@@ -15,6 +15,7 @@ auto engine::Engine::initEngine() -> std::expected<void, core::EngineError> {
     sRender = systems::SYRenderSystem::createRenderSystem();
     sResource = resources::RResourceManager::createResourceManager();
     sSceneSerializer = systems::SYSceneSerializerSystem::createSceneSerializerSystem(std::filesystem::current_path() / "assets" / "scenes");
+    sPhysics = systems::SYPhysicsSystem::createPhysicsSystem();
     if (!sWindow) {
         return std::unexpected{core::EngineError{2, "Failed to create window"}};
     }
@@ -27,6 +28,12 @@ auto engine::Engine::initEngine() -> std::expected<void, core::EngineError> {
     if (!sResource) {
         return std::unexpected{core::EngineError{2, "Failed to create resource manager"}};
     }
+    if (!sSceneSerializer) {
+        return std::unexpected{core::EngineError{2, "Failed to create scene serializer system"}};
+    }
+    if (!sPhysics) {
+        return std::unexpected{core::EngineError{2, "Failed to create physics system"}};
+    }
     auto resultInitWindow = sWindow->initWindow("SMB Engine", 1440, 1080);
     if (!resultInitWindow) {
         std::cerr << "Failed to init window: " << resultInitWindow.error().message << std::endl;
@@ -36,6 +43,12 @@ auto engine::Engine::initEngine() -> std::expected<void, core::EngineError> {
     if (!resultInitRenderer) {
         std::cerr << "Failed to init renderer: " << resultInitRenderer.error().message << std::endl;
         return std::unexpected{core::EngineError{3, "Failed to init renderer"}};
+    }
+
+    auto physxInitResult = sPhysics->init();
+    if (!physxInitResult) {
+        std::cerr << "Failed to init physics: " << physxInitResult.error().message << std::endl;
+        return std::unexpected{core::EngineError{3, "Failed to init physics"}};
     }
     const auto assetsPath = std::filesystem::current_path() / "assets";
 
@@ -91,6 +104,7 @@ auto engine::Engine::run(core::IApplication &app) -> std::expected<void, core::E
         update(delta);
         processEvents();
         while (accumulator >= FIXED_DT) {
+            sPhysics->fixedUpdate(*sScene, FIXED_DT);
             accumulator -= FIXED_DT;
         }
         app.update(delta, ctx);

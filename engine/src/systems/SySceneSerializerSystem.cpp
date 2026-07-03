@@ -15,6 +15,7 @@
 #include "components/IIdentityComponent.hpp"
 #include "components/IMaterialComponent.hpp"
 #include "components/IMeshComponent.hpp"
+#include "components/IPhysicsComponents.hpp"
 #include "components/ITransformComponent.hpp"
 
 namespace {
@@ -222,6 +223,85 @@ namespace {
         };
     }
 
+    auto serializeColliderType(engine::components::ColliderType type) -> std::string_view {
+        switch (type) {
+            case engine::components::ColliderType::Box:
+                return "Box";
+            case engine::components::ColliderType::Sphere:
+                return "Sphere";
+            case engine::components::ColliderType::Capsule:
+                return "Capsule";
+        }
+
+        return "Box";
+    }
+
+    auto deserializeColliderType(const Json& value, engine::components::ColliderType fallback) -> engine::components::ColliderType {
+        if (value.is_number_integer()) {
+            switch (static_cast<engine::components::ColliderType>(value.get<int>())) {
+                case engine::components::ColliderType::Box:
+                    return engine::components::ColliderType::Box;
+                case engine::components::ColliderType::Sphere:
+                    return engine::components::ColliderType::Sphere;
+                case engine::components::ColliderType::Capsule:
+                    return engine::components::ColliderType::Capsule;
+            }
+        }
+
+        if (!value.is_string()) {
+            return fallback;
+        }
+
+        const auto type = value.get<std::string>();
+        if (type == "Box") {
+            return engine::components::ColliderType::Box;
+        }
+        if (type == "Sphere") {
+            return engine::components::ColliderType::Sphere;
+        }
+        if (type == "Capsule") {
+            return engine::components::ColliderType::Capsule;
+        }
+
+        return fallback;
+    }
+
+    auto serializeRigidbody(const engine::components::IRigidbodyComponent& component) -> Json {
+        return Json{
+            {"dynamic", component.dynamic},
+            {"mass", component.mass},
+            {"useGravity", component.useGravity}
+        };
+    }
+
+    auto deserializeRigidbody(const Json& value) -> engine::components::IRigidbodyComponent {
+        engine::components::IRigidbodyComponent component{};
+        component.dynamic = value.value("dynamic", component.dynamic);
+        component.mass = value.value("mass", component.mass);
+        component.useGravity = value.value("useGravity", component.useGravity);
+        return component;
+    }
+
+    auto serializeCollider(const engine::components::IColliderComponent& component) -> Json {
+        return Json{
+            {"type", std::string{serializeColliderType(component.type)}},
+            {"size", serializeVec3(component.size)},
+            {"radius", component.radius},
+            {"height", component.height},
+            {"trigger", component.trigger}
+        };
+    }
+
+    auto deserializeCollider(const Json& value) -> engine::components::IColliderComponent {
+        engine::components::IColliderComponent component{};
+        component.type = deserializeColliderType(value.value("type", Json{}), component.type);
+        component.size = deserializeVec3(value.value("size", Json::array()), component.size);
+        component.radius = value.value("radius", component.radius);
+        component.height = value.value("height", component.height);
+        component.trigger = value.value("trigger", component.trigger);
+        return component;
+    }
+
     auto makeFallbackEntityId(entt::entity entity) -> std::string {
         return "entity-" + std::to_string(entt::to_integral(entity));
     }
@@ -276,6 +356,12 @@ auto engine::systems::SYSceneSerializerSystem::serializeScene(const scene::SCSce
             }
             if (const auto* material = registry.try_get<components::IMaterialComponent>(entityHandle)) {
                 entityBody["components"]["Material"] = serializeMaterial(*material);
+            }
+            if (const auto* rigidbody = registry.try_get<components::IRigidbodyComponent>(entityHandle)) {
+                entityBody["components"]["Rigidbody"] = serializeRigidbody(*rigidbody);
+            }
+            if (const auto* collider = registry.try_get<components::IColliderComponent>(entityHandle)) {
+                entityBody["components"]["Collider"] = serializeCollider(*collider);
             }
 
             sceneBody["entities"].push_back(std::move(entityBody));
@@ -377,6 +463,18 @@ auto engine::systems::SYSceneSerializerSystem::deserializeScene(
             scene->addComponent<components::IMaterialComponent>(
                 entity,
                 deserializeMaterial(componentsBody.at("Material"), context)
+            );
+        }
+        if (componentsBody.contains("Rigidbody")) {
+            scene->addComponent<components::IRigidbodyComponent>(
+                entity,
+                deserializeRigidbody(componentsBody.at("Rigidbody"))
+            );
+        }
+        if (componentsBody.contains("Collider")) {
+            scene->addComponent<components::IColliderComponent>(
+                entity,
+                deserializeCollider(componentsBody.at("Collider"))
             );
         }
     }
