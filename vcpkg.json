@@ -6,8 +6,9 @@
     "entt",
     "glm",
     "imgui",
+    "physx",
     "sdl3",
     "shaderc",
-    "physx"
+    "nlohmann-json"
   ]
 }

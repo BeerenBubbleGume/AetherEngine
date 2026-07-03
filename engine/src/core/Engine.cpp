@@ -14,7 +14,7 @@ auto engine::Engine::initEngine() -> std::expected<void, core::EngineError> {
     sInput = systems::SYInputSystem::createInputSystem();
     sRender = systems::SYRenderSystem::createRenderSystem();
     sResource = resources::RResourceManager::createResourceManager();
-    sScene = scene::SCScene::createScene();
+    sSceneSerializer = systems::SYSceneSerializerSystem::createSceneSerializerSystem(std::filesystem::current_path() / "assets" / "scenes");
     if (!sWindow) {
         return std::unexpected{core::EngineError{2, "Failed to create window"}};
     }
@@ -27,9 +27,6 @@ auto engine::Engine::initEngine() -> std::expected<void, core::EngineError> {
     if (!sResource) {
         return std::unexpected{core::EngineError{2, "Failed to create resource manager"}};
     }
-    if (!sScene) {
-        return std::unexpected{core::EngineError{2, "Failed to create scene"}};
-    }
     auto resultInitWindow = sWindow->initWindow("SMB Engine", 1440, 1080);
     if (!resultInitWindow) {
         std::cerr << "Failed to init window: " << resultInitWindow.error().message << std::endl;
@@ -40,6 +37,27 @@ auto engine::Engine::initEngine() -> std::expected<void, core::EngineError> {
         std::cerr << "Failed to init renderer: " << resultInitRenderer.error().message << std::endl;
         return std::unexpected{core::EngineError{3, "Failed to init renderer"}};
     }
+    const auto assetsPath = std::filesystem::current_path() / "assets";
+
+    try {
+        auto loadedScene = sSceneSerializer->deserializeScene(
+        "DefaultScene",
+        {
+            .resources = sResource.get(),
+            .assetsRoot = assetsPath
+        }
+    );
+
+        if (loadedScene) {
+            sScene = std::move(loadedScene.value());
+        } else {
+            sScene = scene::SCScene::createScene("DefaultScene");
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to load scene: " << e.what() << std::endl;
+        return std::unexpected{core::EngineError{3, "Failed to load scene"}};
+    }
+
     return std::expected<void, core::EngineError>{};
 }
 
@@ -53,11 +71,11 @@ auto engine::Engine::run(core::IApplication &app) -> std::expected<void, core::E
         .scene = *sScene,
         .resources = *sResource,
         .input = *sInput,
+        .sceneSerializer = *sSceneSerializer,
         .window = *sWindow,
         .paths = {assetsPath, assetsPath / "shaders"},
         .requestQuit = [&]() { isRunning = false; }
     };
-
     auto appInitResult = app.init(ctx);
     if (!appInitResult) {
         std::cerr << "Failed to init application: " << appInitResult.error().message << std::endl;

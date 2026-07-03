@@ -10,6 +10,7 @@
 
 #include "scene/SCScene.hpp"
 #include "systems/SYInputSystem.hpp"
+#include "systems/SySceneSerializerSystem.hpp"
 #include "window/Window.hpp"
 
 namespace engine::core {
@@ -27,6 +28,7 @@ namespace engine::core {
         scene::SCScene& scene;
         resources::RResourceManager& resources;
         systems::SYInputSystem& input;
+        systems::SYSceneSerializerSystem& sceneSerializer;
 
         const Window& window;
         const EnginePaths& paths;

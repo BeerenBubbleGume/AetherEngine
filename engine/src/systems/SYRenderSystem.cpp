@@ -42,8 +42,8 @@ namespace engine::systems {
             auto& meshComponent = renderables.get<engine::components::IMeshComponent>(entity);
             auto& materialComponent = renderables.get<engine::components::IMaterialComponent>(entity);
             const auto* mesh = resourcesManager.getMesh(meshComponent.mesh);
-            const auto* program = resourcesManager.getProgram(materialComponent.program.program);
-            const auto& baseColor = materialComponent.program.baseColor;
+            const auto* program = resourcesManager.getProgram(materialComponent.material.program);
+            const auto& baseColor = materialComponent.material.baseColor;
             if (!mesh || !program) {
                 continue;
             }

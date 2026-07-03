@@ -4,7 +4,11 @@
 
 #include "core/Smb.hpp"
 
+#include <algorithm>
+#include <filesystem>
+
 #include "components/ICameraComponent.hpp"
+#include "components/IIdentityComponent.hpp"
 #include "components/IMaterialComponent.hpp"
 #include "components/IMeshComponent.hpp"
 #include "components/ITransformComponent.hpp"
@@ -17,26 +21,57 @@ namespace smb {
     }
 
     auto SMB::init(engine::core::EngineContext &ctx) -> std::expected<void, engine::core::EngineError> {
+        std::filesystem::path vertexShaderAssetPath;
+        std::filesystem::path fragmentShaderAssetPath;
+
+        ctx.input.bindKey(engine::systems::SYInputAction::MoveLeft, engine::systems::SYKey::A);
+        ctx.input.bindKey(engine::systems::SYInputAction::MoveRight, engine::systems::SYKey::D);
+        ctx.input.bindKey(engine::systems::SYInputAction::MoveForward, engine::systems::SYKey::W);
+        ctx.input.bindKey(engine::systems::SYInputAction::MoveBackward, engine::systems::SYKey::S);
+        ctx.input.bindKey(engine::systems::SYInputAction::RotateLeft, engine::systems::SYKey::Left);
+        ctx.input.bindKey(engine::systems::SYInputAction::RotateRight, engine::systems::SYKey::Right);
+        ctx.input.bindKey(engine::systems::SYInputAction::LookUp, engine::systems::SYKey::Up);
+        ctx.input.bindKey(engine::systems::SYInputAction::LookDown, engine::systems::SYKey::Down);
+        ctx.input.bindKey(engine::systems::SYInputAction::Reset, engine::systems::SYKey::R);
+        ctx.input.bindKey(engine::systems::SYInputAction::Quit, engine::systems::SYKey::Escape);
+        if (!ctx.scene.isEmpty()) {
+            auto player = ctx.scene.findEntityById("player");
+            if (!player) {
+                return std::unexpected(engine::core::EngineError{1, "Failed to find player entity"});
+            }
+            playerEntity = player;
+            return {};
+        }
 #ifdef WIN32
-        auto program = ctx.resources.loadProgram("basic", (ctx.paths.shadersRoot/"bin/win32/basic_vs.bin").string(),
-            (ctx.paths.shadersRoot/"bin/win32/basic_fs.bin").string());
+        vertexShaderAssetPath = "shaders/bin/win32/basic_vs.bin";
+        fragmentShaderAssetPath = "shaders/bin/win32/basic_fs.bin";
 #elif __APPLE__
-        auto program = ctx.resources.loadProgram("basic", (ctx.paths.shadersRoot/"bin/osx_arm/basic_vs.bin").string(),
-            (ctx.paths.shadersRoot/"bin/osx_arm/basic_fs.bin").string());
+        vertexShaderAssetPath = "shaders/bin/osx_arm/basic_vs.bin";
+        fragmentShaderAssetPath = "shaders/bin/osx_arm/basic_fs.bin";
 #elif __linux__
-        auto program = ctx.resources.loadProgram("basic", (ctx.paths.shadersRoot/"bin/osx_arm/basic_vs.bin").string(),
-            (ctx.paths.shadersRoot/"bin/osx_arm/basic_fs.bin").string());
+        vertexShaderAssetPath = "shaders/bin/osx_arm/basic_vs.bin";
+        fragmentShaderAssetPath = "shaders/bin/osx_arm/basic_fs.bin";
 #endif
+        auto program = ctx.resources.loadProgram(
+            "basic",
+            (ctx.paths.assetsRoot / vertexShaderAssetPath).string(),
+            (ctx.paths.assetsRoot / fragmentShaderAssetPath).string()
+        );
         if (!program.isValid()) {
             return std::unexpected(engine::core::EngineError{1, "Failed to load shader program"});
         }
 
-        auto mesh = ctx.resources.loadMesh((ctx.paths.assetsRoot / "meshes/bin/bunny.bin").string());
+        const std::filesystem::path bunnyMeshAssetPath{"meshes/bin/bunny.bin"};
+        auto mesh = ctx.resources.loadMesh((ctx.paths.assetsRoot / bunnyMeshAssetPath).string());
 
         if (!mesh.isValid()) {
             return std::unexpected(engine::core::EngineError{1, "Failed to load bunny mesh"});
         }
         auto camera = ctx.scene.createEntity();
+        ctx.scene.addComponent<engine::components::IIdentityComponent>(camera, engine::components::IIdentityComponent{
+            .id = "camera",
+            .name = "Camera"
+        });
 
         ctx.scene.addComponent<engine::components::ITransformComponent>(camera, engine::components::ITransformComponent{
             .transform = {
@@ -55,6 +90,10 @@ namespace smb {
         ctx.scene.setActiveCamera(camera);
 
         auto player = ctx.scene.createEntity();
+        ctx.scene.addComponent<engine::components::IIdentityComponent>(player, engine::components::IIdentityComponent{
+            .id = "player",
+            .name = "Player"
+        });
         ctx.scene.addComponent<engine::components::ITransformComponent>(player, engine::components::ITransformComponent {
             .transform = engine::graphics::Transform{
                 .position = {0.0f, 0.0f, 0.0f},
@@ -64,15 +103,23 @@ namespace smb {
         });
         ctx.scene.addComponent<engine::components::IMeshComponent>(player, engine::components::IMeshComponent {
             .mesh = mesh,
+            .assetPath = bunnyMeshAssetPath.generic_string()
         });
         ctx.scene.addComponent<engine::components::IMaterialComponent>(player, engine::components::IMaterialComponent {
-            .program = {
+            .material = {
                 .program = program,
                 .baseColor = {0.0f, 0.0f, 1.0f, 1.0f}
-            }
+            },
+            .programName = "basic",
+            .vertexShaderPath = vertexShaderAssetPath.generic_string(),
+            .fragmentShaderPath = fragmentShaderAssetPath.generic_string()
         });
 
         auto secondBunny = ctx.scene.createEntity();
+        ctx.scene.addComponent<engine::components::IIdentityComponent>(secondBunny, engine::components::IIdentityComponent{
+            .id = "second_bunny",
+            .name = "Second Bunny"
+        });
         ctx.scene.addComponent<engine::components::ITransformComponent>(secondBunny, engine::components::ITransformComponent {
             .transform = engine::graphics::Transform{
                 .position = {-5.0f, -5.0f, -5.0f},
@@ -83,26 +130,22 @@ namespace smb {
         });
         ctx.scene.addComponent<engine::components::IMeshComponent>(secondBunny, engine::components::IMeshComponent {
             .mesh = mesh,
+            .assetPath = bunnyMeshAssetPath.generic_string()
         });
         ctx.scene.addComponent<engine::components::IMaterialComponent>(secondBunny, engine::components::IMaterialComponent {
-            .program = {
+            .material = {
                 .program = program,
                 .baseColor = {1.0f, 0.0f, 0.0f, 1.0f}
-            }
+            },
+            .programName = "basic",
+            .vertexShaderPath = vertexShaderAssetPath.generic_string(),
+            .fragmentShaderPath = fragmentShaderAssetPath.generic_string()
         });
-
         playerEntity = player;
-        ctx.input.bindKey(engine::systems::SYInputAction::MoveLeft, engine::systems::SYKey::A);
-        ctx.input.bindKey(engine::systems::SYInputAction::MoveRight, engine::systems::SYKey::D);
-        ctx.input.bindKey(engine::systems::SYInputAction::MoveForward, engine::systems::SYKey::W);
-        ctx.input.bindKey(engine::systems::SYInputAction::MoveBackward, engine::systems::SYKey::S);
-        ctx.input.bindKey(engine::systems::SYInputAction::RotateLeft, engine::systems::SYKey::Left);
-        ctx.input.bindKey(engine::systems::SYInputAction::RotateRight, engine::systems::SYKey::Right);
-        ctx.input.bindKey(engine::systems::SYInputAction::LookUp, engine::systems::SYKey::Up);
-        ctx.input.bindKey(engine::systems::SYInputAction::LookDown, engine::systems::SYKey::Down);
-        ctx.input.bindKey(engine::systems::SYInputAction::Reset, engine::systems::SYKey::R);
-        ctx.input.bindKey(engine::systems::SYInputAction::Quit, engine::systems::SYKey::Escape);
-
+        auto serializeResult = ctx.sceneSerializer.serializeScene(ctx.scene);
+        if (!serializeResult) {
+            return std::unexpected(engine::core::EngineError{1, serializeResult.error().message});
+        }
         return {};
     }
 

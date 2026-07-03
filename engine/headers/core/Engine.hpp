@@ -17,6 +17,7 @@
 #include "window/Window.hpp"
 #include "EngineContext.hpp"
 #include "IApplication.hpp"
+#include "systems/SySceneSerializerSystem.hpp"
 
 namespace engine {
     class Engine final {
@@ -42,8 +43,6 @@ namespace engine {
 
         bool isRunning{false};
 
-        [[nodiscard]] auto render() -> std::expected<void, core::EngineError>;
-
         auto processEvents() -> void;
         auto update(float delta) const -> void;
 
@@ -53,6 +52,7 @@ namespace engine {
         using SRenderPtr = std::unique_ptr<systems::SYRenderSystem, systems::SYRenderSystem::SRenderSystemDeleter>;
         using SResourcePtr = std::unique_ptr<resources::RResourceManager, resources::RResourceManager::SResourceManagerDeleter>;
         using SCScenePtr = std::unique_ptr<scene::SCScene, scene::SCScene::SCSceneDeleter>;
+        using SYSceneSerializerPtr = std::unique_ptr<systems::SYSceneSerializerSystem, systems::SYSceneSerializerSystem::SYSceneSerializerDeleter>;
         using Clock = std::chrono::steady_clock;
         using Duration = std::chrono::duration<float>;
         using TimePoint = Clock::time_point;
@@ -61,6 +61,7 @@ namespace engine {
         SRenderPtr sRender;
         SResourcePtr sResource;
         SCScenePtr sScene;
+        SYSceneSerializerPtr sSceneSerializer;
 
         float accumulator = 0.0;
         const float FIXED_DT = 1.0 / 120.0;

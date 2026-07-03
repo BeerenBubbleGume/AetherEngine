@@ -15,6 +15,9 @@
 #include "resources/RResourceManager.hpp"
 #include "Entity.hpp"
 
+namespace engine::systems {class SYSceneSerializerSystem;}
+namespace engine::components {struct IIdentityComponent;}
+
 namespace engine::scene {
     class SCScene {
     public:
@@ -29,6 +32,10 @@ namespace engine::scene {
 
 
         static SScenePtr createScene();
+        static SScenePtr createScene(std::string_view name);
+
+        [[nodiscard]] auto getName() const -> std::string_view;
+        [[nodiscard]] auto isEmpty() const -> bool;
         auto createEntity() -> Entity;
 
         template<typename T, typename... Args>
@@ -43,11 +50,17 @@ namespace engine::scene {
 
         auto setActiveCamera(Entity camera) -> void;
         [[nodiscard]] auto getActiveCamera() const -> Entity;
+        auto findEntityById(std::string_view id) -> std::optional<Entity>;
     private:
+        friend class systems::SYSceneSerializerSystem;
+
+        [[nodiscard]] auto getRegistry() const -> const entt::registry &;
+        SCScene(std::string_view name);
         SCScene() = default;
         ~SCScene() = default;
         entt::registry m_registry;
         std::optional<Entity> m_activeCamera;
+        const std::string m_name;
     };
 
     template<typename T, typename ... Args>

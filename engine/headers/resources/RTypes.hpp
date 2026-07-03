@@ -5,6 +5,8 @@
 #ifndef SMB_RTYPES_HPP
 #define SMB_RTYPES_HPP
 #include <cstdint>
+#include <vector>
+
 #include "math/UTypes.hpp"
 
 namespace engine::resources {

@@ -5,11 +5,14 @@
 #ifndef SMB_IMESHCOMPONENT_HPP
 #define SMB_IMESHCOMPONENT_HPP
 
+#include <string>
+
 #include "resources/RTypes.hpp"
 
 namespace engine::components {
     struct IMeshComponent {
         resources::RMeshHandle mesh;
+        std::string assetPath;
     };
 }
 

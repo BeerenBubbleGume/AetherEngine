@@ -7,6 +7,7 @@ find_package(SDL3 CONFIG REQUIRED)
 find_package(EnTT CONFIG REQUIRED)
 find_package(bgfx CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 if (MSVC)
     add_compile_options("/Zc:__cplusplus" "/Zc:preprocessor")
@@ -40,6 +41,7 @@ add_library(engine STATIC
         engine/headers/components/ICameraComponent.hpp
         engine/headers/components/IMeshComponent.hpp
         engine/headers/components/ITransformComponent.hpp
+        engine/headers/components/IIdentityComponent.hpp
         engine/headers/scene/Entity.hpp
         engine/src/math/UTypes.cpp
         engine/headers/math/UTypes.hpp
@@ -52,9 +54,11 @@ add_library(engine STATIC
         engine/headers/resources/RTypes.hpp
         engine/src/graphics/GTexture.cpp
         engine/headers/graphics/GTexture.hpp
+        engine/src/systems/SySceneSerializerSystem.cpp
+        engine/headers/systems/SySceneSerializerSystem.hpp
 )
 
-target_include_directories(engine PUBLIC engine/headers)
+target_include_directories(engine PUBLIC engine/headers PRIVATE vcpkg_installed/x64-windows/include)
 
 if (MSVC)
     target_compile_options(engine PRIVATE "/Zc:__cplusplus" "/Zc:preprocessor")
@@ -98,6 +102,7 @@ target_link_libraries(engine PUBLIC
         EnTT::EnTT
         bgfx::bgfx
         glm::glm
+        nlohmann_json::nlohmann_json
 )
 
 target_link_libraries(smb PRIVATE

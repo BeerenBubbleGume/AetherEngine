@@ -5,11 +5,16 @@
 #ifndef SMB_IMATERIALCOMPONENT_HPP
 #define SMB_IMATERIALCOMPONENT_HPP
 
+#include <string>
+
 #include "resources/RTypes.hpp"
 
 namespace engine::components {
     struct IMaterialComponent {
-        resources::RMaterialHandle program;
+        resources::RMaterialHandle material;
+        std::string programName;
+        std::string vertexShaderPath;
+        std::string fragmentShaderPath;
     };
 }
 
