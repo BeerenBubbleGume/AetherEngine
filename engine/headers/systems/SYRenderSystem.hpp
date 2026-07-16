@@ -10,19 +10,12 @@
 #include <string>
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
-#include <bx/math.h>
 #include <SDL3/SDL_video.h>
-#include <fstream>
-#include "graphics/GMesh.hpp"
 
-#include "graphics/GProgram.hpp"
-
+#include "graphics/GRenderTarget.hpp"
+#include "graphics/GSceneView.hpp"
 #include "resources/RResourceManager.hpp"
 #include "scene/SCScene.hpp"
-#include "components/ICameraComponent.hpp"
-#include "components/IMeshComponent.hpp"
-#include "components/ITransformComponent.hpp"
-#include "math/CameraMatricies.hpp"
 
 namespace engine::systems {
     struct SRenderSystemError {
@@ -42,16 +35,26 @@ namespace engine::systems {
         };
         using SRenderSystemPtr = std::unique_ptr<SYRenderSystem, SRenderSystemDeleter>;
         static SRenderSystemPtr createRenderSystem();
-        void render(scene::SCScene &scene, const resources::RResourceManager& recourceManager);
+        auto beginFrame() -> void;
+        auto renderScene(
+            scene::SCScene& scene,
+            const resources::RResourceManager& resourceManager,
+            const graphics::SceneView& view
+        ) -> void;
+        auto endFrame() -> void;
+
+        [[nodiscard]] auto backbufferExtent() const -> graphics::RenderExtent;
 
         [[nodiscard]] auto init(SDL_Window& window) -> std::expected<void, SRenderSystemError>;
     private:
         SYRenderSystem() = default;
-        ~SYRenderSystem() = default;
+        ~SYRenderSystem();
 
-        SDL_Window*                             rWindow{};
-        int mCurrentWidth {};
-        int mCurrentHeight {};
+        SDL_Window* rWindow{};
+        bgfx::UniformHandle m_colorUniform = BGFX_INVALID_HANDLE;
+        bgfx::UniformHandle m_samplerUniform = BGFX_INVALID_HANDLE;
+        int mCurrentWidth{};
+        int mCurrentHeight{};
     };
 }
 

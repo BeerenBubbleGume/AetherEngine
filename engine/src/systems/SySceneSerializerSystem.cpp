@@ -114,7 +114,6 @@ namespace {
             {"orthographicHeight", component.orthographicHeight},
             {"clearFlags", component.clearFlags},
             {"clearColor", component.clearColor},
-            {"viewId", component.viewId},
             {"priority", component.priority},
             {"layerMask", component.layerMask}
         };
@@ -132,7 +131,6 @@ namespace {
         component.orthographicHeight = value.value("orthographicHeight", component.orthographicHeight);
         component.clearFlags = value.value("clearFlags", component.clearFlags);
         component.clearColor = value.value("clearColor", component.clearColor);
-        component.viewId = value.value("viewId", component.viewId);
         component.priority = value.value("priority", component.priority);
         component.layerMask = value.value("layerMask", component.layerMask);
         return component;
@@ -148,6 +146,35 @@ namespace {
             {"alphaBlend", value.alphaBlend},
             {"msaa", value.msaa}
         };
+    }
+
+    auto serializeTexturePaths(const std::vector<std::string>& texturePaths) -> Json {
+        Json jsonTextures = Json::array();
+        for (const auto& texturePath : texturePaths) {
+            jsonTextures.push_back(texturePath);
+        }
+        return jsonTextures;
+    }
+
+    auto deserializeTexturePaths(const Json& value) -> std::vector<std::string> {
+        std::vector<std::string> texturePaths;
+
+        if (value.is_string()) {
+            texturePaths.push_back(value.get<std::string>());
+            return texturePaths;
+        }
+
+        if (!value.is_array()) {
+            return texturePaths;
+        }
+
+        for (const auto& texturePath : value) {
+            if (texturePath.is_string()) {
+                texturePaths.push_back(texturePath.get<std::string>());
+            }
+        }
+
+        return texturePaths;
     }
 
     auto deserializeRenderState(const Json& value) -> engine::resources::RRenderState {
@@ -189,7 +216,8 @@ namespace {
             {"vertexShaderPath", component.vertexShaderPath},
             {"fragmentShaderPath", component.fragmentShaderPath},
             {"baseColor", serializeColor(component.material.baseColor)},
-            {"renderState", serializeRenderState(component.material.renderState)}
+            {"renderState", serializeRenderState(component.material.renderState)},
+            {"textures", serializeTexturePaths(component.texturePaths)}
         };
     }
 
@@ -200,6 +228,12 @@ namespace {
         const auto programName = value.value("programName", std::string{});
         const auto vertexShaderPath = value.value("vertexShaderPath", std::string{});
         const auto fragmentShaderPath = value.value("fragmentShaderPath", std::string{});
+        std::vector<std::string> texturePaths;
+        if (value.contains("textures")) {
+            texturePaths = deserializeTexturePaths(value.at("textures"));
+        } else if (value.contains("texturePaths")) {
+            texturePaths = deserializeTexturePaths(value.at("texturePaths"));
+        }
 
         engine::resources::RProgramHandle program{};
         if (context.resources && !programName.empty() && !vertexShaderPath.empty() && !fragmentShaderPath.empty()) {
@@ -214,12 +248,27 @@ namespace {
         material.program = program;
         material.baseColor = deserializeColor(value.value("baseColor", Json::array()), material.baseColor);
         material.renderState = deserializeRenderState(value.value("renderState", Json::object()));
+        if (context.resources) {
+            for (const auto& texturePath : texturePaths) {
+                if (texturePath.empty()) {
+                    continue;
+                }
+
+                auto texture = context.resources->loadTexture(
+                    resolveAssetPath(context.assetsRoot, texturePath).string()
+                );
+                if (texture.isValid()) {
+                    material.textures.push_back(texture);
+                }
+            }
+        }
 
         return {
             .material = material,
             .programName = programName,
             .vertexShaderPath = vertexShaderPath,
-            .fragmentShaderPath = fragmentShaderPath
+            .fragmentShaderPath = fragmentShaderPath,
+            .texturePaths = std::move(texturePaths)
         };
     }
 

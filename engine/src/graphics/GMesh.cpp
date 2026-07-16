@@ -222,8 +222,16 @@ namespace engine::graphics {
         return {};
     }
 
-    void GMesh::submit(bgfx::ProgramHandle program, const Transform &transform, uint8_t viewId) const {
-        if (m_groups.empty() || !bgfx::isValid(program)) {
+    void GMesh::submit(
+        bgfx::ProgramHandle program,
+        bgfx::UniformHandle colorUniform,
+        bgfx::UniformHandle samplerUniform,
+        bgfx::TextureHandle texture,
+        const Transform &transform,
+        math::TColor baseColor,
+        bgfx::ViewId viewId, uint64_t stage
+    ) const {
+        if (m_groups.empty() || !bgfx::isValid(program) || !bgfx::isValid(texture)) {
             return;
         }
 
@@ -235,18 +243,15 @@ namespace engine::graphics {
             }
 
             bgfx::setTransform(model.data());
-            bgfx::setState(BGFX_STATE_WRITE_RGB |
-                BGFX_STATE_WRITE_A |
-                BGFX_STATE_WRITE_Z |
-                BGFX_STATE_DEPTH_TEST_LESS |
-                BGFX_STATE_MSAA
-            );
-
+            bgfx::setState(stage);
             bgfx::setVertexBuffer(0, group.vbh);
+
             if (bgfx::isValid(group.ibh)) {
                 bgfx::setIndexBuffer(group.ibh);
             }
-
+            float color[4] = {baseColor.r, baseColor.g, baseColor.b, baseColor.a};
+            bgfx::setUniform(colorUniform, color);
+            bgfx::setTexture(0, samplerUniform, texture);
             bgfx::submit(viewId, program);
         }
     }

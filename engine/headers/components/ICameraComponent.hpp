@@ -13,9 +13,9 @@ namespace engine::components {
     };
     enum CameraClearFlags {
         ClearNone = 0,
-        ClearColor = 1,
-        ClearDepth = 2,
-        ClearStencil = 3
+        ClearColor = 1 << 0,
+        ClearDepth = 1 << 1,
+        ClearStencil = 1 << 2
     };
     struct ICameraComponent {
         bool enabled = true;
@@ -30,7 +30,6 @@ namespace engine::components {
         uint8_t clearFlags{ClearColor | ClearDepth};
         uint32_t clearColor{0x303030ff};
 
-        uint16_t viewId{0};
         int priority{0};
 
         uint32_t layerMask{0xffffffff};

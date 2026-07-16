@@ -16,25 +16,30 @@ engine::graphics::GTexture::GTexture(GTexture &&other) noexcept {
     m_flags = other.m_flags;
     m_width = other.m_width;
     m_height = other.m_height;
-    if (bgfx::isValid(other.m_handle)) {
-        bgfx::destroy(other.m_handle);
-    }
+
     other.m_handle = BGFX_INVALID_HANDLE;
+    other.m_format = bgfx::TextureFormat::Count;
+    other.m_flags = 0;
     other.m_width = 0;
     other.m_height = 0;
 }
 
 engine::graphics::GTexture & engine::graphics::GTexture::operator=(GTexture &&other) noexcept {
+    if (this == &other) {
+        return *this;
+    }
+
+    destroyHandle();
+
     m_handle = other.m_handle;
     m_format = other.m_format;
     m_flags = other.m_flags;
-
-    if (bgfx::isValid(other.m_handle)) {
-        bgfx::destroy(other.m_handle);
-    }
-    other.m_handle = BGFX_INVALID_HANDLE;
     m_width = other.m_width;
     m_height = other.m_height;
+
+    other.m_handle = BGFX_INVALID_HANDLE;
+    other.m_format = bgfx::TextureFormat::Count;
+    other.m_flags = 0;
     other.m_width = 0;
     other.m_height = 0;
 
@@ -61,6 +66,8 @@ engine::graphics::GTexture::GTexture(bgfx::TextureHandle handle) : m_handle(hand
 }
 
 auto engine::graphics::GTexture::destroyHandle() -> void {
-    bgfx::destroy(m_handle);
+    if (bgfx::isValid(m_handle)) {
+        bgfx::destroy(m_handle);
+    }
     m_handle = BGFX_INVALID_HANDLE;
 }

@@ -5,7 +5,13 @@
     "bgfx",
     "entt",
     "glm",
-    "imgui",
+    {
+      "name": "imgui",
+      "features": [
+        "docking-experimental",
+        "sdl3-binding"
+      ]
+    },
     "physx",
     "sdl3",
     "shaderc",

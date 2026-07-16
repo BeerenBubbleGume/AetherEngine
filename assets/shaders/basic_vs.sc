@@ -1,5 +1,5 @@
-$input a_position, a_normal
-$output v_worldPos, v_normal
+$input a_position, a_normal, a_texcoord0
+$output v_worldPos, v_normal, v_texcoord0
 
 #include <bgfx_shader.sh>
 
@@ -11,4 +11,5 @@ void main()
     gl_Position = mul(u_viewProj, worldPos);
     v_worldPos = worldPos.xyz;
     v_normal = normalize(worldNormal.xyz);
+    v_texcoord0 = a_texcoord0;
 }

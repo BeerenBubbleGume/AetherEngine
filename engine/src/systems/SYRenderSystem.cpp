@@ -4,37 +4,115 @@
 
 #include "systems/SYRenderSystem.hpp"
 
-#include <complex>
+#include <algorithm>
 
 #include "components/IMaterialComponent.hpp"
+#include "components/IMeshComponent.hpp"
+#include "components/ITransformComponent.hpp"
+#include "graphics/GMesh.hpp"
 
 namespace engine::systems {
+    static uint64_t toBgfxState(const resources::RRenderState& renderState) {
+        uint64_t state = 0;
+
+        if (renderState.writeRgb) {
+            state |= BGFX_STATE_WRITE_RGB;
+        }
+        if (renderState.writeAlpha) {
+            state |= BGFX_STATE_WRITE_A;
+        }
+        if (renderState.writeDepth) {
+            state |= BGFX_STATE_WRITE_Z;
+        }
+        if (renderState.depthTest) {
+            state |= BGFX_STATE_DEPTH_TEST_LESS;
+        }
+        if (renderState.cullBackFaces) {
+            state |= BGFX_STATE_CULL_CW;
+        }
+        if (renderState.alphaBlend) {
+            state |= BGFX_STATE_BLEND_ALPHA;
+        }
+        if (renderState.msaa) {
+            state |= BGFX_STATE_MSAA;
+        }
+
+        return state;
+    }
+
     SYRenderSystem::SRenderSystemPtr SYRenderSystem::createRenderSystem() {
         return SRenderSystemPtr(new SYRenderSystem(), SRenderSystemDeleter{});
     }
 
-    void SYRenderSystem::render(scene::SCScene &scene, const resources::RResourceManager& resourcesManager) {
-        int width, height;
-        SDL_GetWindowSize(rWindow, &width, &height);
-        if (mCurrentHeight != height || mCurrentWidth != width) {
-            mCurrentHeight = height;
-            mCurrentWidth = width;
-            bgfx::reset(width, height, BGFX_RESET_VSYNC);
+    SYRenderSystem::~SYRenderSystem() {
+        if (bgfx::isValid(m_colorUniform)) {
+            bgfx::destroy(m_colorUniform);
         }
-        bgfx::setViewRect(0, 0, 0, uint16_t(width), uint16_t(height));
-        bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, 0x303030ff, 1.0f, 0);
+        if (bgfx::isValid(m_samplerUniform)) {
+            bgfx::destroy(m_samplerUniform);
+        }
+    }
 
-        const auto cameraEntity = scene.getActiveCamera();
-        const auto& cameraTransform = scene.getComponent<engine::components::ITransformComponent>(cameraEntity);
-        const auto& camera = scene.getComponent<engine::components::ICameraComponent>(cameraEntity);
+    auto SYRenderSystem::beginFrame() -> void {
+        int width = 0;
+        int height = 0;
+        if (!SDL_GetWindowSizeInPixels(rWindow, &width, &height)) {
+            return;
+        }
 
-        const auto view = math::CameraMatrices::makeView(cameraTransform);
-        const auto projection = math::CameraMatrices::makeProjection(camera, width, height);
+        width = std::max(width, 1);
+        height = std::max(height, 1);
+        if (mCurrentHeight == height && mCurrentWidth == width) {
+            return;
+        }
 
-        bgfx::setViewTransform(0, view.data(), projection.data());
-        bgfx::setViewMode(0, bgfx::ViewMode::Count);
+        mCurrentHeight = height;
+        mCurrentWidth = width;
+        bgfx::reset(
+            static_cast<uint32_t>(width),
+            static_cast<uint32_t>(height),
+            BGFX_RESET_VSYNC
+        );
+    }
 
-        bgfx::touch(0);
+    auto SYRenderSystem::renderScene(
+        scene::SCScene& scene,
+        const resources::RResourceManager& resourcesManager,
+        const graphics::SceneView& view
+    ) -> void {
+        if (view.target && !view.target->isValid()) {
+            return;
+        }
+
+        bgfx::FrameBufferHandle framebuffer = BGFX_INVALID_HANDLE;
+        if (view.target) {
+            framebuffer = view.target->framebuffer();
+        }
+        const auto viewportWidth = std::max<uint16_t>(view.viewport.width, 1);
+        const auto viewportHeight = std::max<uint16_t>(view.viewport.height, 1);
+
+        bgfx::setViewFrameBuffer(view.viewId, framebuffer);
+        bgfx::setViewRect(
+            view.viewId,
+            view.viewport.x,
+            view.viewport.y,
+            viewportWidth,
+            viewportHeight
+        );
+        bgfx::setViewClear(
+            view.viewId,
+            view.clearFlags,
+            view.clearColor,
+            view.clearDepth,
+            view.clearStencil
+        );
+        bgfx::setViewTransform(
+            view.viewId,
+            view.viewMatrix.data(),
+            view.projectionMatrix.data()
+        );
+        bgfx::setViewMode(view.viewId, bgfx::ViewMode::Default);
+        bgfx::touch(view.viewId);
 
         auto renderables = scene.view<engine::components::ITransformComponent, engine::components::IMeshComponent, engine::components::IMaterialComponent>();
         for (const auto entity : renderables) {
@@ -44,22 +122,47 @@ namespace engine::systems {
             const auto* mesh = resourcesManager.getMesh(meshComponent.mesh);
             const auto* program = resourcesManager.getProgram(materialComponent.material.program);
             const auto& baseColor = materialComponent.material.baseColor;
-            if (!mesh || !program) {
+            const auto& renderState = materialComponent.material.renderState;
+            if (!mesh || !program || materialComponent.material.textures.empty()) {
                 continue;
             }
+
+            const auto* texture = resourcesManager.getTexture(materialComponent.material.textures.front());
+            if (!texture || !texture->isValid()) {
+                continue;
+            }
+
             if (mesh->isValid()) {
-                mesh->submit(program->handle(), transform.transform, 0);
+                mesh->submit(
+                    program->handle(),
+                    m_colorUniform,
+                    m_samplerUniform,
+                    texture->handle(),
+                    transform.transform,
+                    baseColor,
+                    view.viewId,
+                    toBgfxState(renderState)
+                );
             }
         }
+    }
 
+    auto SYRenderSystem::endFrame() -> void {
         bgfx::frame();
+    }
+
+    auto SYRenderSystem::backbufferExtent() const -> graphics::RenderExtent {
+        return {
+            .width = static_cast<uint16_t>(std::max(mCurrentWidth, 1)),
+            .height = static_cast<uint16_t>(std::max(mCurrentHeight, 1))
+        };
     }
 
     auto SYRenderSystem::init(SDL_Window &window) -> std::expected<void, SRenderSystemError> {
         try {
             rWindow = &window;
             SDL_PropertiesID props = SDL_GetWindowProperties(rWindow);
-            bgfx::PlatformData pd;
+            bgfx::PlatformData pd{};
             bgfx::renderFrame();
 #if defined(SDL_PLATFORM_WIN32)
             pd.nwh = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
@@ -80,14 +183,19 @@ namespace engine::systems {
                 pd.nwh = SDL_GetProperty(props, SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr);
             }
 #endif
-            bgfx::Init init;
+            bgfx::Init init{};
 
             bgfx::setPlatformData(pd);
             init.platformData = pd;
             init.type = bgfx::RendererType::Count; // авто-выбор
 
-            int width, height;
-            SDL_GetWindowSize(rWindow, &width, &height);
+            int width = 0;
+            int height = 0;
+            if (!SDL_GetWindowSizeInPixels(rWindow, &width, &height)) {
+                return std::unexpected{SRenderSystemError{1, "Failed to get window size in pixels"}};
+            }
+            width = std::max(width, 1);
+            height = std::max(height, 1);
             init.resolution.width  = static_cast<uint32_t>(width);
             init.resolution.height = static_cast<uint32_t>(height);
             init.resolution.reset  = BGFX_RESET_VSYNC;
@@ -96,9 +204,13 @@ namespace engine::systems {
                 return std::unexpected{SRenderSystemError{1, "Failed to initialize bgfx"}};
             }
 
-            bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
-            bgfx::setViewRect(0, 0, 0, uint16_t(width), uint16_t(height));
-
+            mCurrentWidth = width;
+            mCurrentHeight = height;
+            m_colorUniform = bgfx::createUniform("u_baseColor", bgfx::UniformType::Vec4);
+            m_samplerUniform = bgfx::createUniform("s_albedo", bgfx::UniformType::Sampler);
+            if (!bgfx::isValid(m_colorUniform) || !bgfx::isValid(m_samplerUniform)) {
+                return std::unexpected{SRenderSystemError{1, "Failed to create renderer uniforms"}};
+            }
             return {};
         } catch (const std::exception& e) {
             return std::unexpected{SRenderSystemError{1, e.what()}};

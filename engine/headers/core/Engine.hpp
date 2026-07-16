@@ -44,7 +44,7 @@ namespace engine {
 
         bool isRunning{false};
 
-        auto processEvents() -> void;
+        auto processEvents(core::IApplication& app) -> void;
         auto update(float delta) const -> void;
 
 

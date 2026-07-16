@@ -13,12 +13,29 @@
 #include "components/IMeshComponent.hpp"
 #include "components/IPhysicsComponents.hpp"
 #include "components/ITransformComponent.hpp"
+#include "graphics/GSceneView.hpp"
+#include "math/CameraMatricies.hpp"
 #include "math/UTypes.hpp"
+#include "systems/SYRenderSystem.hpp"
 
 namespace smb {
     namespace {
         using engine::math::TQuat;
         using engine::math::TVec3;
+
+        auto toBgfxClearFlags(uint8_t cameraFlags) -> uint16_t {
+            uint16_t flags = 0;
+            if ((cameraFlags & engine::components::ClearColor) != 0) {
+                flags |= BGFX_CLEAR_COLOR;
+            }
+            if ((cameraFlags & engine::components::ClearDepth) != 0) {
+                flags |= BGFX_CLEAR_DEPTH;
+            }
+            if ((cameraFlags & engine::components::ClearStencil) != 0) {
+                flags |= BGFX_CLEAR_STENCIL;
+            }
+            return flags;
+        }
     }
 
     auto SMB::init(engine::core::EngineContext &ctx) -> std::expected<void, engine::core::EngineError> {
@@ -61,6 +78,8 @@ namespace smb {
         if (!program.isValid()) {
             return std::unexpected(engine::core::EngineError{1, "Failed to load shader program"});
         }
+        const std::filesystem::path brickTextureAssetPath{"textures/bin/brick.ktx"};
+        auto texture = ctx.resources.loadTexture((ctx.paths.assetsRoot / brickTextureAssetPath).string());
 
         const std::filesystem::path bunnyMeshAssetPath{"meshes/bin/bunny.bin"};
         auto mesh = ctx.resources.loadMesh((ctx.paths.assetsRoot / bunnyMeshAssetPath).string());
@@ -109,11 +128,13 @@ namespace smb {
         ctx.scene.addComponent<engine::components::IMaterialComponent>(player, engine::components::IMaterialComponent {
             .material = {
                 .program = program,
-                .baseColor = {0.0f, 0.0f, 1.0f, 1.0f}
+                .baseColor = {0.0f, 0.0f, 1.0f, 1.0f},
+                .textures = {texture}
             },
             .programName = "basic",
             .vertexShaderPath = vertexShaderAssetPath.generic_string(),
-            .fragmentShaderPath = fragmentShaderAssetPath.generic_string()
+            .fragmentShaderPath = fragmentShaderAssetPath.generic_string(),
+            .texturePaths = {brickTextureAssetPath.generic_string()}
         });
 
         auto secondBunny = ctx.scene.createEntity();
@@ -136,11 +157,13 @@ namespace smb {
         ctx.scene.addComponent<engine::components::IMaterialComponent>(secondBunny, engine::components::IMaterialComponent {
             .material = {
                 .program = program,
-                .baseColor = {1.0f, 0.0f, 0.0f, 1.0f}
+                .baseColor = {1.0f, 0.0f, 0.0f, 1.0f},
+                .textures = {texture}
             },
             .programName = "basic",
             .vertexShaderPath = vertexShaderAssetPath.generic_string(),
-            .fragmentShaderPath = fragmentShaderAssetPath.generic_string()
+            .fragmentShaderPath = fragmentShaderAssetPath.generic_string(),
+            .texturePaths = {brickTextureAssetPath.generic_string()}
         });
         ctx.scene.addComponent<engine::components::IColliderComponent>(secondBunny, engine::components::IColliderComponent {});
         ctx.scene.addComponent<engine::components::IRigidbodyComponent>(secondBunny, engine::components::IRigidbodyComponent {});
@@ -212,6 +235,33 @@ namespace smb {
         if (ctx.input.wasActionPressed(engine::systems::SYInputAction::Quit)) {
             ctx.requestQuit();
         }
+    }
+
+    auto SMB::render(engine::core::EngineContext& ctx) -> void {
+        const auto cameraEntity = ctx.scene.getActiveCamera();
+        if (!cameraEntity.isValid() ||
+            !ctx.scene.hasComponent<engine::components::ITransformComponent, engine::components::ICameraComponent>(cameraEntity)) {
+            return;
+        }
+
+        const auto extent = ctx.renderer.backbufferExtent();
+        const auto& cameraTransform = ctx.scene.getComponent<engine::components::ITransformComponent>(cameraEntity);
+        const auto& camera = ctx.scene.getComponent<engine::components::ICameraComponent>(cameraEntity);
+
+        const engine::graphics::SceneView view{
+            .viewId = 0,
+            .target = nullptr,
+            .viewMatrix = engine::math::CameraMatrices::makeView(cameraTransform),
+            .projectionMatrix = engine::math::CameraMatrices::makeProjection(camera, extent.width, extent.height),
+            .viewport = {
+                .width = extent.width,
+                .height = extent.height
+            },
+            .clearFlags = toBgfxClearFlags(camera.clearFlags),
+            .clearColor = camera.clearColor
+        };
+
+        ctx.renderer.renderScene(ctx.scene, ctx.resources, view);
     }
 
     auto SMB::run() -> void {

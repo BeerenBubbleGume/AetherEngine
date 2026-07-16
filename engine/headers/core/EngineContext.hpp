@@ -13,6 +13,8 @@
 #include "systems/SySceneSerializerSystem.hpp"
 #include "window/Window.hpp"
 
+namespace engine::systems { class SYRenderSystem; }
+
 namespace engine::core {
     class EngineError {
     public:
@@ -28,12 +30,17 @@ namespace engine::core {
         scene::SCScene& scene;
         resources::RResourceManager& resources;
         systems::SYInputSystem& input;
+        systems::SYRenderSystem& renderer;
         systems::SYSceneSerializerSystem& sceneSerializer;
 
         const Window& window;
         const EnginePaths& paths;
 
         std::function<void()> requestQuit;
+    };
+
+    struct EngineRunConfig {
+        bool updatePhysics{true};
     };
 } // core
 // engine

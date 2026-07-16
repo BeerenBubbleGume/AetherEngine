@@ -6,6 +6,7 @@
 #define SMB_IMATERIALCOMPONENT_HPP
 
 #include <string>
+#include <vector>
 
 #include "resources/RTypes.hpp"
 
@@ -15,6 +16,7 @@ namespace engine::components {
         std::string programName;
         std::string vertexShaderPath;
         std::string fragmentShaderPath;
+        std::vector<std::string> texturePaths;
     };
 }
 

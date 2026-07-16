@@ -28,8 +28,8 @@ namespace engine::graphics {
         std::string message;
     };
     struct GMeshGroup {
-        bgfx::VertexBufferHandle vbh = BGFX_INVALID_HANDLE;
-        bgfx::IndexBufferHandle ibh = BGFX_INVALID_HANDLE;
+        bgfx::VertexBufferHandle    vbh = BGFX_INVALID_HANDLE;
+        bgfx::IndexBufferHandle     ibh = BGFX_INVALID_HANDLE;
     };
     class GMesh {
     public:
@@ -48,13 +48,21 @@ namespace engine::graphics {
         );
 
         [[nodiscard]] auto loadFromBgfxGeometry(std::string_view filename) -> std::expected<void, GMeshError>;
-        void submit(bgfx::ProgramHandle program, const Transform &transform, uint8_t viewId) const;
+        void submit(
+            bgfx::ProgramHandle program,
+            bgfx::UniformHandle colorUniform,
+            bgfx::UniformHandle samplerUniform,
+            bgfx::TextureHandle texture,
+            const Transform &transform,
+            math::TColor baseColor,
+            bgfx::ViewId viewId, uint64_t stage
+        ) const;
         [[nodiscard]] auto isValid() const -> bool;
     private:
         auto destroyHandles() -> void;
 
-        std::vector<GMeshGroup> m_groups;
-        bgfx::VertexLayout       m_layout;
+        std::vector<GMeshGroup>     m_groups;
+        bgfx::VertexLayout          m_layout;
     };
 } // graphics
 

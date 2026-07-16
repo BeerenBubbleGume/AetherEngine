@@ -84,6 +84,7 @@ auto engine::Engine::run(core::IApplication &app) -> std::expected<void, core::E
         .scene = *sScene,
         .resources = *sResource,
         .input = *sInput,
+        .renderer = *sRender,
         .sceneSerializer = *sSceneSerializer,
         .window = *sWindow,
         .paths = {assetsPath, assetsPath / "shaders"},
@@ -99,17 +100,26 @@ auto engine::Engine::run(core::IApplication &app) -> std::expected<void, core::E
         TimePoint now = Clock::now();
         auto delta = std::chrono::duration<float>(now - lastTime).count();
         lastTime = now;
+        auto runConfig = app.runConfig();
 
         accumulator += delta;
         update(delta);
-        processEvents();
-        while (accumulator >= FIXED_DT) {
-            sPhysics->fixedUpdate(*sScene, FIXED_DT);
-            accumulator -= FIXED_DT;
+        processEvents(app);
+        if (runConfig.updatePhysics) {
+            while (accumulator >= FIXED_DT) {
+                sPhysics->fixedUpdate(*sScene, FIXED_DT);
+                accumulator -= FIXED_DT;
+            }
+        } else {
+            accumulator = 0.f;
         }
+
         app.update(delta, ctx);
-        sRender->render(*sScene, *sResource);
+        sRender->beginFrame();
+        app.render(ctx);
+        sRender->endFrame();
     }
+    app.shutdown(ctx);
     return std::expected<void, core::EngineError>{};
 }
 
@@ -134,7 +144,7 @@ engine::Engine::~Engine() {
     SDL_Quit();
 }
 
-auto engine::Engine::processEvents() -> void {
+auto engine::Engine::processEvents(core::IApplication& app) -> void {
     SDL_Event event;
 
     while (SDL_PollEvent(&event))
@@ -143,6 +153,7 @@ auto engine::Engine::processEvents() -> void {
             isRunning = false;
         }
 
+        app.onEvent(event);
         sInput->processEvents(event);
     }
 }

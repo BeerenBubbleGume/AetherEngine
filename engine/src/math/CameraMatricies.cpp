@@ -30,14 +30,31 @@ namespace engine::math {
 
         const bgfx::Caps* caps = bgfx::getCaps();
 
-        bx::mtxProj(
-            projection.data(),
-            camera.fovYDegrees,
-            aspectRatio,
-            camera.nearPlane,
-            camera.farPlane,
-            caps->homogeneousDepth
-        );
+        if (camera.projection == components::ProjectionType::Orthographic) {
+            const float halfHeight = std::max(camera.orthographicHeight * 0.5f, 0.001f);
+            const float halfWidth = halfHeight * aspectRatio;
+            bx::mtxOrtho(
+                projection.data(),
+                -halfWidth,
+                halfWidth,
+                -halfHeight,
+                halfHeight,
+                camera.nearPlane,
+                camera.farPlane,
+                0.0f,
+                caps->homogeneousDepth,
+                bx::Handedness::Left
+            );
+        } else {
+            bx::mtxProj(
+                projection.data(),
+                camera.fovYDegrees,
+                aspectRatio,
+                camera.nearPlane,
+                camera.farPlane,
+                caps->homogeneousDepth
+            );
+        }
 
         return projection;
     }

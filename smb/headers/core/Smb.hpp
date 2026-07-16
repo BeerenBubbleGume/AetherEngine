@@ -21,6 +21,7 @@ namespace smb {
 
         auto init(engine::core::EngineContext& ctx) -> std::expected<void, engine::core::EngineError> override;
         auto update(float dt, engine::core::EngineContext& ctx) -> void override;
+        auto render(engine::core::EngineContext& ctx) -> void override;
 
         auto run() -> void;
 
