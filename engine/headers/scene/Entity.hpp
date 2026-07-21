@@ -8,10 +8,10 @@
 #include <entt/entity/entity.hpp>
 
 namespace engine::scene {
-    class SCScene;
+    class Scene;
     struct Entity {
         entt::entity handle{entt::null};
-        SCScene* scene{nullptr};
+        Scene* scene{nullptr};
 
         [[nodiscard]] bool isValid() const {
             return handle != entt::null && scene != nullptr;

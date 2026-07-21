@@ -8,12 +8,12 @@
 #include <filesystem>
 #include <functional>
 
-#include "scene/SCScene.hpp"
-#include "systems/SYInputSystem.hpp"
-#include "systems/SySceneSerializerSystem.hpp"
+#include "scene/Scene.hpp"
+#include "systems/InputSystem.hpp"
+#include "systems/SceneSerializer.hpp"
 #include "window/Window.hpp"
 
-namespace engine::systems { class SYRenderSystem; }
+namespace engine::systems { class RenderSystem; }
 
 namespace engine::core {
     class EngineError {
@@ -27,11 +27,11 @@ namespace engine::core {
     };
 
     struct EngineContext {
-        scene::SCScene& scene;
-        resources::RResourceManager& resources;
-        systems::SYInputSystem& input;
-        systems::SYRenderSystem& renderer;
-        systems::SYSceneSerializerSystem& sceneSerializer;
+        scene::Scene& scene;
+        resources::ResourceManager& resources;
+        systems::InputSystem& input;
+        systems::RenderSystem& renderer;
+        systems::SceneSerializer& sceneSerializer;
 
         const Window& window;
         const EnginePaths& paths;

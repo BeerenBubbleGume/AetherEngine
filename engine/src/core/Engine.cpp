@@ -11,11 +11,11 @@ auto engine::Engine::initEngine() -> std::expected<void, core::EngineError> {
         return std::unexpected{core::EngineError{1, "Failed to initialize SDL"}};
     }
     sWindow = Window::createWindow();
-    sInput = systems::SYInputSystem::createInputSystem();
-    sRender = systems::SYRenderSystem::createRenderSystem();
-    sResource = resources::RResourceManager::createResourceManager();
-    sSceneSerializer = systems::SYSceneSerializerSystem::createSceneSerializerSystem(std::filesystem::current_path() / "assets" / "scenes");
-    sPhysics = systems::SYPhysicsSystem::createPhysicsSystem();
+    sInput = systems::InputSystem::createInputSystem();
+    sRender = systems::RenderSystem::createRenderSystem();
+    sResource = resources::ResourceManager::createResourceManager();
+    sSceneSerializer = systems::SceneSerializer::createSceneSerializer(std::filesystem::current_path() / "assets" / "scenes");
+    sPhysics = systems::PhysicsSystem::createPhysicsSystem();
     if (!sWindow) {
         return std::unexpected{core::EngineError{2, "Failed to create window"}};
     }
@@ -64,7 +64,7 @@ auto engine::Engine::initEngine() -> std::expected<void, core::EngineError> {
         if (loadedScene) {
             sScene = std::move(loadedScene.value());
         } else {
-            sScene = scene::SCScene::createScene("DefaultScene");
+            sScene = scene::Scene::createScene("DefaultScene");
         }
     } catch (const std::exception& e) {
         std::cerr << "Failed to load scene: " << e.what() << std::endl;

@@ -23,48 +23,48 @@ add_library(engine STATIC
         engine/src/window/Window.cpp
         engine/src/core/Engine.cpp
         engine/headers/core/Engine.hpp
-        engine/src/systems/SYInputSystem.cpp
-        engine/headers/systems/SYInputSystem.hpp
+        engine/src/systems/InputSystem.cpp
+        engine/headers/systems/InputSystem.hpp
         engine/headers/interfaces/IUpdatable.hpp
-        engine/src/systems/SYRenderSystem.cpp
-        engine/headers/systems/SYRenderSystem.hpp
-        engine/src/graphics/GMesh.cpp
-        engine/headers/graphics/GMesh.hpp
-        engine/src/graphics/GProgram.cpp
-        engine/headers/graphics/GProgram.hpp
-        engine/src/resources/RResourceManager.cpp
-        engine/headers/resources/RResourceManager.hpp
-        engine/src/scene/SCScene.cpp
-        engine/headers/scene/SCScene.hpp
-        engine/src/scene/SCCamera.cpp
-        engine/headers/scene/SCCamera.hpp
+        engine/src/systems/RenderSystem.cpp
+        engine/headers/systems/RenderSystem.hpp
+        engine/src/graphics/Mesh.cpp
+        engine/headers/graphics/Mesh.hpp
+        engine/src/graphics/ShaderProgram.cpp
+        engine/headers/graphics/ShaderProgram.hpp
+        engine/src/resources/ResourceManager.cpp
+        engine/headers/resources/ResourceManager.hpp
+        engine/src/scene/Scene.cpp
+        engine/headers/scene/Scene.hpp
+        engine/src/scene/Camera.cpp
+        engine/headers/scene/Camera.hpp
         engine/headers/core/IApplication.hpp
         engine/src/core/EngineContext.cpp
         engine/headers/core/EngineContext.hpp
-        engine/headers/components/ICameraComponent.hpp
-        engine/headers/components/IMeshComponent.hpp
-        engine/headers/components/ITransformComponent.hpp
-        engine/headers/components/IIdentityComponent.hpp
+        engine/headers/components/CameraComponent.hpp
+        engine/headers/components/MeshComponent.hpp
+        engine/headers/components/TransformComponent.hpp
+        engine/headers/components/IdentityComponent.hpp
         engine/headers/scene/Entity.hpp
-        engine/src/math/UTypes.cpp
-        engine/headers/math/UTypes.hpp
+        engine/src/math/Types.cpp
+        engine/headers/math/Types.hpp
         engine/headers/math/Detail.hpp
         engine/src/math/Detail.cpp
-        engine/headers/components/IMaterialComponent.hpp
-        engine/headers/math/CameraMatricies.hpp
-        engine/src/math/CameraMatricies.cpp
-        engine/headers/systems/SYTypes.hpp
-        engine/headers/resources/RTypes.hpp
-        engine/src/graphics/GTexture.cpp
-        engine/headers/graphics/GTexture.hpp
-        engine/src/graphics/GRenderTarget.cpp
-        engine/headers/graphics/GRenderTarget.hpp
-        engine/headers/graphics/GSceneView.hpp
-        engine/src/systems/SySceneSerializerSystem.cpp
-        engine/headers/systems/SySceneSerializerSystem.hpp
-        engine/headers/components/IPhysicsComponents.hpp
-        engine/src/systems/SyPhysicsSystem.cpp
-        engine/headers/systems/SyPhysicsSystem.hpp
+        engine/headers/components/MaterialComponent.hpp
+        engine/headers/math/CameraMatrices.hpp
+        engine/src/math/CameraMatrices.cpp
+        engine/headers/systems/InputTypes.hpp
+        engine/headers/resources/ResourceTypes.hpp
+        engine/src/graphics/Texture.cpp
+        engine/headers/graphics/Texture.hpp
+        engine/src/graphics/RenderTarget.cpp
+        engine/headers/graphics/RenderTarget.hpp
+        engine/headers/graphics/SceneView.hpp
+        engine/src/systems/SceneSerializer.cpp
+        engine/headers/systems/SceneSerializer.hpp
+        engine/headers/components/PhysicsComponents.hpp
+        engine/src/systems/PhysicsSystem.cpp
+        engine/headers/systems/PhysicsSystem.hpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)

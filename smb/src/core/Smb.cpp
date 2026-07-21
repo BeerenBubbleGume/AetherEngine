@@ -7,21 +7,21 @@
 #include <algorithm>
 #include <filesystem>
 
-#include "components/ICameraComponent.hpp"
-#include "components/IIdentityComponent.hpp"
-#include "components/IMaterialComponent.hpp"
-#include "components/IMeshComponent.hpp"
-#include "components/IPhysicsComponents.hpp"
-#include "components/ITransformComponent.hpp"
-#include "graphics/GSceneView.hpp"
-#include "math/CameraMatricies.hpp"
-#include "math/UTypes.hpp"
-#include "systems/SYRenderSystem.hpp"
+#include "components/CameraComponent.hpp"
+#include "components/IdentityComponent.hpp"
+#include "components/MaterialComponent.hpp"
+#include "components/MeshComponent.hpp"
+#include "components/PhysicsComponents.hpp"
+#include "components/TransformComponent.hpp"
+#include "graphics/SceneView.hpp"
+#include "math/CameraMatrices.hpp"
+#include "math/Types.hpp"
+#include "systems/RenderSystem.hpp"
 
 namespace smb {
     namespace {
-        using engine::math::TQuat;
-        using engine::math::TVec3;
+        using engine::math::Quat;
+        using engine::math::Vec3;
 
         auto toBgfxClearFlags(uint8_t cameraFlags) -> uint16_t {
             uint16_t flags = 0;
@@ -42,16 +42,16 @@ namespace smb {
         std::filesystem::path vertexShaderAssetPath;
         std::filesystem::path fragmentShaderAssetPath;
 
-        ctx.input.bindKey(engine::systems::SYInputAction::MoveLeft, engine::systems::SYKey::A);
-        ctx.input.bindKey(engine::systems::SYInputAction::MoveRight, engine::systems::SYKey::D);
-        ctx.input.bindKey(engine::systems::SYInputAction::MoveForward, engine::systems::SYKey::W);
-        ctx.input.bindKey(engine::systems::SYInputAction::MoveBackward, engine::systems::SYKey::S);
-        ctx.input.bindKey(engine::systems::SYInputAction::RotateLeft, engine::systems::SYKey::Left);
-        ctx.input.bindKey(engine::systems::SYInputAction::RotateRight, engine::systems::SYKey::Right);
-        ctx.input.bindKey(engine::systems::SYInputAction::LookUp, engine::systems::SYKey::Up);
-        ctx.input.bindKey(engine::systems::SYInputAction::LookDown, engine::systems::SYKey::Down);
-        ctx.input.bindKey(engine::systems::SYInputAction::Reset, engine::systems::SYKey::R);
-        ctx.input.bindKey(engine::systems::SYInputAction::Quit, engine::systems::SYKey::Escape);
+        ctx.input.bindKey(engine::systems::InputAction::MoveLeft, engine::systems::Key::A);
+        ctx.input.bindKey(engine::systems::InputAction::MoveRight, engine::systems::Key::D);
+        ctx.input.bindKey(engine::systems::InputAction::MoveForward, engine::systems::Key::W);
+        ctx.input.bindKey(engine::systems::InputAction::MoveBackward, engine::systems::Key::S);
+        ctx.input.bindKey(engine::systems::InputAction::RotateLeft, engine::systems::Key::Left);
+        ctx.input.bindKey(engine::systems::InputAction::RotateRight, engine::systems::Key::Right);
+        ctx.input.bindKey(engine::systems::InputAction::LookUp, engine::systems::Key::Up);
+        ctx.input.bindKey(engine::systems::InputAction::LookDown, engine::systems::Key::Down);
+        ctx.input.bindKey(engine::systems::InputAction::Reset, engine::systems::Key::R);
+        ctx.input.bindKey(engine::systems::InputAction::Quit, engine::systems::Key::Escape);
         if (!ctx.scene.isEmpty()) {
             auto player = ctx.scene.findEntityById("player");
             if (!player) {
@@ -88,20 +88,20 @@ namespace smb {
             return std::unexpected(engine::core::EngineError{1, "Failed to load bunny mesh"});
         }
         auto camera = ctx.scene.createEntity();
-        ctx.scene.addComponent<engine::components::IIdentityComponent>(camera, engine::components::IIdentityComponent{
+        ctx.scene.addComponent<engine::components::IdentityComponent>(camera, engine::components::IdentityComponent{
             .id = "camera",
             .name = "Camera"
         });
 
-        ctx.scene.addComponent<engine::components::ITransformComponent>(camera, engine::components::ITransformComponent{
+        ctx.scene.addComponent<engine::components::TransformComponent>(camera, engine::components::TransformComponent{
             .transform = {
                 .position = {0.0f, 0.0f, 5.0f},
-                .rotation = TQuat::identity(),
-                .scale = TVec3::one()
+                .rotation = Quat::identity(),
+                .scale = Vec3::one()
             }
         });
 
-        ctx.scene.addComponent<engine::components::ICameraComponent>(camera, engine::components::ICameraComponent{
+        ctx.scene.addComponent<engine::components::CameraComponent>(camera, engine::components::CameraComponent{
             .fovYDegrees = 60.0f,
             .nearPlane = 0.1f,
             .farPlane = 100.0f
@@ -110,22 +110,22 @@ namespace smb {
         ctx.scene.setActiveCamera(camera);
 
         auto player = ctx.scene.createEntity();
-        ctx.scene.addComponent<engine::components::IIdentityComponent>(player, engine::components::IIdentityComponent{
+        ctx.scene.addComponent<engine::components::IdentityComponent>(player, engine::components::IdentityComponent{
             .id = "player",
             .name = "Player"
         });
-        ctx.scene.addComponent<engine::components::ITransformComponent>(player, engine::components::ITransformComponent {
+        ctx.scene.addComponent<engine::components::TransformComponent>(player, engine::components::TransformComponent {
             .transform = engine::graphics::Transform{
                 .position = {0.0f, 0.0f, 0.0f},
-                .rotation = TQuat::identity(),
+                .rotation = Quat::identity(),
                 .scale = {1.0f, 1.0f, 1.0f}
             }
         });
-        ctx.scene.addComponent<engine::components::IMeshComponent>(player, engine::components::IMeshComponent {
+        ctx.scene.addComponent<engine::components::MeshComponent>(player, engine::components::MeshComponent {
             .mesh = mesh,
             .assetPath = bunnyMeshAssetPath.generic_string()
         });
-        ctx.scene.addComponent<engine::components::IMaterialComponent>(player, engine::components::IMaterialComponent {
+        ctx.scene.addComponent<engine::components::MaterialComponent>(player, engine::components::MaterialComponent {
             .material = {
                 .program = program,
                 .baseColor = {0.0f, 0.0f, 1.0f, 1.0f},
@@ -138,23 +138,23 @@ namespace smb {
         });
 
         auto secondBunny = ctx.scene.createEntity();
-        ctx.scene.addComponent<engine::components::IIdentityComponent>(secondBunny, engine::components::IIdentityComponent{
+        ctx.scene.addComponent<engine::components::IdentityComponent>(secondBunny, engine::components::IdentityComponent{
             .id = "second_bunny",
             .name = "Second Bunny"
         });
-        ctx.scene.addComponent<engine::components::ITransformComponent>(secondBunny, engine::components::ITransformComponent {
+        ctx.scene.addComponent<engine::components::TransformComponent>(secondBunny, engine::components::TransformComponent {
             .transform = engine::graphics::Transform{
                 .position = {-5.0f, -5.0f, -5.0f},
-                .rotation = TQuat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, 30.0f) *
-                            TQuat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, 40.0f),
+                .rotation = Quat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, 30.0f) *
+                            Quat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, 40.0f),
                 .scale = {2.0f, 2.0f, 2.0f}
             },
         });
-        ctx.scene.addComponent<engine::components::IMeshComponent>(secondBunny, engine::components::IMeshComponent {
+        ctx.scene.addComponent<engine::components::MeshComponent>(secondBunny, engine::components::MeshComponent {
             .mesh = mesh,
             .assetPath = bunnyMeshAssetPath.generic_string()
         });
-        ctx.scene.addComponent<engine::components::IMaterialComponent>(secondBunny, engine::components::IMaterialComponent {
+        ctx.scene.addComponent<engine::components::MaterialComponent>(secondBunny, engine::components::MaterialComponent {
             .material = {
                 .program = program,
                 .baseColor = {1.0f, 0.0f, 0.0f, 1.0f},
@@ -165,8 +165,8 @@ namespace smb {
             .fragmentShaderPath = fragmentShaderAssetPath.generic_string(),
             .texturePaths = {brickTextureAssetPath.generic_string()}
         });
-        ctx.scene.addComponent<engine::components::IColliderComponent>(secondBunny, engine::components::IColliderComponent {});
-        ctx.scene.addComponent<engine::components::IRigidbodyComponent>(secondBunny, engine::components::IRigidbodyComponent {});
+        ctx.scene.addComponent<engine::components::ColliderComponent>(secondBunny, engine::components::ColliderComponent {});
+        ctx.scene.addComponent<engine::components::RigidbodyComponent>(secondBunny, engine::components::RigidbodyComponent {});
         playerEntity = player;
         auto serializeResult = ctx.sceneSerializer.serializeScene(ctx.scene);
         if (!serializeResult) {
@@ -179,60 +179,60 @@ namespace smb {
         if (!playerEntity) {
             return;
         }
-        auto& object = ctx.scene.getComponent<engine::components::ITransformComponent>(*playerEntity);
+        auto& object = ctx.scene.getComponent<engine::components::TransformComponent>(*playerEntity);
 
         auto& t = object.transform;
 
         const float speed = 1.0f * dt;
         const float angularSpeedDegrees = 90.0f * dt;
 
-        if (ctx.input.isActionDown(engine::systems::SYInputAction::MoveLeft)) t.position.x += speed;
-        if (ctx.input.isActionDown(engine::systems::SYInputAction::MoveRight)) t.position.x -= speed;
-        if (ctx.input.isActionDown(engine::systems::SYInputAction::MoveForward)) t.position.y += speed;
-        if (ctx.input.isActionDown(engine::systems::SYInputAction::MoveBackward)) t.position.y -= speed;
+        if (ctx.input.isActionDown(engine::systems::InputAction::MoveLeft)) t.position.x += speed;
+        if (ctx.input.isActionDown(engine::systems::InputAction::MoveRight)) t.position.x -= speed;
+        if (ctx.input.isActionDown(engine::systems::InputAction::MoveForward)) t.position.y += speed;
+        if (ctx.input.isActionDown(engine::systems::InputAction::MoveBackward)) t.position.y -= speed;
 
-        TQuat delta = TQuat::identity();
+        Quat delta = Quat::identity();
 
-        if (ctx.input.isActionDown(engine::systems::SYInputAction::RotateLeft)) {
-            delta = TQuat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, -angularSpeedDegrees) * delta;
+        if (ctx.input.isActionDown(engine::systems::InputAction::RotateLeft)) {
+            delta = Quat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, -angularSpeedDegrees) * delta;
         }
-        if (ctx.input.isActionDown(engine::systems::SYInputAction::RotateRight)) {
-            delta = TQuat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, angularSpeedDegrees) * delta;
+        if (ctx.input.isActionDown(engine::systems::InputAction::RotateRight)) {
+            delta = Quat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, angularSpeedDegrees) * delta;
         }
-        if (ctx.input.isActionDown(engine::systems::SYInputAction::LookUp)) {
-            delta = TQuat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, -angularSpeedDegrees) * delta;
+        if (ctx.input.isActionDown(engine::systems::InputAction::LookUp)) {
+            delta = Quat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, -angularSpeedDegrees) * delta;
         }
-        if (ctx.input.isActionDown(engine::systems::SYInputAction::LookDown)) {
-            delta = TQuat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, angularSpeedDegrees) * delta;
+        if (ctx.input.isActionDown(engine::systems::InputAction::LookDown)) {
+            delta = Quat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, angularSpeedDegrees) * delta;
         }
 
         t.rotation = (delta * t.rotation).normalized();
 
-        if (ctx.input.isMouseButtonDown(engine::systems::SYMouseButton::Right)) {
+        if (ctx.input.isMouseButtonDown(engine::systems::MouseButton::Right)) {
             constexpr float sensitivity = 0.1f;
 
             const float yaw = ctx.input.mouseDeltaX() * sensitivity;
             const float pitch = ctx.input.mouseDeltaY() * sensitivity;
 
             const auto mouseDelta =
-                TQuat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, yaw) *
-                TQuat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, pitch);
+                Quat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, yaw) *
+                Quat::fromAxisAngleDegrees({1.0f, 0.0f, 0.0f}, pitch);
 
             t.rotation = (mouseDelta * t.rotation).normalized();
         }
         if (ctx.input.mouseWheelY() != 0.0f) {
-            auto& camera = ctx.scene.getComponent<engine::components::ICameraComponent>(
+            auto& camera = ctx.scene.getComponent<engine::components::CameraComponent>(
                 ctx.scene.getActiveCamera()
             );
 
             camera.fovYDegrees -= ctx.input.mouseWheelY() * 2.0f;
             camera.fovYDegrees = std::clamp(camera.fovYDegrees, 20.0f, 100.0f);
         }
-        if (ctx.input.wasActionPressed(engine::systems::SYInputAction::Reset)) {
+        if (ctx.input.wasActionPressed(engine::systems::InputAction::Reset)) {
             t.reset();
         }
 
-        if (ctx.input.wasActionPressed(engine::systems::SYInputAction::Quit)) {
+        if (ctx.input.wasActionPressed(engine::systems::InputAction::Quit)) {
             ctx.requestQuit();
         }
     }
@@ -240,13 +240,13 @@ namespace smb {
     auto SMB::render(engine::core::EngineContext& ctx) -> void {
         const auto cameraEntity = ctx.scene.getActiveCamera();
         if (!cameraEntity.isValid() ||
-            !ctx.scene.hasComponent<engine::components::ITransformComponent, engine::components::ICameraComponent>(cameraEntity)) {
+            !ctx.scene.hasComponent<engine::components::TransformComponent, engine::components::CameraComponent>(cameraEntity)) {
             return;
         }
 
         const auto extent = ctx.renderer.backbufferExtent();
-        const auto& cameraTransform = ctx.scene.getComponent<engine::components::ITransformComponent>(cameraEntity);
-        const auto& camera = ctx.scene.getComponent<engine::components::ICameraComponent>(cameraEntity);
+        const auto& cameraTransform = ctx.scene.getComponent<engine::components::TransformComponent>(cameraEntity);
+        const auto& camera = ctx.scene.getComponent<engine::components::CameraComponent>(cameraEntity);
 
         const engine::graphics::SceneView view{
             .viewId = 0,

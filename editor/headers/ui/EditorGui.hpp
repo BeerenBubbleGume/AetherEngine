@@ -8,7 +8,7 @@
 
 #include "ImGuiBgfxRenderer.hpp"
 #include "core/EngineContext.hpp"
-#include "graphics/GRenderTarget.hpp"
+#include "graphics/RenderTarget.hpp"
 
 namespace AetherEditor::ui {
     class EditorGui final {

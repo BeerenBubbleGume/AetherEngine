@@ -6,8 +6,8 @@
 #define SMB_AETHEREDITOR_HPP
 #include <memory>
 
-#include "components/ICameraComponent.hpp"
-#include "components/ITransformComponent.hpp"
+#include "components/CameraComponent.hpp"
+#include "components/TransformComponent.hpp"
 #include "core/IApplication.hpp"
 #include "core/ETypes.hpp"
 #include "ui/EditorGui.hpp"
@@ -31,8 +31,8 @@ namespace AetherEditor::core {
         Editor() = default;
         using EditorGuiPtr = std::unique_ptr<ui::EditorGui, ui::EditorGui::EditorGuiDeleter>;
 
-        engine::components::ITransformComponent m_editorCameraTransform{};
-        engine::components::ICameraComponent m_editorCamera{};
+        engine::components::TransformComponent m_editorCameraTransform{};
+        engine::components::CameraComponent m_editorCamera{};
 
         EditorGuiPtr m_gui;
     };

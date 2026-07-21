@@ -6,17 +6,17 @@
 
 #include <imgui.h>
 
-#include "graphics/GSceneView.hpp"
-#include "math/CameraMatricies.hpp"
-#include "systems/SYRenderSystem.hpp"
+#include "graphics/SceneView.hpp"
+#include "math/CameraMatrices.hpp"
+#include "systems/RenderSystem.hpp"
 
 auto AetherEditor::core::Editor::init(
     engine::core::EngineContext &ctx) -> std::expected<void, engine::core::EngineError> {
-    ctx.input.bindKey(engine::systems::SYInputAction::Quit, engine::systems::SYKey::Escape);
+    ctx.input.bindKey(engine::systems::InputAction::Quit, engine::systems::Key::Escape);
 
     m_editorCameraTransform.transform.position = {0.0f, 0.0f, 5.0f};
-    m_editorCameraTransform.transform.rotation = engine::math::TQuat::identity();
-    m_editorCameraTransform.transform.scale = engine::math::TVec3::one();
+    m_editorCameraTransform.transform.rotation = engine::math::Quat::identity();
+    m_editorCameraTransform.transform.scale = engine::math::Vec3::one();
     m_editorCamera.fovYDegrees = 60.0f;
     m_editorCamera.nearPlane = 0.1f;
     m_editorCamera.farPlane = 100.0f;
@@ -37,7 +37,7 @@ auto AetherEditor::core::Editor::onEvent(const SDL_Event& event) -> void {
 auto AetherEditor::core::Editor::update(float dt, engine::core::EngineContext &ctx) -> void {
     (void)dt;
     if ((!m_gui || !m_gui->wantsKeyboardCapture()) &&
-        ctx.input.wasActionPressed(engine::systems::SYInputAction::Quit)) {
+        ctx.input.wasActionPressed(engine::systems::InputAction::Quit)) {
         ctx.requestQuit();
     }
 }

@@ -5,18 +5,18 @@
 #ifndef SMB_DETAIL_HPP
 #define SMB_DETAIL_HPP
 
-#include "UTypes.hpp"
+#include "Types.hpp"
 
 #include <glm/fwd.hpp>
 
 namespace engine::math::detail {
-    [[nodiscard]] glm::vec3 toGlm(const TVec3& v);
-    [[nodiscard]] glm::quat toGlm(const TQuat& q);
-    [[nodiscard]] glm::mat4 toGlm(const TMat4& m);
+    [[nodiscard]] glm::vec3 toGlm(const Vec3& v);
+    [[nodiscard]] glm::quat toGlm(const Quat& q);
+    [[nodiscard]] glm::mat4 toGlm(const Mat4& m);
 
-    [[nodiscard]] TVec3 fromGlm(const glm::vec3& v);
-    [[nodiscard]] TQuat fromGlm(const glm::quat& q);
-    [[nodiscard]] TMat4 fromGlm(const glm::mat4& m);
+    [[nodiscard]] Vec3 fromGlm(const glm::vec3& v);
+    [[nodiscard]] Quat fromGlm(const glm::quat& q);
+    [[nodiscard]] Mat4 fromGlm(const glm::mat4& m);
 
 } // namespace engine::math::detail
 

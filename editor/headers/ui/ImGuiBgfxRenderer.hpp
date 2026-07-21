@@ -12,7 +12,7 @@
 #include <bgfx/bgfx.h>
 
 #include "core/ETypes.hpp"
-#include "graphics/GRenderTarget.hpp"
+#include "graphics/RenderTarget.hpp"
 
 
 namespace AetherEditor::ui {

@@ -11,14 +11,14 @@
 #include <iostream>
 #include <ostream>
 #include <ratio>
-#include "systems/SYInputSystem.hpp"
-#include "systems/SYRenderSystem.hpp"
-#include "resources/RResourceManager.hpp"
+#include "systems/InputSystem.hpp"
+#include "systems/RenderSystem.hpp"
+#include "resources/ResourceManager.hpp"
 #include "window/Window.hpp"
 #include "EngineContext.hpp"
 #include "IApplication.hpp"
-#include "systems/SyPhysicsSystem.hpp"
-#include "systems/SySceneSerializerSystem.hpp"
+#include "systems/PhysicsSystem.hpp"
+#include "systems/SceneSerializer.hpp"
 
 namespace engine {
     class Engine final {
@@ -49,22 +49,22 @@ namespace engine {
 
 
         using WindowPtr = std::unique_ptr<Window, Window::WindowDeleter>;
-        using SInputPtr = std::unique_ptr<systems::SYInputSystem, systems::SYInputSystem::SInputDeleter>;
-        using SRenderPtr = std::unique_ptr<systems::SYRenderSystem, systems::SYRenderSystem::SRenderSystemDeleter>;
-        using SResourcePtr = std::unique_ptr<resources::RResourceManager, resources::RResourceManager::SResourceManagerDeleter>;
-        using SCScenePtr = std::unique_ptr<scene::SCScene, scene::SCScene::SCSceneDeleter>;
-        using SYSceneSerializerPtr = std::unique_ptr<systems::SYSceneSerializerSystem, systems::SYSceneSerializerSystem::SYSceneSerializerDeleter>;
-        using SYPhysicsPtr = std::unique_ptr<systems::SYPhysicsSystem, systems::SYPhysicsSystem::SYPhysicsSystemDeleter>;
+        using InputSystemPtr = std::unique_ptr<systems::InputSystem, systems::InputSystem::InputSystemDeleter>;
+        using RenderSystemPtr = std::unique_ptr<systems::RenderSystem, systems::RenderSystem::RenderSystemDeleter>;
+        using ResourceManagerPtr = std::unique_ptr<resources::ResourceManager, resources::ResourceManager::ResourceManagerDeleter>;
+        using ScenePtr = std::unique_ptr<scene::Scene, scene::Scene::SceneDeleter>;
+        using SceneSerializerPtr = std::unique_ptr<systems::SceneSerializer, systems::SceneSerializer::SceneSerializerDeleter>;
+        using PhysicsSystemPtr = std::unique_ptr<systems::PhysicsSystem, systems::PhysicsSystem::PhysicsSystemDeleter>;
         using Clock = std::chrono::steady_clock;
         using Duration = std::chrono::duration<float>;
         using TimePoint = Clock::time_point;
         WindowPtr sWindow;
-        SInputPtr sInput;
-        SRenderPtr sRender;
-        SResourcePtr sResource;
-        SCScenePtr sScene;
-        SYSceneSerializerPtr sSceneSerializer;
-        SYPhysicsPtr sPhysics;
+        InputSystemPtr sInput;
+        RenderSystemPtr sRender;
+        ResourceManagerPtr sResource;
+        ScenePtr sScene;
+        SceneSerializerPtr sSceneSerializer;
+        PhysicsSystemPtr sPhysics;
 
         float accumulator = 0.0;
         const float FIXED_DT = 1.0 / 120.0;
