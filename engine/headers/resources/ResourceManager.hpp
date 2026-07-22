@@ -4,9 +4,13 @@
 
 #ifndef SMB_RESOURCEMANAGER_HPP
 #define SMB_RESOURCEMANAGER_HPP
+
+#include <cstdint>
+#include <filesystem>
 #include <memory>
+#include <span>
 #include <unordered_map>
-#include <fstream>
+#include <unordered_set>
 #include <vector>
 
 #include "graphics/Mesh.hpp"
@@ -25,32 +29,47 @@ namespace engine::resources {
             }
         };
         using ResourceManagerPtr = std::unique_ptr<ResourceManager, ResourceManagerDeleter>;
-        static ResourceManagerPtr createResourceManager();
+        static ResourceManagerPtr createResourceManager(const std::filesystem::path& assetsRoot);
 
         [[nodiscard]] auto loadMesh(std::string_view filename) -> MeshHandle;
-        [[nodiscard]] auto loadProgram(std::string_view name, std::string_view vertexShaderFilename, std::string_view fragmentShaderFilename) -> ProgramHandle;
+        [[nodiscard]] auto loadProgram(
+            std::string_view name,
+            std::string_view vertexShaderFilename,
+            std::string_view fragmentShaderFilename
+        ) -> ProgramHandle;
         [[nodiscard]] auto loadTexture(std::string_view filename) -> TextureHandle;
 
         [[nodiscard]] auto getMesh(MeshHandle handle) const -> const graphics::Mesh*;
         [[nodiscard]] auto getProgram(ProgramHandle handle) const -> const graphics::ShaderProgram*;
         [[nodiscard]] auto getTexture(TextureHandle handle) const -> const graphics::Texture*;
     private:
-        static auto loadShaderBinary(std::string_view filename) -> bgfx::ShaderHandle;
-        static auto loadTextureBinary(std::string_view filename) -> bgfx::TextureHandle;
+        static auto loadTextureBinary(std::span<const std::uint8_t> bytes) -> bgfx::TextureHandle;
 
-        ResourceManager() = default;
+        explicit ResourceManager(std::filesystem::path assetsRoot);
         ~ResourceManager() = default;
+
+        std::filesystem::path m_assetsRoot;
+        std::uint64_t m_loadedSourceBytes{0};
+        std::size_t m_loadedMeshGroups{0};
 
         std::vector<graphics::Mesh> m_meshes;
         std::unordered_map<std::string, uint32_t> m_meshCache;
+        std::unordered_set<std::string> m_failedMeshes;
 
         std::vector<graphics::ShaderProgram> m_programs;
         std::unordered_map<std::string, uint32_t> m_programCache;
+        std::unordered_set<std::string> m_failedPrograms;
 
         std::vector<graphics::Texture> m_textures;
         std::unordered_map<std::string, uint32_t> m_textureCache;
-    };
-} // systems
-// engine
+        std::unordered_set<std::string> m_failedTextures;
 
-#endif //SMB_RESOURCEMANAGER_HPP
+        std::unordered_set<std::string> m_seenResourceRequests;
+        std::unordered_set<std::string> m_failedMeshRequests;
+        std::unordered_set<std::string> m_failedProgramRequests;
+        std::unordered_set<std::string> m_failedTextureRequests;
+        std::size_t m_rejectionLogCount{0};
+    };
+} // namespace engine::resources
+
+#endif // SMB_RESOURCEMANAGER_HPP

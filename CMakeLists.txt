@@ -34,6 +34,7 @@ add_library(engine STATIC
         engine/headers/graphics/ShaderProgram.hpp
         engine/src/resources/ResourceManager.cpp
         engine/headers/resources/ResourceManager.hpp
+        engine/headers/resources/EmbeddedShaders.hpp
         engine/src/scene/Scene.cpp
         engine/headers/scene/Scene.hpp
         engine/src/scene/Camera.cpp
@@ -65,12 +66,27 @@ add_library(engine STATIC
         engine/headers/components/PhysicsComponents.hpp
         engine/src/systems/PhysicsSystem.cpp
         engine/headers/systems/PhysicsSystem.hpp
+        engine/src/security/PathSecurity.cpp
+        engine/headers/security/PathSecurity.hpp
+        engine/headers/security/AssetValidation.hpp
 )
 
 target_include_directories(engine PUBLIC engine/headers)
 
 if (MSVC)
     target_compile_options(engine PRIVATE "/Zc:__cplusplus" "/Zc:preprocessor")
+endif()
+
+include(CTest)
+if (BUILD_TESTING)
+    add_executable(aether_security_tests
+            tests/SecurityRegressionTests.cpp
+    )
+    target_link_libraries(aether_security_tests PRIVATE engine)
+    target_compile_definitions(aether_security_tests PRIVATE
+            AETHER_TEST_ASSETS_ROOT="${CMAKE_SOURCE_DIR}/assets"
+    )
+    add_test(NAME security_regressions COMMAND aether_security_tests)
 endif()
 
 add_executable(smb
@@ -90,80 +106,19 @@ add_executable(AetherEditor
         editor/headers/core/ETypes.hpp
 )
 
-set(AETHER_IMGUI_SHADER_SOURCE_DIR "${CMAKE_SOURCE_DIR}/assets/shaders")
-set(AETHER_IMGUI_SHADER_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/aether_imgui_shaders")
-set(AETHER_IMGUI_SHADER_HEADERS)
-
-if (WIN32)
-    set(BGFX_SHADERC_EXECUTABLE "${CMAKE_SOURCE_DIR}/third_party/bin/windows/shaderc.exe")
-elseif (APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$")
-    set(BGFX_SHADERC_EXECUTABLE "${CMAKE_SOURCE_DIR}/third_party/bin/osx/arm/shaderc")
-else()
-    find_program(BGFX_SHADERC_EXECUTABLE NAMES shaderc REQUIRED)
-endif()
-
-if (NOT EXISTS "${BGFX_SHADERC_EXECUTABLE}")
-    message(FATAL_ERROR "bgfx shaderc was not found at ${BGFX_SHADERC_EXECUTABLE}")
-endif()
-
-function(aether_compile_imgui_shader stage short_name suffix platform profile)
-    set(shader_source "${AETHER_IMGUI_SHADER_SOURCE_DIR}/imgui_${short_name}.sc")
-    set(shader_output "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_${short_name}_${suffix}.bin.h")
-
-    add_custom_command(
-            OUTPUT "${shader_output}"
-            COMMAND "${CMAKE_COMMAND}" -E make_directory "${AETHER_IMGUI_SHADER_OUTPUT_DIR}"
-            COMMAND "${BGFX_SHADERC_EXECUTABLE}"
-                    -f "${shader_source}"
-                    -o "${shader_output}"
-                    --type "${stage}"
-                    --platform "${platform}"
-                    -p "${profile}"
-                    --varyingdef "${AETHER_IMGUI_SHADER_SOURCE_DIR}/imgui_varying.def.sc"
-                    -i "${AETHER_IMGUI_SHADER_SOURCE_DIR}"
-                    --bin2c "imgui_${short_name}_${suffix}"
-            DEPENDS
-                    "${shader_source}"
-                    "${AETHER_IMGUI_SHADER_SOURCE_DIR}/imgui_varying.def.sc"
-                    "${AETHER_IMGUI_SHADER_SOURCE_DIR}/bgfx_shader.sh"
-                    "${BGFX_SHADERC_EXECUTABLE}"
-            COMMENT "Compiling ImGui ${stage} shader (${suffix})"
-            VERBATIM
-    )
-
-    set(AETHER_IMGUI_SHADER_HEADERS
-            ${AETHER_IMGUI_SHADER_HEADERS}
-            "${shader_output}"
-            PARENT_SCOPE
-    )
-endfunction()
-
-if (WIN32)
-    aether_compile_imgui_shader(vertex vs dx11 windows s_5_0)
-    aether_compile_imgui_shader(fragment fs dx11 windows s_5_0)
-    aether_compile_imgui_shader(vertex vs glsl linux 120)
-    aether_compile_imgui_shader(fragment fs glsl linux 120)
-    aether_compile_imgui_shader(vertex vs essl android 300_es)
-    aether_compile_imgui_shader(fragment fs essl android 300_es)
-    aether_compile_imgui_shader(vertex vs spv linux spirv)
-    aether_compile_imgui_shader(fragment fs spv linux spirv)
-elseif (APPLE)
-    aether_compile_imgui_shader(vertex vs mtl osx metal)
-    aether_compile_imgui_shader(fragment fs mtl osx metal)
-    aether_compile_imgui_shader(vertex vs glsl osx 120)
-    aether_compile_imgui_shader(fragment fs glsl osx 120)
-    aether_compile_imgui_shader(vertex vs essl ios 300_es)
-    aether_compile_imgui_shader(fragment fs essl ios 300_es)
-    aether_compile_imgui_shader(vertex vs spv osx spirv)
-    aether_compile_imgui_shader(fragment fs spv osx spirv)
-else()
-    aether_compile_imgui_shader(vertex vs glsl linux 120)
-    aether_compile_imgui_shader(fragment fs glsl linux 120)
-    aether_compile_imgui_shader(vertex vs essl android 300_es)
-    aether_compile_imgui_shader(fragment fs essl android 300_es)
-    aether_compile_imgui_shader(vertex vs spv linux spirv)
-    aether_compile_imgui_shader(fragment fs spv linux spirv)
-endif()
+set(AETHER_IMGUI_SHADER_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/assets/shaders/generated")
+set(AETHER_IMGUI_SHADER_HEADERS
+        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_fs_dx11.bin.h"
+        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_fs_essl.bin.h"
+        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_fs_glsl.bin.h"
+        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_fs_mtl.bin.h"
+        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_fs_spv.bin.h"
+        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_vs_dx11.bin.h"
+        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_vs_essl.bin.h"
+        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_vs_glsl.bin.h"
+        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_vs_mtl.bin.h"
+        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_vs_spv.bin.h"
+)
 
 target_sources(AetherEditor PRIVATE ${AETHER_IMGUI_SHADER_HEADERS})
 
@@ -177,27 +132,15 @@ set(ENGINE_ASSETS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/assets")
 
 function(link_engine_assets target_name)
     set(runtime_assets_dir "$<TARGET_FILE_DIR:${target_name}>/assets")
-    if (WIN32)
-        add_custom_command(TARGET ${target_name} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E rm -rf
-                "${runtime_assets_dir}"
-                COMMAND cmd /C mklink /J
-                "$<SHELL_PATH:${runtime_assets_dir}>"
-                "$<SHELL_PATH:${ENGINE_ASSETS_SOURCE_DIR}>"
-                COMMENT "Creating ${target_name} assets junction"
-                VERBATIM
-        )
-    else()
-        add_custom_command(TARGET ${target_name} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E rm -rf
-                "${runtime_assets_dir}"
-                COMMAND ${CMAKE_COMMAND} -E create_symlink
-                "${ENGINE_ASSETS_SOURCE_DIR}"
-                "${runtime_assets_dir}"
-                COMMENT "Creating ${target_name} assets symlink"
-                VERBATIM
-        )
-    endif()
+    add_custom_command(TARGET ${target_name} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E rm -rf
+            "${runtime_assets_dir}"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${ENGINE_ASSETS_SOURCE_DIR}"
+            "${runtime_assets_dir}"
+            COMMENT "Copying ${target_name} runtime assets"
+            VERBATIM
+    )
 endfunction()
 
 link_engine_assets(smb)
@@ -220,3 +163,23 @@ target_link_libraries(AetherEditor PRIVATE
         engine
         imgui::imgui
 )
+
+if (MSVC)
+    set(hardened_targets engine smb AetherEditor)
+    set(hardened_executables smb AetherEditor)
+    if (TARGET aether_security_tests)
+        list(APPEND hardened_targets aether_security_tests)
+        list(APPEND hardened_executables aether_security_tests)
+    endif()
+    foreach(hardened_target IN LISTS hardened_targets)
+        target_compile_options(${hardened_target} PRIVATE "/sdl" "/guard:cf")
+    endforeach()
+    foreach(hardened_executable IN LISTS hardened_executables)
+        target_link_options(${hardened_executable} PRIVATE
+                "/guard:cf"
+                "/DYNAMICBASE"
+                "/NXCOMPAT"
+                "/DEPENDENTLOADFLAG:0xA00"
+        )
+    endforeach()
+endif()

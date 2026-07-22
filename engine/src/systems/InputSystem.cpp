@@ -7,6 +7,13 @@
 #include <algorithm>
 
 namespace engine::systems {
+    namespace {
+        auto isValidScancode(SDL_Scancode scancode) -> bool {
+            const auto value = static_cast<int>(scancode);
+            return value >= 0 && value < SDL_SCANCODE_COUNT;
+        }
+    }
+
     InputSystem::InputSystemPtr InputSystem::createInputSystem() {
         return InputSystemPtr(new InputSystem(), InputSystemDeleter{});
     }
@@ -22,6 +29,9 @@ namespace engine::systems {
     auto InputSystem::processEvents(const SDL_Event &event) -> void {
         switch (event.type) {
             case SDL_EVENT_KEY_DOWN: {
+                if (!isValidScancode(event.key.scancode)) {
+                    break;
+                }
                 m_keyPressed[event.key.scancode] = true;
                 if (m_keyReleased[event.key.scancode]) {
                     m_keyReleased[event.key.scancode] = false;
@@ -30,6 +40,9 @@ namespace engine::systems {
                 break;
             }
             case SDL_EVENT_KEY_UP: {
+                if (!isValidScancode(event.key.scancode)) {
+                    break;
+                }
                 m_keyPressed[event.key.scancode] = false;
                 if (m_keyDown[event.key.scancode]) {
                     m_keyReleased[event.key.scancode] = true;
@@ -83,7 +96,7 @@ namespace engine::systems {
     }
 
     auto InputSystem::isKeyDown(SDL_Scancode key) const -> bool {
-        return m_keyDown[key];
+        return isValidScancode(key) && m_keyDown[static_cast<std::size_t>(key)];
     }
 
     auto InputSystem::fromSdlMouseButtons(Uint8 button) -> std::optional<int> {
@@ -284,6 +297,5 @@ namespace engine::systems {
         }
     }
 }
-
 
 

@@ -4,17 +4,50 @@
 
 #include "core/Engine.hpp"
 
+#include <algorithm>
+#include <cmath>
+
+#include "security/PathSecurity.hpp"
+
+#if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#endif
+
 auto engine::Engine::initEngine() -> std::expected<void, core::EngineError> {
+#if defined(_WIN32)
+    constexpr DWORD SafeDllDirectories =
+        LOAD_LIBRARY_SEARCH_APPLICATION_DIR |
+        LOAD_LIBRARY_SEARCH_SYSTEM32;
+    if (!SetDefaultDllDirectories(SafeDllDirectories) || !SetDllDirectoryW(L"")) {
+        return std::unexpected{core::EngineError{1, "Failed to secure the Windows DLL search path"}};
+    }
+#endif
+
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
         SDL_Log("SDL_Init failed: %s", SDL_GetError());
         return std::unexpected{core::EngineError{1, "Failed to initialize SDL"}};
     }
+    const char* executableBasePath = SDL_GetBasePath();
+    if (executableBasePath == nullptr || *executableBasePath == '\0') {
+        return std::unexpected{core::EngineError{2, "Failed to determine the executable directory"}};
+    }
+    auto canonicalAssetsPath = security::canonicalDirectory(
+        std::filesystem::path{executableBasePath} / "assets"
+    );
+    if (!canonicalAssetsPath) {
+        return std::unexpected{core::EngineError{2, canonicalAssetsPath.error().message}};
+    }
+    m_assetsPath = std::move(*canonicalAssetsPath);
+
     sWindow = Window::createWindow();
     sInput = systems::InputSystem::createInputSystem();
     sRender = systems::RenderSystem::createRenderSystem();
-    sResource = resources::ResourceManager::createResourceManager();
-    sSceneSerializer = systems::SceneSerializer::createSceneSerializer(std::filesystem::current_path() / "assets" / "scenes");
+    sResource = resources::ResourceManager::createResourceManager(m_assetsPath);
+    sSceneSerializer = systems::SceneSerializer::createSceneSerializer(m_assetsPath / "scenes");
     sPhysics = systems::PhysicsSystem::createPhysicsSystem();
     if (!sWindow) {
         return std::unexpected{core::EngineError{2, "Failed to create window"}};
@@ -50,14 +83,12 @@ auto engine::Engine::initEngine() -> std::expected<void, core::EngineError> {
         std::cerr << "Failed to init physics: " << physxInitResult.error().message << std::endl;
         return std::unexpected{core::EngineError{3, "Failed to init physics"}};
     }
-    const auto assetsPath = std::filesystem::current_path() / "assets";
-
     try {
         auto loadedScene = sSceneSerializer->deserializeScene(
         "DefaultScene",
         {
             .resources = sResource.get(),
-            .assetsRoot = assetsPath
+            .assetsRoot = m_assetsPath
         }
     );
 
@@ -77,9 +108,8 @@ auto engine::Engine::initEngine() -> std::expected<void, core::EngineError> {
 auto engine::Engine::run(core::IApplication &app) -> std::expected<void, core::EngineError> {
     isRunning = true;
     TimePoint lastTime = Clock::now();
-    const std::filesystem::path rootPath = std::filesystem::current_path();
-    std::filesystem::path assetsPath = rootPath / "assets";
-
+    constexpr float MaxFrameDelta = 0.25f;
+    constexpr std::size_t MaxPhysicsSubsteps = 8;
     core::EngineContext ctx{
         .scene = *sScene,
         .resources = *sResource,
@@ -87,7 +117,7 @@ auto engine::Engine::run(core::IApplication &app) -> std::expected<void, core::E
         .renderer = *sRender,
         .sceneSerializer = *sSceneSerializer,
         .window = *sWindow,
-        .paths = {assetsPath, assetsPath / "shaders"},
+        .paths = {m_assetsPath, m_assetsPath / "shaders"},
         .requestQuit = [&]() { isRunning = false; }
     };
     auto appInitResult = app.init(ctx);
@@ -100,15 +130,24 @@ auto engine::Engine::run(core::IApplication &app) -> std::expected<void, core::E
         TimePoint now = Clock::now();
         auto delta = std::chrono::duration<float>(now - lastTime).count();
         lastTime = now;
+        if (!std::isfinite(delta)) {
+            delta = 0.0f;
+        }
+        delta = std::clamp(delta, 0.0f, MaxFrameDelta);
         auto runConfig = app.runConfig();
 
-        accumulator += delta;
+        accumulator = std::min(accumulator + delta, FIXED_DT * MaxPhysicsSubsteps);
         update(delta);
         processEvents(app);
         if (runConfig.updatePhysics) {
-            while (accumulator >= FIXED_DT) {
+            std::size_t substeps = 0;
+            while (accumulator >= FIXED_DT && substeps < MaxPhysicsSubsteps) {
                 sPhysics->fixedUpdate(*sScene, FIXED_DT);
                 accumulator -= FIXED_DT;
+                ++substeps;
+            }
+            if (substeps == MaxPhysicsSubsteps) {
+                accumulator = 0.0f;
             }
         } else {
             accumulator = 0.f;
@@ -137,7 +176,6 @@ engine::Engine::~Engine() {
     if (sRender) {
         sRender.reset();
     }
-    bgfx::shutdown();
     if (sWindow) {
         sWindow.reset();
     }

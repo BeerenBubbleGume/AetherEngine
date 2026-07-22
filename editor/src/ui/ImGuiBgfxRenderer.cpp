@@ -141,6 +141,14 @@ namespace AetherEditor::ui {
                 BGFX_STATE_BLEND_SRC_ALPHA,
                 BGFX_STATE_BLEND_INV_SRC_ALPHA
             );
+
+        constexpr int MaxImGuiCommandLists = 1024;
+        constexpr int MaxImGuiVerticesPerList = 1'000'000;
+        constexpr int MaxImGuiIndicesPerList = 2'000'000;
+        constexpr int MaxImGuiCommandsPerList = 100'000;
+        constexpr std::size_t MaxImGuiCommandsPerFrame = 100'000;
+        constexpr int MaxImGuiTextureUpdatesPerFrame = 4096;
+        constexpr std::uint64_t MaxImGuiTextureBytes = 64ULL * 1024ULL * 1024ULL;
     }
 
     auto ImGuiBgfxRenderer::createRenderer() -> ImGuiBgfxRendererPtr {
@@ -252,17 +260,33 @@ namespace AetherEditor::ui {
             return;
         }
 
-        processTextureUpdates(drawData);
-
-        const auto framebufferWidth = static_cast<int32_t>(
-            drawData->DisplaySize.x * drawData->FramebufferScale.x
-        );
-        const auto framebufferHeight = static_cast<int32_t>(
-            drawData->DisplaySize.y * drawData->FramebufferScale.y
-        );
+        const double scaledWidth =
+            static_cast<double>(drawData->DisplaySize.x) * drawData->FramebufferScale.x;
+        const double scaledHeight =
+            static_cast<double>(drawData->DisplaySize.y) * drawData->FramebufferScale.y;
+        if (!std::isfinite(scaledWidth) || !std::isfinite(scaledHeight) ||
+            scaledWidth < std::numeric_limits<int32_t>::min() ||
+            scaledHeight < std::numeric_limits<int32_t>::min() ||
+            scaledWidth > std::numeric_limits<int32_t>::max() ||
+            scaledHeight > std::numeric_limits<int32_t>::max()) {
+            return;
+        }
+        const auto framebufferWidth = static_cast<int32_t>(scaledWidth);
+        const auto framebufferHeight = static_cast<int32_t>(scaledHeight);
         if (framebufferWidth <= 0 || framebufferHeight <= 0 || extent.width == 0 || extent.height == 0) {
             return;
         }
+        if (!std::isfinite(drawData->DisplayPos.x) || !std::isfinite(drawData->DisplayPos.y) ||
+            !std::isfinite(drawData->DisplaySize.x) || !std::isfinite(drawData->DisplaySize.y) ||
+            !std::isfinite(drawData->FramebufferScale.x) || !std::isfinite(drawData->FramebufferScale.y) ||
+            drawData->CmdListsCount < 0 ||
+            drawData->CmdListsCount > MaxImGuiCommandLists ||
+            drawData->CmdListsCount != drawData->CmdLists.Size ||
+            (drawData->CmdListsCount > 0 && drawData->CmdLists.Data == nullptr)) {
+            return;
+        }
+
+        processTextureUpdates(drawData);
 
         bgfx::setViewName(viewId, "ImGui");
         bgfx::setViewMode(viewId, bgfx::ViewMode::Sequential);
@@ -307,13 +331,23 @@ namespace AetherEditor::ui {
         };
         platformIo.Renderer_RenderState = &rendererState;
 
+        std::size_t submittedCommands = 0;
         for (int32_t listIndex = 0; listIndex < drawData->CmdListsCount; ++listIndex) {
             const ImDrawList* drawList = drawData->CmdLists[listIndex];
-            const auto vertexCount = static_cast<uint32_t>(drawList->VtxBuffer.Size);
-            const auto indexCount = static_cast<uint32_t>(drawList->IdxBuffer.Size);
-            if (vertexCount == 0 || indexCount == 0) {
+            if (drawList == nullptr ||
+                drawList->VtxBuffer.Size <= 0 ||
+                drawList->IdxBuffer.Size <= 0 ||
+                drawList->VtxBuffer.Size > MaxImGuiVerticesPerList ||
+                drawList->IdxBuffer.Size > MaxImGuiIndicesPerList ||
+                drawList->CmdBuffer.Size < 0 ||
+                drawList->CmdBuffer.Size > MaxImGuiCommandsPerList ||
+                drawList->VtxBuffer.Data == nullptr ||
+                drawList->IdxBuffer.Data == nullptr ||
+                (drawList->CmdBuffer.Size > 0 && drawList->CmdBuffer.Data == nullptr)) {
                 continue;
             }
+            const auto vertexCount = static_cast<uint32_t>(drawList->VtxBuffer.Size);
+            const auto indexCount = static_cast<uint32_t>(drawList->IdxBuffer.Size);
 
             bgfx::TransientVertexBuffer vertexBuffer;
             bgfx::TransientIndexBuffer indexBuffer;
@@ -339,11 +373,18 @@ namespace AetherEditor::ui {
             );
 
             for (const ImDrawCmd& command : drawList->CmdBuffer) {
+                if (submittedCommands >= MaxImGuiCommandsPerFrame) {
+                    break;
+                }
                 if (command.UserCallback != nullptr) {
                     command.UserCallback(drawList, &command);
+                    ++submittedCommands;
                     continue;
                 }
-                if (command.ElemCount == 0 || command.VtxOffset >= vertexCount) {
+                if (command.ElemCount == 0 ||
+                    command.VtxOffset >= vertexCount ||
+                    command.IdxOffset > indexCount ||
+                    command.ElemCount > indexCount - command.IdxOffset) {
                     continue;
                 }
 
@@ -351,6 +392,10 @@ namespace AetherEditor::ui {
                 const float clipMinY = (command.ClipRect.y - clipOffset.y) * clipScale.y;
                 const float clipMaxX = (command.ClipRect.z - clipOffset.x) * clipScale.x;
                 const float clipMaxY = (command.ClipRect.w - clipOffset.y) * clipScale.y;
+                if (!std::isfinite(clipMinX) || !std::isfinite(clipMinY) ||
+                    !std::isfinite(clipMaxX) || !std::isfinite(clipMaxY)) {
+                    continue;
+                }
                 if (clipMaxX <= 0.0f || clipMaxY <= 0.0f || clipMinX >= clipLimitX || clipMinY >= clipLimitY) {
                     continue;
                 }
@@ -384,6 +429,10 @@ namespace AetherEditor::ui {
                 );
                 encoder->setIndexBuffer(&indexBuffer, command.IdxOffset, command.ElemCount);
                 encoder->submit(viewId, m_program);
+                ++submittedCommands;
+            }
+            if (submittedCommands >= MaxImGuiCommandsPerFrame) {
+                break;
             }
         }
 
@@ -414,6 +463,12 @@ namespace AetherEditor::ui {
             return;
         }
 
+        if (drawData->Textures->Size < 0 ||
+            drawData->Textures->Size > MaxImGuiTextureUpdatesPerFrame ||
+            (drawData->Textures->Size > 0 && drawData->Textures->Data == nullptr)) {
+            return;
+        }
+
         for (ImTextureData* texture : *drawData->Textures) {
             if (texture == nullptr) {
                 continue;
@@ -439,13 +494,34 @@ namespace AetherEditor::ui {
         if (texture.Format != ImTextureFormat_RGBA32 ||
             texture.Width <= 0 || texture.Height <= 0 ||
             texture.Width > std::numeric_limits<uint16_t>::max() ||
-            texture.Height > std::numeric_limits<uint16_t>::max()) {
+            texture.Height > std::numeric_limits<uint16_t>::max() ||
+            texture.BytesPerPixel != 4 ||
+            texture.Pixels == nullptr) {
             return false;
         }
 
+        const auto dataSize =
+            static_cast<std::uint64_t>(texture.Width) *
+            static_cast<std::uint64_t>(texture.Height) *
+            static_cast<std::uint64_t>(texture.BytesPerPixel);
+        const auto* caps = bgfx::getCaps();
+        if (dataSize > MaxImGuiTextureBytes ||
+            dataSize > std::numeric_limits<uint32_t>::max() ||
+            caps == nullptr ||
+            texture.Width > caps->limits.maxTextureSize ||
+            texture.Height > caps->limits.maxTextureSize ||
+            !bgfx::isTextureValid(
+                1,
+                false,
+                1,
+                bgfx::TextureFormat::RGBA8,
+                ImGuiSamplerLinear
+            )) {
+            return false;
+        }
         const auto* memory = bgfx::copy(
-            texture.GetPixels(),
-            static_cast<uint32_t>(texture.GetSizeInBytes())
+            texture.Pixels,
+            static_cast<uint32_t>(dataSize)
         );
         const auto handle = bgfx::createTexture2D(
             static_cast<uint16_t>(texture.Width),
@@ -467,7 +543,24 @@ namespace AetherEditor::ui {
     }
 
     auto ImGuiBgfxRenderer::updateTexture(ImTextureData& texture) -> bool {
-        if (texture.Format != ImTextureFormat_RGBA32) {
+        if (texture.Format != ImTextureFormat_RGBA32 ||
+            texture.Width <= 0 ||
+            texture.Height <= 0 ||
+            texture.Width > std::numeric_limits<uint16_t>::max() ||
+            texture.Height > std::numeric_limits<uint16_t>::max() ||
+            texture.BytesPerPixel != 4 ||
+            texture.Pixels == nullptr) {
+            return false;
+        }
+
+        const auto fullTextureBytes =
+            static_cast<std::uint64_t>(texture.Width) *
+            static_cast<std::uint64_t>(texture.Height) *
+            static_cast<std::uint64_t>(texture.BytesPerPixel);
+        if (fullTextureBytes > MaxImGuiTextureBytes ||
+            texture.Updates.Size < 0 ||
+            texture.Updates.Size > MaxImGuiTextureUpdatesPerFrame ||
+            (texture.Updates.Size > 0 && texture.Updates.Data == nullptr)) {
             return false;
         }
 
@@ -480,9 +573,20 @@ namespace AetherEditor::ui {
             if (update.w == 0 || update.h == 0) {
                 continue;
             }
+            const auto right = static_cast<std::uint32_t>(update.x) + update.w;
+            const auto bottom = static_cast<std::uint32_t>(update.y) + update.h;
+            if (right > static_cast<std::uint32_t>(texture.Width) ||
+                bottom > static_cast<std::uint32_t>(texture.Height)) {
+                return false;
+            }
 
             const uint32_t rowSize = static_cast<uint32_t>(update.w) * static_cast<uint32_t>(texture.BytesPerPixel);
-            const uint32_t dataSize = rowSize * static_cast<uint32_t>(update.h);
+            const std::uint64_t dataSize64 =
+                static_cast<std::uint64_t>(rowSize) * static_cast<std::uint64_t>(update.h);
+            if (dataSize64 > std::numeric_limits<uint32_t>::max()) {
+                return false;
+            }
+            const auto dataSize = static_cast<uint32_t>(dataSize64);
             const bgfx::Memory* memory = bgfx::alloc(dataSize);
             for (uint32_t row = 0; row < update.h; ++row) {
                 std::memcpy(

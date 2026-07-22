@@ -6,7 +6,6 @@
 #define SMB_GRAPHICS_MESH_HPP
 
 #include <expected>
-#include <memory>
 #include <span>
 #include <string>
 #include <bgfx/bgfx.h>
@@ -14,8 +13,6 @@
 #include <bx/math.h>
 #include <bx/bounds.h>
 #include <bx/readerwriter.h>
-#include <fstream>
-#include <vector>
 
 #include "math/Types.hpp"
 
@@ -47,16 +44,22 @@ namespace engine::graphics {
             std::span<const uint16_t> indices
         );
 
-        [[nodiscard]] auto loadFromBgfxGeometry(std::string_view filename) -> std::expected<void, MeshError>;
-        void submit(
+        [[nodiscard]] auto loadFromBgfxGeometry(
+            std::span<const std::uint8_t> bytes,
+            std::size_t maximumGroups
+        )
+            -> std::expected<void, MeshError>;
+        [[nodiscard]] auto submit(
             bgfx::ProgramHandle program,
             bgfx::UniformHandle colorUniform,
             bgfx::UniformHandle samplerUniform,
             bgfx::TextureHandle texture,
             const Transform &transform,
             math::Color baseColor,
-            bgfx::ViewId viewId, uint64_t stage
-        ) const;
+            bgfx::ViewId viewId,
+            uint64_t stage,
+            std::size_t maximumGroups
+        ) const -> std::size_t;
         [[nodiscard]] auto isValid() const -> bool;
     private:
         auto destroyHandles() -> void;

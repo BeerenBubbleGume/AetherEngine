@@ -6,6 +6,7 @@ vcpkg_installed/
 *.o
 *.so
 *.dll
+!third_party/**/*.dll
 *.dylib
 *.log
 *.tmp

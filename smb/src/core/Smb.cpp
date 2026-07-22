@@ -57,6 +57,9 @@ namespace smb {
             if (!player) {
                 return std::unexpected(engine::core::EngineError{1, "Failed to find player entity"});
             }
+            if (!ctx.scene.hasComponent<engine::components::TransformComponent>(*player)) {
+                return std::unexpected(engine::core::EngineError{1, "Player entity has no Transform component"});
+            }
             playerEntity = player;
             return {};
         }
@@ -72,17 +75,17 @@ namespace smb {
 #endif
         auto program = ctx.resources.loadProgram(
             "basic",
-            (ctx.paths.assetsRoot / vertexShaderAssetPath).string(),
-            (ctx.paths.assetsRoot / fragmentShaderAssetPath).string()
+            vertexShaderAssetPath.generic_string(),
+            fragmentShaderAssetPath.generic_string()
         );
         if (!program.isValid()) {
             return std::unexpected(engine::core::EngineError{1, "Failed to load shader program"});
         }
         const std::filesystem::path brickTextureAssetPath{"textures/bin/brick.ktx"};
-        auto texture = ctx.resources.loadTexture((ctx.paths.assetsRoot / brickTextureAssetPath).string());
+        auto texture = ctx.resources.loadTexture(brickTextureAssetPath.generic_string());
 
         const std::filesystem::path bunnyMeshAssetPath{"meshes/bin/bunny.bin"};
-        auto mesh = ctx.resources.loadMesh((ctx.paths.assetsRoot / bunnyMeshAssetPath).string());
+        auto mesh = ctx.resources.loadMesh(bunnyMeshAssetPath.generic_string());
 
         if (!mesh.isValid()) {
             return std::unexpected(engine::core::EngineError{1, "Failed to load bunny mesh"});
@@ -176,7 +179,8 @@ namespace smb {
     }
 
     auto SMB::update(float dt, engine::core::EngineContext &ctx) -> void {
-        if (!playerEntity) {
+        if (!playerEntity || !playerEntity->isValid() || playerEntity->scene != &ctx.scene ||
+            !ctx.scene.hasComponent<engine::components::TransformComponent>(*playerEntity)) {
             return;
         }
         auto& object = ctx.scene.getComponent<engine::components::TransformComponent>(*playerEntity);
@@ -221,12 +225,15 @@ namespace smb {
             t.rotation = (mouseDelta * t.rotation).normalized();
         }
         if (ctx.input.mouseWheelY() != 0.0f) {
-            auto& camera = ctx.scene.getComponent<engine::components::CameraComponent>(
-                ctx.scene.getActiveCamera()
-            );
-
-            camera.fovYDegrees -= ctx.input.mouseWheelY() * 2.0f;
-            camera.fovYDegrees = std::clamp(camera.fovYDegrees, 20.0f, 100.0f);
+            const auto cameraEntity = ctx.scene.getActiveCamera();
+            if (cameraEntity.isValid() &&
+                cameraEntity.scene == &ctx.scene &&
+                ctx.scene.hasComponent<engine::components::CameraComponent,
+                    engine::components::TransformComponent>(cameraEntity)) {
+                auto& camera = ctx.scene.getComponent<engine::components::CameraComponent>(cameraEntity);
+                camera.fovYDegrees -= ctx.input.mouseWheelY() * 2.0f;
+                camera.fovYDegrees = std::clamp(camera.fovYDegrees, 20.0f, 100.0f);
+            }
         }
         if (ctx.input.wasActionPressed(engine::systems::InputAction::Reset)) {
             t.reset();

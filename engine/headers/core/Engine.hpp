@@ -7,7 +7,7 @@
 
 #include <chrono>
 #include <expected>
-#include <chrono>
+#include <filesystem>
 #include <iostream>
 #include <ostream>
 #include <ratio>
@@ -66,6 +66,7 @@ namespace engine {
         SceneSerializerPtr sSceneSerializer;
         PhysicsSystemPtr sPhysics;
 
+        std::filesystem::path m_assetsPath;
         float accumulator = 0.0;
         const float FIXED_DT = 1.0 / 120.0;
     };

@@ -5,6 +5,7 @@
 #include "systems/RenderSystem.hpp"
 
 #include <algorithm>
+#include <limits>
 
 #include "components/MaterialComponent.hpp"
 #include "components/MeshComponent.hpp"
@@ -12,6 +13,8 @@
 #include "graphics/Mesh.hpp"
 
 namespace engine::systems {
+    constexpr std::size_t MaxDrawSubmissionsPerFrame = 4096;
+
     static uint64_t toBgfxState(const resources::RenderState& renderState) {
         uint64_t state = 0;
 
@@ -45,12 +48,19 @@ namespace engine::systems {
     }
 
     RenderSystem::~RenderSystem() {
+        if (!m_initialized) {
+            return;
+        }
         if (bgfx::isValid(m_colorUniform)) {
             bgfx::destroy(m_colorUniform);
+            m_colorUniform = BGFX_INVALID_HANDLE;
         }
         if (bgfx::isValid(m_samplerUniform)) {
             bgfx::destroy(m_samplerUniform);
+            m_samplerUniform = BGFX_INVALID_HANDLE;
         }
+        bgfx::shutdown();
+        m_initialized = false;
     }
 
     auto RenderSystem::beginFrame() -> void {
@@ -115,7 +125,11 @@ namespace engine::systems {
         bgfx::touch(view.viewId);
 
         auto renderables = scene.view<engine::components::TransformComponent, engine::components::MeshComponent, engine::components::MaterialComponent>();
+        std::size_t drawSubmissions = 0;
         for (const auto entity : renderables) {
+            if (drawSubmissions >= MaxDrawSubmissionsPerFrame) {
+                break;
+            }
             auto& transform = renderables.get<engine::components::TransformComponent>(entity);
             auto& meshComponent = renderables.get<engine::components::MeshComponent>(entity);
             auto& materialComponent = renderables.get<engine::components::MaterialComponent>(entity);
@@ -133,7 +147,7 @@ namespace engine::systems {
             }
 
             if (mesh->isValid()) {
-                mesh->submit(
+                drawSubmissions += mesh->submit(
                     program->handle(),
                     m_colorUniform,
                     m_samplerUniform,
@@ -141,7 +155,8 @@ namespace engine::systems {
                     transform.transform,
                     baseColor,
                     view.viewId,
-                    toBgfxState(renderState)
+                    toBgfxState(renderState),
+                    MaxDrawSubmissionsPerFrame - drawSubmissions
                 );
             }
         }
@@ -152,9 +167,10 @@ namespace engine::systems {
     }
 
     auto RenderSystem::backbufferExtent() const -> graphics::RenderExtent {
+        constexpr int MaximumExtent = std::numeric_limits<std::uint16_t>::max();
         return {
-            .width = static_cast<uint16_t>(std::max(mCurrentWidth, 1)),
-            .height = static_cast<uint16_t>(std::max(mCurrentHeight, 1))
+            .width = static_cast<uint16_t>(std::clamp(mCurrentWidth, 1, MaximumExtent)),
+            .height = static_cast<uint16_t>(std::clamp(mCurrentHeight, 1, MaximumExtent))
         };
     }
 
@@ -203,6 +219,7 @@ namespace engine::systems {
             if (!bgfx::init(init)) {
                 return std::unexpected{RenderSystemError{1, "Failed to initialize bgfx"}};
             }
+            m_initialized = true;
 
             mCurrentWidth = width;
             mCurrentHeight = height;

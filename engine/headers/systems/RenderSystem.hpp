@@ -55,6 +55,7 @@ namespace engine::systems {
         bgfx::UniformHandle m_samplerUniform = BGFX_INVALID_HANDLE;
         int mCurrentWidth{};
         int mCurrentHeight{};
+        bool m_initialized{false};
     };
 }
 
