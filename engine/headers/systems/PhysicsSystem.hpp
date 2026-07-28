@@ -4,23 +4,24 @@
 
 #ifndef SMB_PHYSICSSYSTEM_HPP
 #define SMB_PHYSICSSYSTEM_HPP
+#include <expected>
 #include <memory>
-#include <string>
 #include <unordered_map>
-#include <physx/PxPhysics.h>
-#include <physx/PxPhysicsAPI.h>
-#include <physx/PxRigidDynamic.h>
+
 #include <entt/entt.hpp>
 
 #include "components/PhysicsComponents.hpp"
 #include "components/TransformComponent.hpp"
+#include "physics/PhysicsTypes.hpp"
 #include "scene/Scene.hpp"
 
+namespace engine::physics {
+    class IPhysicsBackend;
+}
+
 namespace engine::systems {
-    struct PhysicsError {
-        int code;
-        std::string message;
-    };
+    using PhysicsError = physics::PhysicsError;
+
     class PhysicsSystem final {
     public:
         struct PhysicsSystemDeleter {
@@ -33,29 +34,19 @@ namespace engine::systems {
         auto shutdown() -> void;
 
         auto fixedUpdate(scene::Scene& scene, float fixedDelta) -> void;
+
     private:
         auto syncActorsFromScene(scene::Scene& scene) -> void;
-        auto simulate(float fixedDelta) const -> void;
         auto syncSceneFromActors(scene::Scene& scene) -> void;
 
         auto createMissingActors(scene::Scene& scene) -> void;
         auto createActorForEntity(scene::Scene& scene, scene::Entity entity) -> void;
         auto destroyRemovedActors(scene::Scene& scene) -> void;
 
-        static auto createGeometry(const components::ColliderComponent& collider) -> std::optional<physx::PxGeometryHolder>;
+        std::unique_ptr<physics::IPhysicsBackend> m_backend;
+        std::unordered_map<entt::entity, physics::BodyHandle> m_actors;
 
-        physx::PxDefaultAllocator m_allocator;
-        physx::PxDefaultErrorCallback m_errorCallback;
-
-        physx::PxFoundation* m_foundation{nullptr};
-        physx::PxPhysics* m_physics{nullptr};
-        physx::PxDefaultCpuDispatcher* m_dispatcher{nullptr};
-        physx::PxScene* m_scene{nullptr};
-        physx::PxMaterial* m_defaultMaterial{nullptr};
-
-        std::unordered_map<entt::entity, physx::PxRigidActor*> m_actors;
-
-        PhysicsSystem() = default;
+        explicit PhysicsSystem(std::unique_ptr<physics::IPhysicsBackend> backend);
         ~PhysicsSystem();
     };
 } // systems

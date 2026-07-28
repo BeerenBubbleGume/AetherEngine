@@ -78,9 +78,9 @@ auto engine::Engine::initEngine() -> std::expected<void, core::EngineError> {
         return std::unexpected{core::EngineError{3, "Failed to init renderer"}};
     }
 
-    auto physxInitResult = sPhysics->init();
-    if (!physxInitResult) {
-        std::cerr << "Failed to init physics: " << physxInitResult.error().message << std::endl;
+    auto physicsInitResult = sPhysics->init();
+    if (!physicsInitResult) {
+        std::cerr << "Failed to init physics: " << physicsInitResult.error().message << std::endl;
         return std::unexpected{core::EngineError{3, "Failed to init physics"}};
     }
     try {

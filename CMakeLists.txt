@@ -69,9 +69,18 @@ add_library(engine STATIC
         engine/src/security/PathSecurity.cpp
         engine/headers/security/PathSecurity.hpp
         engine/headers/security/AssetValidation.hpp
+        engine/headers/physics/PhysicsTypes.hpp
+        engine/src/physics/IPhysicsBackend.hpp
+        engine/src/physics/PhysicsBackendFactory.cpp
+        engine/src/physics/PhysicsBackendFactory.hpp
+        engine/src/physics/physx/PhysXBackend.cpp
+        engine/src/physics/physx/PhysXBackend.hpp
 )
 
-target_include_directories(engine PUBLIC engine/headers)
+target_include_directories(engine
+        PUBLIC engine/headers
+        PRIVATE engine/src
+)
 
 if (MSVC)
     target_compile_options(engine PRIVATE "/Zc:__cplusplus" "/Zc:preprocessor")
@@ -152,6 +161,9 @@ target_link_libraries(engine PUBLIC
         bgfx::bgfx
         glm::glm
         nlohmann_json::nlohmann_json
+)
+
+target_link_libraries(engine PRIVATE
         unofficial::omniverse-physx-sdk::sdk
 )
 
