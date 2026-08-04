@@ -1,0 +1,109 @@
+{
+    "version": 1,
+    "name": "DefaultScene",
+    "activeCamera": "camera",
+    "entities": [
+        {
+            "id": "camera",
+            "name": "Test Camera",
+            "components": {
+                "Transform": {
+                    "position": [0.0, 0.0, 8.0],
+                    "rotation": [1.0, 0.0, 0.0, 0.0],
+                    "scale": [1.0, 1.0, 1.0]
+                },
+                "Camera": {
+                    "enabled": true,
+                    "projection": 0,
+                    "fovYDegrees": 60.0,
+                    "nearPlane": 0.1,
+                    "farPlane": 100.0,
+                    "orthographicHeight": 10.0,
+                    "clearFlags": 3,
+                    "clearColor": 809568255,
+                    "priority": 0,
+                    "layerMask": 4294967295
+                }
+            }
+        },
+        {
+            "id": "player",
+            "name": "Player",
+            "components": {
+                "Transform": {
+                    "position": [-1.75, -0.75, 0.0],
+                    "rotation": [1.0, 0.0, 0.0, 0.0],
+                    "scale": [1.0, 1.0, 1.0]
+                },
+                "Mesh": {
+                    "assetPath": "meshes/bin/bunny.bin"
+                },
+                "Material": {
+                    "programName": "basic",
+                    "vertexShaderPath": "shaders/bin/osx_arm/basic_vs.bin",
+                    "fragmentShaderPath": "shaders/bin/osx_arm/basic_fs.bin",
+                    "baseColor": [0.1, 0.3, 1.0, 1.0],
+                    "renderState": {},
+                    "textures": ["textures/bin/brick.ktx"]
+                }
+            }
+        },
+        {
+            "id": "dynamic_rabbit",
+            "name": "Dynamic Rabbit",
+            "components": {
+                "Transform": {
+                    "position": [1.75, 2.25, 0.0],
+                    "rotation": [1.0, 0.0, 0.0, 0.0],
+                    "scale": [1.0, 1.0, 1.0]
+                },
+                "Mesh": {
+                    "assetPath": "meshes/bin/bunny.bin"
+                },
+                "Material": {
+                    "programName": "basic",
+                    "vertexShaderPath": "shaders/bin/osx_arm/basic_vs.bin",
+                    "fragmentShaderPath": "shaders/bin/osx_arm/basic_fs.bin",
+                    "baseColor": [1.0, 0.15, 0.1, 1.0],
+                    "renderState": {},
+                    "textures": ["textures/bin/brick.ktx"]
+                },
+                "Rigidbody": {
+                    "dynamic": true,
+                    "mass": 1.0,
+                    "useGravity": true
+                },
+                "Collider": {
+                    "type": "Box",
+                    "size": [1.2, 1.8, 1.2],
+                    "radius": 0.5,
+                    "height": 1.0,
+                    "trigger": false
+                }
+            }
+        },
+        {
+            "id": "ground",
+            "name": "Ground",
+            "components": {
+                "Transform": {
+                    "position": [0.0, -2.0, 0.0],
+                    "rotation": [1.0, 0.0, 0.0, 0.0],
+                    "scale": [1.0, 1.0, 1.0]
+                },
+                "Rigidbody": {
+                    "dynamic": false,
+                    "mass": 1.0,
+                    "useGravity": false
+                },
+                "Collider": {
+                    "type": "Box",
+                    "size": [12.0, 0.5, 6.0],
+                    "radius": 0.5,
+                    "height": 1.0,
+                    "trigger": false
+                }
+            }
+        }
+    ]
+}

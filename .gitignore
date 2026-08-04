@@ -30,4 +30,5 @@ vcpkg_installed/
 *.iobj
 *.ipdb
 *.json
+!assets/scenes/*.scene.json
 .agents/

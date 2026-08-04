@@ -8,8 +8,41 @@ find_package(EnTT CONFIG REQUIRED)
 find_package(bgfx CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
-find_package(unofficial-omniverse-physx-sdk CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+
+if (APPLE)
+    set(SMB_DEFAULT_PHYSICS_BACKEND "Jolt")
+else()
+    set(SMB_DEFAULT_PHYSICS_BACKEND "PhysX")
+endif()
+set(SMB_PHYSICS_BACKEND "${SMB_DEFAULT_PHYSICS_BACKEND}" CACHE STRING
+        "Physics backend used by the engine (PhysX or Jolt)"
+)
+set_property(CACHE SMB_PHYSICS_BACKEND PROPERTY STRINGS PhysX Jolt)
+string(TOLOWER "${SMB_PHYSICS_BACKEND}" SMB_PHYSICS_BACKEND_NORMALIZED)
+
+if (SMB_PHYSICS_BACKEND_NORMALIZED STREQUAL "physx")
+    find_package(unofficial-omniverse-physx-sdk CONFIG REQUIRED)
+    set(SMB_PHYSICS_BACKEND_SOURCES
+            engine/src/physics/physx/PhysXBackend.cpp
+            engine/src/physics/physx/PhysXBackend.hpp
+    )
+    set(SMB_PHYSICS_BACKEND_TARGET unofficial::omniverse-physx-sdk::sdk)
+    set(SMB_PHYSICS_BACKEND_DEFINITION SMB_PHYSICS_BACKEND_PHYSX=1)
+elseif (SMB_PHYSICS_BACKEND_NORMALIZED STREQUAL "jolt")
+    find_package(Jolt CONFIG REQUIRED)
+    set(SMB_PHYSICS_BACKEND_SOURCES
+            engine/src/physics/jolt/JoltBackend.cpp
+            engine/src/physics/jolt/JoltBackend.hpp
+    )
+    set(SMB_PHYSICS_BACKEND_TARGET Jolt::Jolt)
+    set(SMB_PHYSICS_BACKEND_DEFINITION SMB_PHYSICS_BACKEND_JOLT=1)
+else()
+    message(FATAL_ERROR
+            "Unsupported SMB_PHYSICS_BACKEND='${SMB_PHYSICS_BACKEND}'. "
+            "Expected PhysX or Jolt."
+    )
+endif()
 
 
 if (MSVC)
@@ -73,14 +106,15 @@ add_library(engine STATIC
         engine/src/physics/IPhysicsBackend.hpp
         engine/src/physics/PhysicsBackendFactory.cpp
         engine/src/physics/PhysicsBackendFactory.hpp
-        engine/src/physics/physx/PhysXBackend.cpp
-        engine/src/physics/physx/PhysXBackend.hpp
+        ${SMB_PHYSICS_BACKEND_SOURCES}
 )
 
 target_include_directories(engine
         PUBLIC engine/headers
         PRIVATE engine/src
 )
+
+target_compile_definitions(engine PRIVATE ${SMB_PHYSICS_BACKEND_DEFINITION})
 
 if (MSVC)
     target_compile_options(engine PRIVATE "/Zc:__cplusplus" "/Zc:preprocessor")
@@ -96,6 +130,13 @@ if (BUILD_TESTING)
             AETHER_TEST_ASSETS_ROOT="${CMAKE_SOURCE_DIR}/assets"
     )
     add_test(NAME security_regressions COMMAND aether_security_tests)
+
+    add_executable(aether_physics_tests
+            tests/PhysicsBackendTests.cpp
+    )
+    target_include_directories(aether_physics_tests PRIVATE engine/src)
+    target_link_libraries(aether_physics_tests PRIVATE engine)
+    add_test(NAME physics_backend_regressions COMMAND aether_physics_tests)
 endif()
 
 add_executable(smb
@@ -164,7 +205,7 @@ target_link_libraries(engine PUBLIC
 )
 
 target_link_libraries(engine PRIVATE
-        unofficial::omniverse-physx-sdk::sdk
+        ${SMB_PHYSICS_BACKEND_TARGET}
 )
 
 target_link_libraries(smb PRIVATE
@@ -182,6 +223,10 @@ if (MSVC)
     if (TARGET aether_security_tests)
         list(APPEND hardened_targets aether_security_tests)
         list(APPEND hardened_executables aether_security_tests)
+    endif()
+    if (TARGET aether_physics_tests)
+        list(APPEND hardened_targets aether_physics_tests)
+        list(APPEND hardened_executables aether_physics_tests)
     endif()
     foreach(hardened_target IN LISTS hardened_targets)
         target_compile_options(${hardened_target} PRIVATE "/sdl" "/guard:cf")

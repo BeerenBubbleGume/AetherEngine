@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
 #include "interfaces/IUpdatable.hpp"
 #include "InputTypes.hpp"

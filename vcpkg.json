@@ -12,7 +12,11 @@
         "sdl3-binding"
       ]
     },
-    "physx",
+    "joltphysics",
+    {
+      "name": "physx",
+      "platform": "!osx"
+    },
     "sdl3",
     "nlohmann-json"
   ]

@@ -40,6 +40,7 @@ The project uses CMake and vcpkg manifest mode. Current direct dependencies are:
 - EnTT
 - bgfx
 - glm
+- Jolt Physics or NVIDIA PhysX
 - shaderc
 
 Third-party license notices are collected in [LICENSES.md](LICENSES.md).
@@ -58,6 +59,15 @@ Configure and build with the vcpkg toolchain:
 cmake -S . -B cmake-build-debug -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
 cmake --build cmake-build-debug --config Debug
 ```
+
+The physics backend can be selected at configure time:
+
+```powershell
+cmake -S . -B cmake-build-debug -DSMB_PHYSICS_BACKEND=Jolt -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
+```
+
+Valid values are `Jolt` and `PhysX`. Jolt is the default on macOS, where the
+vcpkg PhysX port is not supported; PhysX remains the default elsewhere.
 
 With Visual Studio on Windows, an explicit generator is also fine:
 

@@ -62,14 +62,23 @@ namespace {
 int main() {
     int failures = 0;
     const std::filesystem::path assetsRoot{AETHER_TEST_ASSETS_ROOT};
+    std::error_code filesystemError;
+    const auto temporaryRoot = std::filesystem::canonical(
+        std::filesystem::temp_directory_path(),
+        filesystemError
+    );
+    if (filesystemError) {
+        std::cerr << "Could not resolve test temp directory: "
+            << filesystemError.message() << '\n';
+        return 1;
+    }
     const auto unique = std::to_string(
         std::chrono::steady_clock::now().time_since_epoch().count()
     );
-    const auto testRoot = std::filesystem::temp_directory_path() /
+    const auto testRoot = temporaryRoot /
         ("aether-security-tests-" + unique);
     const auto sceneRoot = testRoot / "scenes";
     const auto outsideDirectory = testRoot.parent_path() / ("aether-outside-dir-" + unique);
-    std::error_code filesystemError;
     std::filesystem::create_directories(sceneRoot, filesystemError);
     if (filesystemError) {
         std::cerr << "Could not create test directory: " << filesystemError.message() << '\n';

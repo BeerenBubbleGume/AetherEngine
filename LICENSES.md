@@ -3,7 +3,7 @@
 This file lists the third-party license notices currently present in this workspace.
 The project itself does not currently declare a root project license.
 
-Notices were copied from the local vcpkg installation and bundled bgfx/bx headers under vcpkg_installed/x64-windows.
+Notices were copied from the local vcpkg installation and bundled bgfx/bx headers.
 
 ## Covered Components
 
@@ -13,6 +13,7 @@ Notices were copied from the local vcpkg installation and bundled bgfx/bx header
 | EnTT | 3.16.0 | direct runtime dependency | vcpkg_installed\x64-windows\share\entt\copyright |
 | glm | 1.0.3 | direct runtime dependency | vcpkg_installed\x64-windows\share\glm\copyright |
 | Dear ImGui | 1.92.8 | direct manifest dependency | vcpkg_installed\x64-windows\share\imgui\copyright |
+| Jolt Physics | 5.5.0 | direct runtime dependency | vcpkg_installed\<triplet>\share\joltphysics\copyright |
 | nlohmann-json | 3.12.0 | direct runtime dependency | vcpkg_installed\x64-windows\share\nlohmann-json\copyright |
 | PhysX | 5.5.0 | direct runtime dependency | vcpkg_installed\x64-windows\share\physx\copyright |
 | SDL3 | 3.4.10 | direct runtime dependency | vcpkg_installed\x64-windows\share\sdl3\copyright |
@@ -32,6 +33,32 @@ Notices were copied from the local vcpkg installation and bundled bgfx/bx header
 | tinystl | bundled with bx/bgfx headers | bgfx/bx bundled header component | vcpkg_installed\x64-windows\include\bx\tinystl\LICENSE |
 
 ## Full Notices
+
+### Jolt Physics 5.5.0
+
+Source: vcpkg_installed\<triplet>\share\joltphysics\copyright
+
+````text
+Copyright 2021 Jorrit Rouwe
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+````
 
 ### bgfx 1.129.8940-496
 
