@@ -12,16 +12,16 @@ namespace {
         }
     }
 
-    auto boxCollider(float halfExtent = 0.5f) -> engine::components::ColliderComponent {
+    auto boxCollider(float halfExtent = 0.5f) -> AetherEngine::components::ColliderComponent {
         return {
-            .type = engine::components::ColliderType::Box,
+            .type = AetherEngine::components::ColliderType::Box,
             .size = {halfExtent, halfExtent, halfExtent}
         };
     }
 
-    auto sphereCollider(float radius = 0.5f) -> engine::components::ColliderComponent {
+    auto sphereCollider(float radius = 0.5f) -> AetherEngine::components::ColliderComponent {
         return {
-            .type = engine::components::ColliderType::Sphere,
+            .type = AetherEngine::components::ColliderType::Sphere,
             .radius = radius
         };
     }
@@ -29,7 +29,7 @@ namespace {
 
 int main() {
     int failures = 0;
-    auto backend = engine::physics::createPhysicsBackend();
+    auto backend = AetherEngine::physics::createPhysicsBackend();
     expect(static_cast<bool>(backend), "create selected physics backend", failures);
     if (!backend) {
         return 1;
@@ -45,7 +45,7 @@ int main() {
     }
     expect(backend->init().has_value(), "backend initialization is idempotent", failures);
 
-    engine::physics::BodyDesc floorDesc{
+    AetherEngine::physics::BodyDesc floorDesc{
         .transform = {
             .position = {0.0f, -1.0f, 0.0f}
         },
@@ -56,7 +56,7 @@ int main() {
     const auto floor = backend->createBody(floorDesc);
     expect(floor.isValid(), "create static box", failures);
 
-    const engine::physics::BodyDesc fallingDesc{
+    const AetherEngine::physics::BodyDesc fallingDesc{
         .transform = {
             .position = {0.0f, 3.0f, 0.0f}
         },
@@ -68,12 +68,12 @@ int main() {
     const auto fallingBody = backend->createBody(fallingDesc);
     expect(fallingBody.isValid(), "create dynamic sphere", failures);
 
-    const engine::physics::BodyDesc floatingDesc{
+    const AetherEngine::physics::BodyDesc floatingDesc{
         .transform = {
             .position = {2.0f, 3.0f, 0.0f}
         },
         .collider = {
-            .type = engine::components::ColliderType::Capsule,
+            .type = AetherEngine::components::ColliderType::Capsule,
             .radius = 0.25f,
             .height = 1.0f
         },
@@ -84,7 +84,7 @@ int main() {
     const auto floatingBody = backend->createBody(floatingDesc);
     expect(floatingBody.isValid(), "create gravity-free dynamic capsule", failures);
 
-    engine::physics::BodyDesc triggerDesc{
+    AetherEngine::physics::BodyDesc triggerDesc{
         .transform = {
             .position = {-2.0f, 1.0f, 0.0f}
         },
@@ -95,7 +95,7 @@ int main() {
     const auto trigger = backend->createBody(triggerDesc);
     expect(trigger.isValid(), "create trigger body", failures);
 
-    engine::physics::BodyDesc invalidMassDesc = fallingDesc;
+    AetherEngine::physics::BodyDesc invalidMassDesc = fallingDesc;
     invalidMassDesc.mass = 0.0f;
     expect(
         !backend->createBody(invalidMassDesc).isValid(),
@@ -103,7 +103,7 @@ int main() {
         failures
     );
 
-    engine::physics::BodyDesc invalidColliderDesc = fallingDesc;
+    AetherEngine::physics::BodyDesc invalidColliderDesc = fallingDesc;
     invalidColliderDesc.collider.radius = -1.0f;
     expect(
         !backend->createBody(invalidColliderDesc).isValid(),
@@ -135,9 +135,9 @@ int main() {
         failures
     );
 
-    const engine::math::Transform movedFloor{
+    const AetherEngine::math::Transform movedFloor{
         .position = {0.0f, -2.0f, 0.0f},
-        .rotation = engine::math::Quat::identity()
+        .rotation = AetherEngine::math::Quat::identity()
     };
     backend->setTransform(floor, movedFloor);
     const auto floorTransform = backend->getTransform(floor);

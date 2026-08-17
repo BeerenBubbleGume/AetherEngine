@@ -24,16 +24,16 @@ string(TOLOWER "${SMB_PHYSICS_BACKEND}" SMB_PHYSICS_BACKEND_NORMALIZED)
 if (SMB_PHYSICS_BACKEND_NORMALIZED STREQUAL "physx")
     find_package(unofficial-omniverse-physx-sdk CONFIG REQUIRED)
     set(SMB_PHYSICS_BACKEND_SOURCES
-            engine/src/physics/physx/PhysXBackend.cpp
-            engine/src/physics/physx/PhysXBackend.hpp
+            AetherEngine/src/physics/physx/PhysXBackend.cpp
+            AetherEngine/src/physics/physx/PhysXBackend.hpp
     )
     set(SMB_PHYSICS_BACKEND_TARGET unofficial::omniverse-physx-sdk::sdk)
     set(SMB_PHYSICS_BACKEND_DEFINITION SMB_PHYSICS_BACKEND_PHYSX=1)
 elseif (SMB_PHYSICS_BACKEND_NORMALIZED STREQUAL "jolt")
     find_package(Jolt CONFIG REQUIRED)
     set(SMB_PHYSICS_BACKEND_SOURCES
-            engine/src/physics/jolt/JoltBackend.cpp
-            engine/src/physics/jolt/JoltBackend.hpp
+            AetherEngine/src/physics/jolt/JoltBackend.cpp
+            AetherEngine/src/physics/jolt/JoltBackend.hpp
     )
     set(SMB_PHYSICS_BACKEND_TARGET Jolt::Jolt)
     set(SMB_PHYSICS_BACKEND_DEFINITION SMB_PHYSICS_BACKEND_JOLT=1)
@@ -52,72 +52,88 @@ if (MSVC)
     add_compile_options("/permissive-")
 endif()
 
-add_library(engine STATIC
-        engine/src/window/Window.cpp
-        engine/src/core/Engine.cpp
-        engine/headers/core/Engine.hpp
-        engine/src/systems/InputSystem.cpp
-        engine/headers/systems/InputSystem.hpp
-        engine/headers/interfaces/IUpdatable.hpp
-        engine/src/systems/RenderSystem.cpp
-        engine/headers/systems/RenderSystem.hpp
-        engine/src/graphics/Mesh.cpp
-        engine/headers/graphics/Mesh.hpp
-        engine/src/graphics/ShaderProgram.cpp
-        engine/headers/graphics/ShaderProgram.hpp
-        engine/src/resources/ResourceManager.cpp
-        engine/headers/resources/ResourceManager.hpp
-        engine/headers/resources/EmbeddedShaders.hpp
-        engine/src/scene/Scene.cpp
-        engine/headers/scene/Scene.hpp
-        engine/src/scene/Camera.cpp
-        engine/headers/scene/Camera.hpp
-        engine/headers/core/IApplication.hpp
-        engine/src/core/EngineContext.cpp
-        engine/headers/core/EngineContext.hpp
-        engine/headers/components/CameraComponent.hpp
-        engine/headers/components/MeshComponent.hpp
-        engine/headers/components/TransformComponent.hpp
-        engine/headers/components/IdentityComponent.hpp
-        engine/headers/scene/Entity.hpp
-        engine/src/math/Types.cpp
-        engine/headers/math/Types.hpp
-        engine/headers/math/Detail.hpp
-        engine/src/math/Detail.cpp
-        engine/headers/components/MaterialComponent.hpp
-        engine/headers/math/CameraMatrices.hpp
-        engine/src/math/CameraMatrices.cpp
-        engine/headers/systems/InputTypes.hpp
-        engine/headers/resources/ResourceTypes.hpp
-        engine/src/graphics/Texture.cpp
-        engine/headers/graphics/Texture.hpp
-        engine/src/graphics/RenderTarget.cpp
-        engine/headers/graphics/RenderTarget.hpp
-        engine/headers/graphics/SceneView.hpp
-        engine/src/systems/SceneSerializer.cpp
-        engine/headers/systems/SceneSerializer.hpp
-        engine/headers/components/PhysicsComponents.hpp
-        engine/src/systems/PhysicsSystem.cpp
-        engine/headers/systems/PhysicsSystem.hpp
-        engine/src/security/PathSecurity.cpp
-        engine/headers/security/PathSecurity.hpp
-        engine/headers/security/AssetValidation.hpp
-        engine/headers/physics/PhysicsTypes.hpp
-        engine/src/physics/IPhysicsBackend.hpp
-        engine/src/physics/PhysicsBackendFactory.cpp
-        engine/src/physics/PhysicsBackendFactory.hpp
+add_library(AetherEngine STATIC
+        AetherEngine/src/window/Window.cpp
+        AetherEngine/src/core/Engine.cpp
+        AetherEngine/headers/core/AetherEngine.hpp
+        AetherEngine/src/systems/InputSystem.cpp
+        AetherEngine/headers/systems/InputSystem.hpp
+        AetherEngine/headers/interfaces/IUpdatable.hpp
+        AetherEngine/src/systems/RenderSystem.cpp
+        AetherEngine/headers/systems/RenderSystem.hpp
+        AetherEngine/src/graphics/Mesh.cpp
+        AetherEngine/headers/graphics/Mesh.hpp
+        AetherEngine/src/graphics/ShaderProgram.cpp
+        AetherEngine/headers/graphics/ShaderProgram.hpp
+        AetherEngine/src/resources/ResourceManager.cpp
+        AetherEngine/headers/resources/ResourceManager.hpp
+        AetherEngine/headers/resources/EmbeddedShaders.hpp
+        AetherEngine/src/scene/Scene.cpp
+        AetherEngine/headers/scene/Scene.hpp
+        AetherEngine/src/scene/Camera.cpp
+        AetherEngine/headers/scene/Camera.hpp
+        AetherEngine/headers/core/IApplication.hpp
+        AetherEngine/src/core/EngineContext.cpp
+        AetherEngine/headers/core/EngineContext.hpp
+        AetherEngine/headers/components/CameraComponent.hpp
+        AetherEngine/headers/components/MeshComponent.hpp
+        AetherEngine/headers/components/TransformComponent.hpp
+        AetherEngine/headers/components/IdentityComponent.hpp
+        AetherEngine/headers/scene/Entity.hpp
+        AetherEngine/src/math/Types.cpp
+        AetherEngine/headers/math/Types.hpp
+        AetherEngine/headers/math/Detail.hpp
+        AetherEngine/src/math/Detail.cpp
+        AetherEngine/headers/components/MaterialComponent.hpp
+        AetherEngine/headers/math/CameraMatrices.hpp
+        AetherEngine/src/math/CameraMatrices.cpp
+        AetherEngine/headers/systems/InputTypes.hpp
+        AetherEngine/headers/resources/ResourceTypes.hpp
+        AetherEngine/src/graphics/Texture.cpp
+        AetherEngine/headers/graphics/Texture.hpp
+        AetherEngine/src/graphics/RenderTarget.cpp
+        AetherEngine/headers/graphics/RenderTarget.hpp
+        AetherEngine/headers/graphics/SceneView.hpp
+        AetherEngine/src/systems/SceneSerializer.cpp
+        AetherEngine/headers/systems/SceneSerializer.hpp
+        AetherEngine/headers/components/PhysicsComponents.hpp
+        AetherEngine/src/systems/PhysicsSystem.cpp
+        AetherEngine/headers/systems/PhysicsSystem.hpp
+        AetherEngine/src/security/PathSecurity.cpp
+        AetherEngine/headers/security/PathSecurity.hpp
+        AetherEngine/headers/security/AssetValidation.hpp
+        AetherEngine/headers/physics/PhysicsTypes.hpp
+        AetherEngine/src/physics/IPhysicsBackend.hpp
+        AetherEngine/src/physics/PhysicsBackendFactory.cpp
+        AetherEngine/src/physics/PhysicsBackendFactory.hpp
         ${SMB_PHYSICS_BACKEND_SOURCES}
+        AetherEngine/headers/assets/AssetId.hpp
+        AetherEngine/headers/assets/AssetTypes.hpp
+        AetherEngine/headers/assets/AssetMetadata.hpp
+        AetherEngine/src/assets/AssetRegistry.cpp
+        AetherEngine/headers/assets/AssetRegistry.hpp
+        AetherEngine/src/assets/AssetManager.cpp
+        AetherEngine/headers/assets/AssetManager.hpp
+        AetherEngine/headers/assets/RuntimeAsset.hpp
+        AetherEngine/headers/assets/IAssetLoader.hpp
+        AetherEngine/headers/assets/AssetLoaders.hpp
+        AetherEngine/headers/assets/PlatformProfile.hpp
+        AetherEngine/src/assets/PlatformResolver.cpp
+        AetherEngine/src/assets/loaders/MeshLoader.cpp
+        AetherEngine/src/assets/loaders/TextureLoader.cpp
+        AetherEngine/src/assets/loaders/ShaderLoader.cpp
+        AetherEngine/src/assets/loaders/MaterialLoader.cpp
 )
 
-target_include_directories(engine
-        PUBLIC engine/headers
-        PRIVATE engine/src
+target_include_directories(AetherEngine
+        PUBLIC AetherEngine/headers
+        PRIVATE AetherEngine/src
 )
 
-target_compile_definitions(engine PRIVATE ${SMB_PHYSICS_BACKEND_DEFINITION})
+target_compile_definitions(AetherEngine PRIVATE ${SMB_PHYSICS_BACKEND_DEFINITION})
 
 if (MSVC)
-    target_compile_options(engine PRIVATE "/Zc:__cplusplus" "/Zc:preprocessor")
+    target_compile_options(AetherEngine PRIVATE "/Zc:__cplusplus" "/Zc:preprocessor")
 endif()
 
 include(CTest)
@@ -125,7 +141,7 @@ if (BUILD_TESTING)
     add_executable(aether_security_tests
             tests/SecurityRegressionTests.cpp
     )
-    target_link_libraries(aether_security_tests PRIVATE engine)
+    target_link_libraries(aether_security_tests PRIVATE AetherEngine)
     target_compile_definitions(aether_security_tests PRIVATE
             AETHER_TEST_ASSETS_ROOT="${CMAKE_SOURCE_DIR}/assets"
     )
@@ -134,9 +150,18 @@ if (BUILD_TESTING)
     add_executable(aether_physics_tests
             tests/PhysicsBackendTests.cpp
     )
-    target_include_directories(aether_physics_tests PRIVATE engine/src)
-    target_link_libraries(aether_physics_tests PRIVATE engine)
+    target_include_directories(aether_physics_tests PRIVATE AetherEngine/src)
+    target_link_libraries(aether_physics_tests PRIVATE AetherEngine)
     add_test(NAME physics_backend_regressions COMMAND aether_physics_tests)
+
+    add_executable(aether_asset_registry_tests
+            tests/AssetRegistryTests.cpp
+    )
+    target_link_libraries(aether_asset_registry_tests PRIVATE AetherEngine)
+    target_compile_definitions(aether_asset_registry_tests PRIVATE
+            AETHER_TEST_ASSETS_ROOT="${CMAKE_SOURCE_DIR}/assets"
+    )
+    add_test(NAME asset_registry_regressions COMMAND aether_asset_registry_tests)
 endif()
 
 add_executable(smb
@@ -146,14 +171,14 @@ add_executable(smb
 )
 
 add_executable(AetherEditor
-        editor/src/main.cpp
-        editor/src/core/AetherEditor.cpp
-        editor/headers/core/AetherEditor.hpp
-        editor/src/ui/EditorGui.cpp
-        editor/headers/ui/EditorGui.hpp
-        editor/src/ui/ImGuiBgfxRenderer.cpp
-        editor/headers/ui/ImGuiBgfxRenderer.hpp
-        editor/headers/core/ETypes.hpp
+        AetherEditor/src/main.cpp
+        AetherEditor/src/core/AetherEditor.cpp
+        AetherEditor/headers/core/AetherEditor.hpp
+        AetherEditor/src/ui/EditorGui.cpp
+        AetherEditor/headers/ui/EditorGui.hpp
+        AetherEditor/src/ui/ImGuiBgfxRenderer.cpp
+        AetherEditor/headers/ui/ImGuiBgfxRenderer.hpp
+        AetherEditor/headers/core/ETypes.hpp
 )
 
 set(AETHER_IMGUI_SHADER_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/assets/shaders/generated")
@@ -174,7 +199,7 @@ target_sources(AetherEditor PRIVATE ${AETHER_IMGUI_SHADER_HEADERS})
 
 target_include_directories(smb PRIVATE smb/headers)
 target_include_directories(AetherEditor PRIVATE
-        editor/headers
+        AetherEditor/headers
         "${AETHER_IMGUI_SHADER_OUTPUT_DIR}"
 )
 
@@ -196,7 +221,7 @@ endfunction()
 link_engine_assets(smb)
 link_engine_assets(AetherEditor)
 
-target_link_libraries(engine PUBLIC
+target_link_libraries(AetherEngine PUBLIC
         SDL3::SDL3
         EnTT::EnTT
         bgfx::bgfx
@@ -204,21 +229,21 @@ target_link_libraries(engine PUBLIC
         nlohmann_json::nlohmann_json
 )
 
-target_link_libraries(engine PRIVATE
+target_link_libraries(AetherEngine PRIVATE
         ${SMB_PHYSICS_BACKEND_TARGET}
 )
 
 target_link_libraries(smb PRIVATE
-        engine
+        AetherEngine
 )
 
 target_link_libraries(AetherEditor PRIVATE
-        engine
+        AetherEngine
         imgui::imgui
 )
 
 if (MSVC)
-    set(hardened_targets engine smb AetherEditor)
+    set(hardened_targets AetherEngine smb AetherEditor)
     set(hardened_executables smb AetherEditor)
     if (TARGET aether_security_tests)
         list(APPEND hardened_targets aether_security_tests)
@@ -227,6 +252,10 @@ if (MSVC)
     if (TARGET aether_physics_tests)
         list(APPEND hardened_targets aether_physics_tests)
         list(APPEND hardened_executables aether_physics_tests)
+    endif()
+    if (TARGET aether_asset_registry_tests)
+        list(APPEND hardened_targets aether_asset_registry_tests)
+        list(APPEND hardened_executables aether_asset_registry_tests)
     endif()
     foreach(hardened_target IN LISTS hardened_targets)
         target_compile_options(${hardened_target} PRIVATE "/sdl" "/guard:cf")

@@ -1,5 +1,5 @@
 {
-    "version": 1,
+    "version": 2,
     "name": "DefaultScene",
     "activeCamera": "camera",
     "entities": [
@@ -36,15 +36,11 @@
                     "scale": [1.0, 1.0, 1.0]
                 },
                 "Mesh": {
-                    "assetPath": "meshes/bin/bunny.bin"
+                    "asset": "11111111111111111111111111111111"
                 },
                 "Material": {
-                    "programName": "basic",
-                    "vertexShaderPath": "shaders/bin/osx_arm/basic_vs.bin",
-                    "fragmentShaderPath": "shaders/bin/osx_arm/basic_fs.bin",
-                    "baseColor": [0.1, 0.3, 1.0, 1.0],
-                    "renderState": {},
-                    "textures": ["textures/bin/brick.ktx"]
+                    "asset": "44444444444444444444444444444444",
+                    "baseColor": [0.1, 0.3, 1.0, 1.0]
                 }
             }
         },
@@ -58,15 +54,11 @@
                     "scale": [1.0, 1.0, 1.0]
                 },
                 "Mesh": {
-                    "assetPath": "meshes/bin/bunny.bin"
+                    "asset": "11111111111111111111111111111111"
                 },
                 "Material": {
-                    "programName": "basic",
-                    "vertexShaderPath": "shaders/bin/osx_arm/basic_vs.bin",
-                    "fragmentShaderPath": "shaders/bin/osx_arm/basic_fs.bin",
-                    "baseColor": [1.0, 0.15, 0.1, 1.0],
-                    "renderState": {},
-                    "textures": ["textures/bin/brick.ktx"]
+                    "asset": "44444444444444444444444444444444",
+                    "baseColor": [1.0, 0.15, 0.1, 1.0]
                 },
                 "Rigidbody": {
                     "dynamic": true,

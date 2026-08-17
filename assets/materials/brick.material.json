@@ -1,0 +1,16 @@
+{
+    "version": 1,
+    "shader": "33333333333333333333333333333333",
+    "textures": [
+        "22222222222222222222222222222222"
+    ],
+    "renderState": {
+        "writeRgb": true,
+        "writeAlpha": true,
+        "writeDepth": true,
+        "depthTest": true,
+        "cullBackFaces": true,
+        "alphaBlend": false,
+        "msaa": true
+    }
+}

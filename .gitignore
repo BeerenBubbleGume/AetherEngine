@@ -31,4 +31,6 @@ vcpkg_installed/
 *.ipdb
 *.json
 !assets/scenes/*.scene.json
+!assets/registry/*.json
+!assets/materials/*.json
 .agents/

@@ -8,7 +8,7 @@
 #include "core/IApplication.hpp"
 
 namespace smb {
-    class SMB final : public engine::core::IApplication {
+    class SMB final : public AetherEngine::core::IApplication {
     public:
         struct SMBDeleter {
             void operator()(const SMB* ptr) const { delete ptr; }
@@ -19,9 +19,9 @@ namespace smb {
         SMB(SMB&&) = delete;
         SMB& operator=(SMB&&) = delete;
 
-        auto init(engine::core::EngineContext& ctx) -> std::expected<void, engine::core::EngineError> override;
-        auto update(float dt, engine::core::EngineContext& ctx) -> void override;
-        auto render(engine::core::EngineContext& ctx) -> void override;
+        auto init(AetherEngine::core::EngineContext& ctx) -> std::expected<void, AetherEngine::core::EngineError> override;
+        auto update(float dt, AetherEngine::core::EngineContext& ctx) -> void override;
+        auto render(AetherEngine::core::EngineContext& ctx) -> void override;
 
         auto run() -> void;
 
@@ -31,7 +31,7 @@ namespace smb {
         SMB() = default;
         ~SMB() override;
 
-        std::optional<engine::scene::Entity> playerEntity {std::nullopt};
+        std::optional<AetherEngine::scene::Entity> playerEntity {std::nullopt};
     };
 } // smb
 

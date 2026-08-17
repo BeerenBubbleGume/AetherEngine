@@ -2,11 +2,11 @@
 // Created by drhaz on 14.06.2026.
 //
 
-#include "core/Engine.hpp"
+#include "core/AetherEngine.hpp"
 #include "core/Smb.hpp"
 
 int main() {
-    auto engine = engine::Engine::createEngine();
+    auto engine = AetherEngine::Engine::createEngine();
     if (!engine) {
         return 1;
     }

@@ -1,0 +1,83 @@
+{
+    "version": 1,
+    "assets": [
+        {
+            "id": "11111111111111111111111111111111",
+            "type": "mesh",
+            "alias": "asset://meshes/bunny",
+            "variants": [
+                {
+                    "platform": {
+                        "os": "any",
+                        "architecture": "any",
+                        "graphics": "any"
+                    },
+                    "path": "meshes/bin/bunny.bin"
+                }
+            ]
+        },
+        {
+            "id": "22222222222222222222222222222222",
+            "type": "texture",
+            "alias": "asset://textures/brick",
+            "variants": [
+                {
+                    "platform": {
+                        "os": "any",
+                        "architecture": "any",
+                        "graphics": "any"
+                    },
+                    "path": "textures/bin/brick.ktx"
+                }
+            ]
+        },
+        {
+            "id": "33333333333333333333333333333333",
+            "type": "shader",
+            "alias": "asset://shaders/basic",
+            "variants": [
+                {
+                    "platform": {
+                        "os": "windows",
+                        "architecture": "x64",
+                        "graphics": "d3d11"
+                    },
+                    "artifacts": {
+                        "vertex": "shaders/bin/win32/basic_vs.bin",
+                        "fragment": "shaders/bin/win32/basic_fs.bin"
+                    }
+                },
+                {
+                    "platform": {
+                        "os": "macos",
+                        "architecture": "arm64",
+                        "graphics": "metal"
+                    },
+                    "artifacts": {
+                        "vertex": "shaders/bin/osx_arm/basic_vs.bin",
+                        "fragment": "shaders/bin/osx_arm/basic_fs.bin"
+                    }
+                }
+            ]
+        },
+        {
+            "id": "44444444444444444444444444444444",
+            "type": "material",
+            "alias": "asset://materials/brick",
+            "dependencies": [
+                "33333333333333333333333333333333",
+                "22222222222222222222222222222222"
+            ],
+            "variants": [
+                {
+                    "platform": {
+                        "os": "any",
+                        "architecture": "any",
+                        "graphics": "any"
+                    },
+                    "path": "materials/brick.material.json"
+                }
+            ]
+        }
+    ]
+}

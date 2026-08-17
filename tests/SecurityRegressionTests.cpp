@@ -90,26 +90,26 @@ int main() {
         return 1;
     }
 
-    expect(engine::security::isSafeSceneName("DefaultScene"), "ordinary scene name", failures);
-    expect(!engine::security::isSafeSceneName("../escape"), "scene traversal", failures);
-    expect(!engine::security::isSafeSceneName("CON"), "Windows device scene name", failures);
-    expect(!engine::security::isSafeSceneName("CONOUT$"), "extended Windows device scene name", failures);
-    expect(!engine::security::isSafeSceneName("COM\xc2\xb9"), "superscript Windows device scene name", failures);
-    expect(!engine::security::isSafeSceneName("LPT\xc2\xb2.txt"), "superscript device name with extension", failures);
+    expect(AetherEngine::security::isSafeSceneName("DefaultScene"), "ordinary scene name", failures);
+    expect(!AetherEngine::security::isSafeSceneName("../escape"), "scene traversal", failures);
+    expect(!AetherEngine::security::isSafeSceneName("CON"), "Windows device scene name", failures);
+    expect(!AetherEngine::security::isSafeSceneName("CONOUT$"), "extended Windows device scene name", failures);
+    expect(!AetherEngine::security::isSafeSceneName("COM\xc2\xb9"), "superscript Windows device scene name", failures);
+    expect(!AetherEngine::security::isSafeSceneName("LPT\xc2\xb2.txt"), "superscript device name with extension", failures);
 
     const auto insideFile = testRoot / "inside.bin";
     const auto outsideFile = testRoot.parent_path() / ("aether-outside-" + unique + ".bin");
     expect(writeText(insideFile, "inside"), "write inside fixture", failures);
     expect(writeText(outsideFile, "outside"), "write outside fixture", failures);
-    const auto canonicalRoot = engine::security::canonicalDirectory(testRoot);
+    const auto canonicalRoot = AetherEngine::security::canonicalDirectory(testRoot);
     expect(canonicalRoot.has_value(), "canonical test root", failures);
     if (canonicalRoot) {
         expect(
-            engine::security::resolveRegularFileWithin(*canonicalRoot, "inside.bin").has_value(),
+            AetherEngine::security::resolveRegularFileWithin(*canonicalRoot, "inside.bin").has_value(),
             "file inside asset root",
             failures
         );
-        const auto secureInside = engine::security::readRegularFileWithin(
+        const auto secureInside = AetherEngine::security::readRegularFileWithin(
             *canonicalRoot,
             "inside.bin",
             64
@@ -123,7 +123,7 @@ int main() {
             failures
         );
         constexpr std::string_view SecureWriteContents{"secure-write"};
-        const auto secureWrite = engine::security::writeRegularFileWithin(
+        const auto secureWrite = AetherEngine::security::writeRegularFileWithin(
             *canonicalRoot,
             "secure-write.bin",
             std::span<const std::uint8_t>{
@@ -136,7 +136,7 @@ int main() {
             std::cerr << "secure write error: " << secureWrite.error().message << '\n';
         }
         expect(secureWrite.has_value(), "same-handle bounded file write", failures);
-        const auto secureWrittenFile = engine::security::readRegularFileWithin(
+        const auto secureWrittenFile = AetherEngine::security::readRegularFileWithin(
             *canonicalRoot,
             "secure-write.bin",
             64
@@ -154,7 +154,7 @@ int main() {
         std::filesystem::create_hard_link(insideFile, hardLink, filesystemError);
         if (!filesystemError) {
             expect(
-                !engine::security::readRegularFileWithin(
+                !AetherEngine::security::readRegularFileWithin(
                     *canonicalRoot,
                     "inside-hardlink.bin",
                     64
@@ -165,12 +165,12 @@ int main() {
             std::filesystem::remove(hardLink, filesystemError);
         }
         expect(
-            engine::security::resolveDirectoryWithin(*canonicalRoot, "scenes").has_value(),
+            AetherEngine::security::resolveDirectoryWithin(*canonicalRoot, "scenes").has_value(),
             "directory inside asset root",
             failures
         );
         expect(
-            !engine::security::resolveDirectoryWithin(*canonicalRoot, "../").has_value(),
+            !AetherEngine::security::resolveDirectoryWithin(*canonicalRoot, "../").has_value(),
             "directory traversal outside asset root",
             failures
         );
@@ -179,17 +179,17 @@ int main() {
         std::filesystem::create_directory_symlink(outsideDirectory, linkedDirectory, filesystemError);
         if (!filesystemError) {
             expect(
-                !engine::security::canonicalDirectory(linkedDirectory).has_value(),
+                !AetherEngine::security::canonicalDirectory(linkedDirectory).has_value(),
                 "symlink or reparse-point asset root rejection",
                 failures
             );
             expect(
-                !engine::security::resolveDirectoryWithin(*canonicalRoot, "linked-dir").has_value(),
+                !AetherEngine::security::resolveDirectoryWithin(*canonicalRoot, "linked-dir").has_value(),
                 "directory symlink or reparse-point rejection",
                 failures
             );
             expect(
-                !engine::security::readRegularFileWithin(
+                !AetherEngine::security::readRegularFileWithin(
                     *canonicalRoot,
                     "linked-dir/outside.bin",
                     64
@@ -204,7 +204,7 @@ int main() {
         std::filesystem::create_symlink(outsideFile, linkedFile, filesystemError);
         if (!filesystemError) {
             expect(
-                !engine::security::readRegularFileWithin(
+                !AetherEngine::security::readRegularFileWithin(
                     *canonicalRoot,
                     "linked-file.bin",
                     64
@@ -213,7 +213,7 @@ int main() {
                 failures
             );
             expect(
-                !engine::security::writeRegularFileWithin(
+                !AetherEngine::security::writeRegularFileWithin(
                     *canonicalRoot,
                     "linked-file.bin",
                     std::span<const std::uint8_t>{
@@ -237,38 +237,38 @@ int main() {
             std::filesystem::remove(linkedFile, filesystemError);
         }
         expect(
-            !engine::security::resolveRegularFileWithin(*canonicalRoot, outsideFile.string()).has_value(),
+            !AetherEngine::security::resolveRegularFileWithin(*canonicalRoot, outsideFile.string()).has_value(),
             "absolute path outside asset root",
             failures
         );
         expect(
-            !engine::security::resolveRegularFileWithin(*canonicalRoot, "../" + outsideFile.filename().string()).has_value(),
+            !AetherEngine::security::resolveRegularFileWithin(*canonicalRoot, "../" + outsideFile.filename().string()).has_value(),
             "relative traversal outside asset root",
             failures
         );
 #if defined(_WIN32)
         expect(
-            !engine::security::resolveRegularFileWithin(*canonicalRoot, "CON").has_value(),
+            !AetherEngine::security::resolveRegularFileWithin(*canonicalRoot, "CON").has_value(),
             "Windows device resource path rejection",
             failures
         );
         expect(
-            !engine::security::resolveRegularFileWithin(*canonicalRoot, "inside.bin.").has_value(),
+            !AetherEngine::security::resolveRegularFileWithin(*canonicalRoot, "inside.bin.").has_value(),
             "Windows trailing-dot resource path rejection",
             failures
         );
         expect(
-            !engine::security::resolveRegularFileWithin(*canonicalRoot, R"(\\server\share\payload.bin)").has_value(),
+            !AetherEngine::security::resolveRegularFileWithin(*canonicalRoot, R"(\\server\share\payload.bin)").has_value(),
             "UNC path rejection",
             failures
         );
         expect(
-            !engine::security::resolveRegularFileWithin(*canonicalRoot, "inside.bin:stream").has_value(),
+            !AetherEngine::security::resolveRegularFileWithin(*canonicalRoot, "inside.bin:stream").has_value(),
             "alternate data stream rejection",
             failures
         );
         expect(
-            !engine::security::resolveRegularFileWithin(*canonicalRoot, "COM\xc2\xb9").has_value(),
+            !AetherEngine::security::resolveRegularFileWithin(*canonicalRoot, "COM\xc2\xb9").has_value(),
             "superscript Windows device resource path rejection",
             failures
         );
@@ -279,27 +279,27 @@ int main() {
     const auto fragmentShader = readBytes(assetsRoot / "shaders/bin/win32/basic_fs.bin");
     expect(!vertexShader.empty() && !fragmentShader.empty(), "read shader fixtures", failures);
     expect(
-        vertexShader.size() == std::size(engine::resources::embedded::basic_vs_win32) &&
+        vertexShader.size() == std::size(AetherEngine::resources::embedded::basic_vs_win32) &&
         std::equal(
             vertexShader.begin(),
             vertexShader.end(),
-            std::begin(engine::resources::embedded::basic_vs_win32)
+            std::begin(AetherEngine::resources::embedded::basic_vs_win32)
         ),
         "embedded vertex shader matches trusted source",
         failures
     );
     expect(
-        fragmentShader.size() == std::size(engine::resources::embedded::basic_fs_win32) &&
+        fragmentShader.size() == std::size(AetherEngine::resources::embedded::basic_fs_win32) &&
         std::equal(
             fragmentShader.begin(),
             fragmentShader.end(),
-            std::begin(engine::resources::embedded::basic_fs_win32)
+            std::begin(AetherEngine::resources::embedded::basic_fs_win32)
         ),
         "embedded fragment shader matches trusted source",
         failures
     );
     expect(
-        engine::security::validateShaderContainer(
+        AetherEngine::security::validateShaderContainer(
             vertexShader,
             'V',
             bgfx::RendererType::Direct3D11
@@ -308,7 +308,7 @@ int main() {
         failures
     );
     expect(
-        engine::security::validateShaderContainer(
+        AetherEngine::security::validateShaderContainer(
             fragmentShader,
             'F',
             bgfx::RendererType::Direct3D11
@@ -330,7 +330,7 @@ int main() {
         maliciousShader[recordOffset + 2] = 0xff;
         maliciousShader[recordOffset + 3] = 0xff;
         expect(
-            !engine::security::validateShaderContainer(
+            !AetherEngine::security::validateShaderContainer(
                 maliciousShader,
                 'F',
                 bgfx::RendererType::Direct3D11
@@ -342,7 +342,7 @@ int main() {
         expect(false, "find shader uniform fixture", failures);
     }
     expect(
-        !engine::security::validateShaderContainer(
+        !AetherEngine::security::validateShaderContainer(
             fragmentShader,
             'F',
             bgfx::RendererType::Vulkan
@@ -353,22 +353,22 @@ int main() {
 
     auto texture = readBytes(assetsRoot / "textures/bin/brick.ktx");
     expect(!texture.empty(), "read KTX fixture", failures);
-    expect(engine::security::validateKtxPayload(texture), "valid KTX texture", failures);
+    expect(AetherEngine::security::validateKtxPayload(texture), "valid KTX texture", failures);
     auto cubeTexture = texture;
     expect(writeU32(cubeTexture, 52, 6), "mutate KTX face count", failures);
-    expect(!engine::security::validateKtxPayload(cubeTexture), "cube KTX rejection", failures);
+    expect(!AetherEngine::security::validateKtxPayload(cubeTexture), "cube KTX rejection", failures);
     auto volumeTexture = texture;
     expect(writeU32(volumeTexture, 44, 1), "mutate KTX depth", failures);
-    expect(!engine::security::validateKtxPayload(volumeTexture), "3D KTX rejection", failures);
+    expect(!AetherEngine::security::validateKtxPayload(volumeTexture), "3D KTX rejection", failures);
     auto arrayTexture = texture;
     expect(writeU32(arrayTexture, 48, 1), "mutate KTX array count", failures);
-    expect(!engine::security::validateKtxPayload(arrayTexture), "array KTX rejection", failures);
+    expect(!AetherEngine::security::validateKtxPayload(arrayTexture), "array KTX rejection", failures);
     if (texture.size() >= 40) {
         writeU32(texture, 36, 0x7fffffff);
-        expect(!engine::security::validateKtxPayload(texture), "oversized KTX dimensions", failures);
+        expect(!AetherEngine::security::validateKtxPayload(texture), "oversized KTX dimensions", failures);
     }
 
-    auto serializer = engine::systems::SceneSerializer::createSceneSerializer(sceneRoot);
+    auto serializer = AetherEngine::systems::SceneSerializer::createSceneSerializer(sceneRoot);
     std::string deepScene = R"({"version":1,"name":"Deep","entities":)";
     deepScene.append(65, '[');
     deepScene.append(65, ']');
@@ -387,7 +387,7 @@ int main() {
     bgfxInit.resolution.height = 1;
     if (bgfx::init(bgfxInit)) {
         {
-            auto resources = engine::resources::ResourceManager::createResourceManager(assetsRoot);
+            auto resources = AetherEngine::resources::ResourceManager::createResourceManager(assetsRoot);
             expect(resources != nullptr, "create resource manager", failures);
             if (resources) {
                 const auto textureHandle = resources->loadTexture(
@@ -396,7 +396,7 @@ int main() {
                 expect(textureHandle.isValid(), "upload validated 2D KTX without generic parser", failures);
             }
 
-            engine::graphics::Mesh validMesh;
+            AetherEngine::graphics::Mesh validMesh;
             const auto validMeshBytes = readBytes(assetsRoot / "meshes/bin/bunny.bin");
             const auto result = validMesh.loadFromBgfxGeometry(
                 validMeshBytes,
@@ -408,7 +408,7 @@ int main() {
             constexpr std::size_t FirstLayoutComponentCount = 115;
             if (malformedMesh.size() > FirstLayoutComponentCount) {
                 malformedMesh[FirstLayoutComponentCount] = 0;
-                engine::graphics::Mesh invalidMesh;
+                AetherEngine::graphics::Mesh invalidMesh;
                 expect(
                     !invalidMesh.loadFromBgfxGeometry(malformedMesh, 32),
                     "invalid vertex layout rejection",
