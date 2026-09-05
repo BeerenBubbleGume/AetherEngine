@@ -88,8 +88,8 @@ namespace AetherEngine::systems {
     auto RenderSystem::renderScene(
         scene::Scene& scene,
         const assets::AssetManager& assetManager,
-        const graphics::SceneView& view
-    ) -> void {
+        const SceneAssetBindingSystem& sceneAssets, const graphics::SceneView& view
+    ) const -> void {
         if (view.target && !view.target->isValid()) {
             return;
         }
@@ -133,8 +133,13 @@ namespace AetherEngine::systems {
             auto& transform = renderables.get<AetherEngine::components::TransformComponent>(entity);
             auto& meshComponent = renderables.get<AetherEngine::components::MeshComponent>(entity);
             auto& materialComponent = renderables.get<AetherEngine::components::MaterialComponent>(entity);
-            const auto* meshAsset = assetManager.get(meshComponent.runtime);
-            const auto* materialAsset = assetManager.get(materialComponent.runtime);
+            const auto meshHandle = sceneAssets.meshHandle(meshComponent.asset);
+            const auto materialHandle = sceneAssets.materialHandle(materialComponent.asset);
+            if (!meshHandle || !materialHandle) {
+                continue;
+            }
+            const auto* meshAsset = assetManager.get(*meshHandle);
+            const auto* materialAsset = assetManager.get(*materialHandle);
             if (!meshAsset || !materialAsset || materialAsset->textures().empty()) {
                 continue;
             }

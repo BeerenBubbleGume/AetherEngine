@@ -90,19 +90,14 @@ auto AetherEngine::Engine::initEngine() -> std::expected<void, core::EngineError
         }};
     }
     sAssets = std::move(*assetManager);
-
+    sSceneAssetBinding = systems::SceneAssetBindingSystem::create(*sAssets);
     auto physicsInitResult = sPhysics->init();
     if (!physicsInitResult) {
         std::cerr << "Failed to init physics: " << physicsInitResult.error().message << std::endl;
         return std::unexpected{core::EngineError{3, "Failed to init physics"}};
     }
     try {
-        auto loadedScene = sSceneSerializer->deserializeScene(
-        "DefaultScene",
-        {
-            .assets = sAssets.get()
-        }
-    );
+        auto loadedScene = sSceneSerializer->deserializeScene("DefaultScene");
 
         if (loadedScene) {
             sScene = std::move(loadedScene.value());
@@ -128,6 +123,7 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
         .input = *sInput,
         .renderer = *sRender,
         .sceneSerializer = *sSceneSerializer,
+        .sceneAssetBinding = *sSceneAssetBinding,
         .window = *sWindow,
         .paths = {m_assetsPath, m_assetsPath / "shaders"},
         .requestQuit = [&]() { isRunning = false; }
@@ -137,39 +133,59 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
         std::cerr << "Failed to init application: " << appInitResult.error().message << std::endl;
         return std::unexpected{core::EngineError{4, "Failed to init application"}};
     }
-
-    while (isRunning) {
-        TimePoint now = Clock::now();
-        auto delta = std::chrono::duration<float>(now - lastTime).count();
-        lastTime = now;
-        if (!std::isfinite(delta)) {
-            delta = 0.0f;
-        }
-        delta = std::clamp(delta, 0.0f, MaxFrameDelta);
-        auto runConfig = app.runConfig();
-
-        accumulator = std::min(accumulator + delta, FIXED_DT * MaxPhysicsSubsteps);
-        update(delta);
-        processEvents(app);
-        if (runConfig.updatePhysics) {
-            std::size_t substeps = 0;
-            while (accumulator >= FIXED_DT && substeps < MaxPhysicsSubsteps) {
-                sPhysics->fixedUpdate(*sScene, FIXED_DT);
-                accumulator -= FIXED_DT;
-                ++substeps;
-            }
-            if (substeps == MaxPhysicsSubsteps) {
-                accumulator = 0.0f;
-            }
-        } else {
-            accumulator = 0.f;
-        }
-
-        app.update(delta, ctx);
-        sRender->beginFrame();
-        app.render(ctx);
-        sRender->endFrame();
+    auto sceneBindResult = sSceneAssetBinding->bindScene(*sScene);
+    if (!sceneBindResult) {
+        std::cerr << "Failed to bind scene: " << sceneBindResult.error().message << std::endl;
+        return std::unexpected{core::EngineError{4, "Failed to bind scene"}};
     }
+    try {
+        while (isRunning) {
+            TimePoint now = Clock::now();
+            auto delta = std::chrono::duration<float>(now - lastTime).count();
+            lastTime = now;
+            if (!std::isfinite(delta)) {
+                delta = 0.0f;
+            }
+            delta = std::clamp(delta, 0.0f, MaxFrameDelta);
+            auto runConfig = app.runConfig();
+
+            accumulator = std::min(accumulator + delta, FIXED_DT * MaxPhysicsSubsteps);
+            update(delta);
+            processEvents(app);
+            if (runConfig.updatePhysics) {
+                std::size_t substeps = 0;
+                while (accumulator >= FIXED_DT && substeps < MaxPhysicsSubsteps) {
+                    sPhysics->fixedUpdate(*sScene, FIXED_DT);
+                    accumulator -= FIXED_DT;
+                    ++substeps;
+                }
+                if (substeps == MaxPhysicsSubsteps) {
+                    accumulator = 0.0f;
+                }
+            } else {
+                accumulator = 0.f;
+            }
+
+            app.update(delta, ctx);
+            auto sceneSynchronizeResult = sSceneAssetBinding->synchronize(*sScene);
+            if (!sceneSynchronizeResult) {
+                std::cerr << "Failed to synchronize scene: " << sceneSynchronizeResult.error().message << std::endl;
+                throw std::runtime_error{sceneSynchronizeResult.error().message};
+            }
+            sRender->beginFrame();
+            app.render(ctx);
+            sRender->endFrame();
+        }
+    } catch (const std::exception& e) {
+        app.shutdown(ctx);
+        std::cerr << "Exception during engine run: " << e.what() << std::endl;
+        return std::unexpected{core::EngineError{5, "Exception during engine run"}};
+    } catch (...) {
+        app.shutdown(ctx);
+        std::cerr << "Unknown exception during engine run" << std::endl;
+        return std::unexpected{core::EngineError{5, "Unknown exception during engine run"}};
+    }
+
     app.shutdown(ctx);
     return std::expected<void, core::EngineError>{};
 }
@@ -179,6 +195,12 @@ AetherEngine::Engine::EnginePtr AetherEngine::Engine::createEngine() {
 }
 
 AetherEngine::Engine::~Engine() {
+    if (sSceneAssetBinding) {
+        sSceneAssetBinding.reset();
+    }
+    if (sScene) {
+        sScene.reset();
+    }
     if (sAssets) {
         sAssets.reset();
     }

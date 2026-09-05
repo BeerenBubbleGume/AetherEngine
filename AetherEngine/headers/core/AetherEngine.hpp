@@ -57,6 +57,7 @@ namespace AetherEngine {
         using ScenePtr = std::unique_ptr<scene::Scene, scene::Scene::SceneDeleter>;
         using SceneSerializerPtr = std::unique_ptr<systems::SceneSerializer, systems::SceneSerializer::SceneSerializerDeleter>;
         using PhysicsSystemPtr = std::unique_ptr<systems::PhysicsSystem, systems::PhysicsSystem::PhysicsSystemDeleter>;
+        using SceneAssetBindingSystemPtr = std::unique_ptr<systems::SceneAssetBindingSystem, systems::SceneAssetBindingSystem::SceneAssetBindingSystemDeleter>;
         using Clock = std::chrono::steady_clock;
         using Duration = std::chrono::duration<float>;
         using TimePoint = Clock::time_point;
@@ -68,6 +69,7 @@ namespace AetherEngine {
         ScenePtr sScene;
         SceneSerializerPtr sSceneSerializer;
         PhysicsSystemPtr sPhysics;
+        SceneAssetBindingSystemPtr sSceneAssetBinding;
 
         std::filesystem::path m_assetsPath;
         float accumulator = 0.0;

@@ -19,10 +19,6 @@ namespace AetherEngine::systems {
         std::string message;
     };
 
-    struct SceneDeserializeContext {
-        assets::AssetManager* assets{nullptr};
-    };
-
     class SceneSerializer {
     public:
         struct SceneSerializerDeleter {
@@ -36,8 +32,7 @@ namespace AetherEngine::systems {
         [[nodiscard]] auto serializeScene(const scene::Scene &scene) const -> std::expected<void, SceneSerializerError>;
 
         [[nodiscard]] auto deserializeScene(
-            std::string_view sceneName,
-            SceneDeserializeContext context = {}
+            std::string_view sceneName
         ) const -> std::expected<scene::Scene::ScenePtr, SceneSerializerError>;
 
         ~SceneSerializer() = default;

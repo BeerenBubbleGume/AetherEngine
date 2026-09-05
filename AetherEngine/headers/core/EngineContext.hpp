@@ -13,6 +13,7 @@
 #include "systems/InputSystem.hpp"
 #include "systems/SceneSerializer.hpp"
 #include "window/Window.hpp"
+#include "systems/SceneAssetBindingSystem.hpp"
 
 namespace AetherEngine::systems { class RenderSystem; }
 
@@ -33,6 +34,7 @@ namespace AetherEngine::core {
         systems::InputSystem& input;
         systems::RenderSystem& renderer;
         systems::SceneSerializer& sceneSerializer;
+        systems::SceneAssetBindingSystem& sceneAssetBinding;
 
         const Window& window;
         const EnginePaths& paths;

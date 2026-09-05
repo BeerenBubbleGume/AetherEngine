@@ -12,6 +12,7 @@
 #include <bgfx/platform.h>
 #include <SDL3/SDL_video.h>
 
+#include "SceneAssetBindingSystem.hpp"
 #include "assets/AssetManager.hpp"
 #include "graphics/RenderTarget.hpp"
 #include "graphics/SceneView.hpp"
@@ -39,9 +40,10 @@ namespace AetherEngine::systems {
         auto renderScene(
             scene::Scene& scene,
             const assets::AssetManager& assetManager,
-            const graphics::SceneView& view
-        ) -> void;
-        auto endFrame() -> void;
+            const SceneAssetBindingSystem& sceneAssets, const graphics::SceneView& view
+        ) const -> void;
+
+        static auto endFrame() -> void;
 
         [[nodiscard]] auto backbufferExtent() const -> graphics::RenderExtent;
 

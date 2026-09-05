@@ -72,14 +72,6 @@ namespace smb {
         if (!materialAsset) {
             return std::unexpected(AetherEngine::core::EngineError{1, materialAsset.error().message});
         }
-        const auto mesh = ctx.assets.load(*meshAsset);
-        if (!mesh) {
-            return std::unexpected(AetherEngine::core::EngineError{1, mesh.error().message});
-        }
-        const auto material = ctx.assets.load(*materialAsset);
-        if (!material) {
-            return std::unexpected(AetherEngine::core::EngineError{1, material.error().message});
-        }
 
         auto camera = ctx.scene.createEntity();
         ctx.scene.addComponent<AetherEngine::components::IdentityComponent>(camera, AetherEngine::components::IdentityComponent{
@@ -117,11 +109,9 @@ namespace smb {
         });
         ctx.scene.addComponent<AetherEngine::components::MeshComponent>(player, AetherEngine::components::MeshComponent {
             .asset = *meshAsset,
-            .runtime = *mesh
         });
         ctx.scene.addComponent<AetherEngine::components::MaterialComponent>(player, AetherEngine::components::MaterialComponent {
             .asset = *materialAsset,
-            .runtime = *material,
             .baseColor = {0.0f, 0.0f, 1.0f, 1.0f}
         });
 
@@ -140,11 +130,9 @@ namespace smb {
         });
         ctx.scene.addComponent<AetherEngine::components::MeshComponent>(secondBunny, AetherEngine::components::MeshComponent {
             .asset = *meshAsset,
-            .runtime = *mesh
         });
         ctx.scene.addComponent<AetherEngine::components::MaterialComponent>(secondBunny, AetherEngine::components::MaterialComponent {
             .asset = *materialAsset,
-            .runtime = *material,
             .baseColor = {1.0f, 0.0f, 0.0f, 1.0f}
         });
         ctx.scene.addComponent<AetherEngine::components::ColliderComponent>(secondBunny, AetherEngine::components::ColliderComponent {});
@@ -247,7 +235,7 @@ namespace smb {
             .clearColor = camera.clearColor
         };
 
-        ctx.renderer.renderScene(ctx.scene, ctx.assets, view);
+        ctx.renderer.renderScene(ctx.scene, ctx.assets, ctx.sceneAssetBinding, view);
     }
 
     auto SMB::run() -> void {

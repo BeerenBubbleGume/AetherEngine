@@ -10,7 +10,6 @@
 namespace AetherEngine::components {
     struct MeshComponent {
         assets::AssetRef<assets::RuntimeMeshAsset> asset;
-        assets::AssetHandle<assets::RuntimeMeshAsset> runtime;
     };
 }
 

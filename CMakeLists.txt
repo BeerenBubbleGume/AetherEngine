@@ -123,6 +123,8 @@ add_library(AetherEngine STATIC
         AetherEngine/src/assets/loaders/TextureLoader.cpp
         AetherEngine/src/assets/loaders/ShaderLoader.cpp
         AetherEngine/src/assets/loaders/MaterialLoader.cpp
+        AetherEngine/src/systems/SceneAssetBindingSystem.cpp
+        AetherEngine/headers/systems/SceneAssetBindingSystem.hpp
 )
 
 target_include_directories(AetherEngine

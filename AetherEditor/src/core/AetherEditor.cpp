@@ -57,7 +57,7 @@ auto AetherEditor::core::Editor::render(AetherEngine::core::EngineContext& ctx) 
         .clearColor = 0x20252bff
     };
 
-    ctx.renderer.renderScene(ctx.scene, ctx.assets, view);
+    ctx.renderer.renderScene(ctx.scene, ctx.assets, ctx.sceneAssetBinding, view);
 
     if (m_gui) {
         m_gui->beginFrame();

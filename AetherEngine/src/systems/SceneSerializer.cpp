@@ -270,8 +270,7 @@ namespace {
     }
 
     auto deserializeMesh(
-        const Json& value,
-        const AetherEngine::systems::SceneDeserializeContext& context
+        const Json& value
     ) -> AetherEngine::components::MeshComponent {
         const auto id = AetherEngine::assets::parseAssetId(value.value("asset", std::string{}));
         if (!id) {
@@ -279,17 +278,8 @@ namespace {
         }
 
         const AetherEngine::assets::AssetRef<AetherEngine::assets::RuntimeMeshAsset> asset{*id};
-        AetherEngine::assets::AssetHandle<AetherEngine::assets::RuntimeMeshAsset> runtime{};
-        if (context.assets) {
-            const auto loaded = context.assets->load(asset);
-            if (!loaded) {
-                throw std::runtime_error{"Failed to load mesh asset: " + loaded.error().message};
-            }
-            runtime = *loaded;
-        }
         return {
             .asset = asset,
-            .runtime = runtime
         };
     }
 
@@ -301,8 +291,7 @@ namespace {
     }
 
     auto deserializeMaterial(
-        const Json& value,
-        const AetherEngine::systems::SceneDeserializeContext& context
+        const Json& value
     ) -> AetherEngine::components::MaterialComponent {
         const auto id = AetherEngine::assets::parseAssetId(value.value("asset", std::string{}));
         if (!id) {
@@ -310,18 +299,9 @@ namespace {
         }
 
         const AetherEngine::assets::AssetRef<AetherEngine::assets::RuntimeMaterialAsset> asset{*id};
-        AetherEngine::assets::AssetHandle<AetherEngine::assets::RuntimeMaterialAsset> runtime{};
-        if (context.assets) {
-            const auto loaded = context.assets->load(asset);
-            if (!loaded) {
-                throw std::runtime_error{"Failed to load material asset: " + loaded.error().message};
-            }
-            runtime = *loaded;
-        }
 
         return {
             .asset = asset,
-            .runtime = runtime,
             .baseColor = deserializeColor(
                 value.value("baseColor", Json::array()),
                 AetherEngine::math::Color{1.0f, 1.0f, 1.0f, 1.0f}
@@ -542,10 +522,7 @@ auto AetherEngine::systems::SceneSerializer::serializeScene(const scene::Scene &
     return {};
 }
 
-auto AetherEngine::systems::SceneSerializer::deserializeScene(
-    std::string_view sceneName,
-    SceneDeserializeContext context
-) const -> std::expected<scene::Scene::ScenePtr, SceneSerializerError> {
+auto AetherEngine::systems::SceneSerializer::deserializeScene(std::string_view sceneName) const -> std::expected<scene::Scene::ScenePtr, SceneSerializerError> {
     const auto currentScenesPath = security::resolveDirectoryWithin(
         m_scenesPath.parent_path(),
         m_scenesPath.filename().string()
@@ -664,13 +641,13 @@ auto AetherEngine::systems::SceneSerializer::deserializeScene(
                 if (componentsBody.contains("Mesh")) {
                     scene->addComponent<components::MeshComponent>(
                         entity,
-                        deserializeMesh(componentsBody.at("Mesh"), context)
+                        deserializeMesh(componentsBody.at("Mesh"))
                     );
                 }
                 if (componentsBody.contains("Material")) {
                     scene->addComponent<components::MaterialComponent>(
                         entity,
-                        deserializeMaterial(componentsBody.at("Material"), context)
+                        deserializeMaterial(componentsBody.at("Material"))
                     );
                 }
                 if (componentsBody.contains("Rigidbody")) {

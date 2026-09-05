@@ -11,7 +11,6 @@
 namespace AetherEngine::components {
     struct MaterialComponent {
         assets::AssetRef<assets::RuntimeMaterialAsset> asset;
-        assets::AssetHandle<assets::RuntimeMaterialAsset> runtime;
         math::Color baseColor{1.0f, 1.0f, 1.0f, 1.0f};
     };
 }
