@@ -33,4 +33,8 @@ vcpkg_installed/
 !assets/scenes/*.scene.json
 !assets/registry/*.json
 !assets/materials/*.json
+!assets/templates/*.scene.json
+!projects/**/assets/scenes/*.scene.json
+!projects/**/assets/registry/*.json
+!projects/**/assets/materials/*.json
 .agents/

@@ -16,6 +16,7 @@
 #define NOMINMAX
 #endif
 #include <Windows.h>
+#include <process.h>
 #else
 #include <cerrno>
 #include <cstring>
@@ -258,7 +259,7 @@ namespace {
         UniqueHandle handle{CreateFileW(
             path.c_str(),
             FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
-            FILE_SHARE_READ,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
             nullptr,
             OPEN_EXISTING,
             FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
@@ -440,53 +441,78 @@ namespace {
         if (!locks) {
             return std::unexpected(locks.error());
         }
+        std::error_code ec;
+        const auto status = std::filesystem::symlink_status(candidate, ec);
 
-        UniqueHandle file{CreateFileW(
-            candidate.c_str(),
-            GENERIC_READ | GENERIC_WRITE,
-            FILE_SHARE_READ,
-            nullptr,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_SEQUENTIAL_SCAN,
-            nullptr
-        )};
-        if (!file.valid()) {
-            const auto error = GetLastError();
-            if (error != ERROR_FILE_NOT_FOUND) {
-                return std::unexpected(windowsError("Failed to open the destination file"));
-            }
-            file = UniqueHandle{CreateFileW(
-                candidate.c_str(),
+        if (ec && ec != std::errc::no_such_file_or_directory) {
+            return std::unexpected(PathSecurityError{
+                "Failed to inspect the destination file: " + ec.message()
+            });
+        }
+
+        if (status.type() != std::filesystem::file_type::regular &&
+            status.type() != std::filesystem::file_type::not_found) {
+            return std::unexpected(PathSecurityError{
+                "Refusing to replace a non-regular scene file"
+            });
+        }
+
+        static std::atomic_uint64_t temporaryCounter{0};
+        std::filesystem::path temporaryName;
+        UniqueHandle temporary;
+        for (std::uint32_t attempt = 0; attempt < 16; ++attempt) {
+            const auto temporaryFilename =
+                L"." + candidate.filename().wstring() +
+                L".aether-" + std::to_wstring(GetCurrentProcessId()) +
+                L"-" + std::to_wstring(
+                    temporaryCounter.fetch_add(1, std::memory_order_relaxed)
+                ) + L".tmp";
+
+            temporaryName =
+                candidate.parent_path() / temporaryFilename;
+            temporary = UniqueHandle{CreateFileW(
+                temporaryName.c_str(),
                 GENERIC_READ | GENERIC_WRITE,
-                0,
+                FILE_SHARE_READ,
                 nullptr,
                 CREATE_NEW,
-                FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_SEQUENTIAL_SCAN,
+                FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN,
                 nullptr
             )};
-            if (!file.valid()) {
-                return std::unexpected(windowsError("Failed to create the destination file"));
+            const DWORD error = GetLastError();
+            if (temporary.valid()) {
+                break;
+            }
+            if (error != ERROR_FILE_EXISTS) {
+                return std::unexpected(windowsError("Failed to create a protected temporary scene file"));
             }
         }
+        if (!temporary.valid()) {
+            return std::unexpected(PathSecurityError{
+                "Could not reserve a temporary scene file name"
+            });
+        }
+        const auto cleanupTemporary = [&]() {
+            temporary.reset();
+            DeleteFileW(temporaryName.c_str());
+        };
+
         BY_HANDLE_FILE_INFORMATION information{};
-        if (GetFileType(file.get()) != FILE_TYPE_DISK ||
-            !GetFileInformationByHandle(file.get(), &information) ||
+        if (GetFileType(temporary.get()) != FILE_TYPE_DISK ||
+            !GetFileInformationByHandle(temporary.get(), &information) ||
             (information.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) != 0 ||
             information.nNumberOfLinks != 1) {
+            cleanupTemporary();
             return std::unexpected(PathSecurityError{
                 "Destination must be a direct regular file with exactly one hard link"
             });
         }
-        const auto finalPath = finalPathForHandle(file.get());
-        if (!finalPath || !pathsEqual(*finalPath, candidate)) {
+        const auto finalPath = finalPathForHandle(temporary.get());
+        if (!finalPath || !pathsEqual(*finalPath, temporaryName)) {
+            cleanupTemporary();
             return std::unexpected(PathSecurityError{
                 "The opened destination resolved to an unexpected final path"
             });
-        }
-        LARGE_INTEGER beginning{};
-        if (!SetFilePointerEx(file.get(), beginning, nullptr, FILE_BEGIN) ||
-            !SetEndOfFile(file.get())) {
-            return std::unexpected(windowsError("Failed to truncate the checked destination file"));
         }
 
         std::size_t offset = 0;
@@ -496,14 +522,24 @@ namespace {
                 std::numeric_limits<DWORD>::max()
             ));
             DWORD written = 0;
-            if (!WriteFile(file.get(), contents.data() + offset, count, &written, nullptr) ||
+            if (!WriteFile(temporary.get(), contents.data() + offset, count, &written, nullptr) ||
                 written == 0 || written > count) {
-                return std::unexpected(windowsError("Failed to write the complete scene file"));
+                auto error = windowsError("Failed to replace the scene file");
+                cleanupTemporary();
+                return std::unexpected(std::move(error));
             }
             offset += written;
         }
-        if (!FlushFileBuffers(file.get())) {
-            return std::unexpected(windowsError("Failed to flush the scene file"));
+        if (!FlushFileBuffers(temporary.get())) {
+            auto error = windowsError("Failed to flush the scene file");
+            cleanupTemporary();
+            return std::unexpected(std::move(error));
+        }
+        temporary.reset();
+        if (!MoveFileExW(temporaryName.c_str(),candidate.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+            auto error = windowsError("Failed to replace the scene file");
+            cleanupTemporary();
+            return std::unexpected(std::move(error));
         }
         return {};
     }
@@ -796,6 +832,9 @@ auto AetherEngine::security::canonicalDirectory(const std::filesystem::path& dir
         });
     }
     absoluteRoot = absoluteRoot.lexically_normal();
+    if (absoluteRoot.has_relative_path() && !absoluteRoot.has_filename()) {
+        absoluteRoot = absoluteRoot.parent_path();
+    }
 #if defined(_WIN32)
     if (absoluteRoot.native().starts_with(L"\\\\")) {
         return std::unexpected(PathSecurityError{"UNC asset roots are not allowed"});

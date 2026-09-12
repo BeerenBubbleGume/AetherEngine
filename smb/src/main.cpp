@@ -12,7 +12,8 @@ int main() {
     }
 
     auto initResult = engine->initEngine();
-    if (!initResult) {
+    if (!initResult && engine->getState() != AetherEngine::core::EngineState::Initialized) {
+        std::cerr << initResult.error().message << '\n';
         return 1;
     }
 

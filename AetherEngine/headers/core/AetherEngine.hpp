@@ -36,14 +36,13 @@ namespace AetherEngine {
         };
         using EnginePtr = std::unique_ptr<Engine, EngineDeleter>;
 
-        [[nodiscard]] auto initEngine() -> std::expected<void, core::EngineError>;
+        [[nodiscard]] auto initEngine(const core::EngineInitConfig& config = {}) -> std::expected<void, core::EngineError>;
         [[nodiscard]] auto run(core::IApplication &app) -> std::expected<void, core::EngineError>;
+        [[nodiscard]] auto getState() const -> core::EngineState {return state;}
         static EnginePtr createEngine();
     private:
         Engine() = default;
         ~Engine();
-
-        bool isRunning{false};
 
         auto processEvents(core::IApplication& app) -> void;
         auto update(float delta) const -> void;
@@ -70,8 +69,9 @@ namespace AetherEngine {
         SceneSerializerPtr sSceneSerializer;
         PhysicsSystemPtr sPhysics;
         SceneAssetBindingSystemPtr sSceneAssetBinding;
+        core::EngineState state {};
 
-        std::filesystem::path m_assetsPath;
+        core::EnginePaths m_paths;
         float accumulator = 0.0;
         const float FIXED_DT = 1.0 / 120.0;
     };

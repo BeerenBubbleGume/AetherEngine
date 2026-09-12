@@ -3,6 +3,30 @@ project(smb)
 
 set(CMAKE_CXX_STANDARD 23)
 
+set(AETHER_PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/projects/Sandbox" CACHE PATH
+        "Authoring project opened by the editor and packaged for smb"
+)
+get_filename_component(AETHER_PROJECT_ROOT "${AETHER_PROJECT_ROOT}" ABSOLUTE
+        BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+if (NOT IS_DIRECTORY "${AETHER_PROJECT_ROOT}/assets/scenes" OR
+        NOT IS_DIRECTORY "${AETHER_PROJECT_ROOT}/assets/shaders" OR
+        NOT EXISTS "${AETHER_PROJECT_ROOT}/assets/registry/runtime-assets.json")
+    message(FATAL_ERROR "AETHER_PROJECT_ROOT must contain assets/scenes, assets/shaders and assets/registry/runtime-assets.json")
+endif()
+file(REAL_PATH "${AETHER_PROJECT_ROOT}" AETHER_PROJECT_ROOT)
+file(REAL_PATH "${CMAKE_BINARY_DIR}" AETHER_BUILD_ROOT)
+set(AETHER_PROJECT_ROOT_KEY "${AETHER_PROJECT_ROOT}")
+set(AETHER_BUILD_ROOT_KEY "${AETHER_BUILD_ROOT}")
+if (WIN32)
+    string(TOLOWER "${AETHER_PROJECT_ROOT_KEY}" AETHER_PROJECT_ROOT_KEY)
+    string(TOLOWER "${AETHER_BUILD_ROOT_KEY}" AETHER_BUILD_ROOT_KEY)
+endif()
+cmake_path(IS_PREFIX AETHER_BUILD_ROOT_KEY "${AETHER_PROJECT_ROOT_KEY}" NORMALIZE AETHER_PROJECT_IN_BUILD)
+cmake_path(IS_PREFIX AETHER_PROJECT_ROOT_KEY "${AETHER_BUILD_ROOT_KEY}" NORMALIZE AETHER_BUILD_IN_PROJECT)
+if (AETHER_PROJECT_IN_BUILD OR AETHER_BUILD_IN_PROJECT)
+    message(FATAL_ERROR "The authoring project and build directory must be separate trees")
+endif()
+
 find_package(SDL3 CONFIG REQUIRED)
 find_package(EnTT CONFIG REQUIRED)
 find_package(bgfx CONFIG REQUIRED)
@@ -11,35 +35,35 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 
 if (APPLE)
-    set(SMB_DEFAULT_PHYSICS_BACKEND "Jolt")
+    set(AETHER_DEFAULT_PHYSICS_BACKEND "Jolt")
 else()
-    set(SMB_DEFAULT_PHYSICS_BACKEND "PhysX")
+    set(AETHER_DEFAULT_PHYSICS_BACKEND "PhysX")
 endif()
-set(SMB_PHYSICS_BACKEND "${SMB_DEFAULT_PHYSICS_BACKEND}" CACHE STRING
+set(AETHER_PHYSICS_BACKEND "${AETHER_DEFAULT_PHYSICS_BACKEND}" CACHE STRING
         "Physics backend used by the engine (PhysX or Jolt)"
 )
-set_property(CACHE SMB_PHYSICS_BACKEND PROPERTY STRINGS PhysX Jolt)
-string(TOLOWER "${SMB_PHYSICS_BACKEND}" SMB_PHYSICS_BACKEND_NORMALIZED)
+set_property(CACHE AETHER_PHYSICS_BACKEND PROPERTY STRINGS PhysX Jolt)
+string(TOLOWER "${AETHER_PHYSICS_BACKEND}" AETHER_PHYSICS_BACKEND_NORMALIZED)
 
-if (SMB_PHYSICS_BACKEND_NORMALIZED STREQUAL "physx")
+if (AETHER_PHYSICS_BACKEND_NORMALIZED STREQUAL "physx")
     find_package(unofficial-omniverse-physx-sdk CONFIG REQUIRED)
-    set(SMB_PHYSICS_BACKEND_SOURCES
+    set(AETHER_PHYSICS_BACKEND_SOURCES
             AetherEngine/src/physics/physx/PhysXBackend.cpp
             AetherEngine/src/physics/physx/PhysXBackend.hpp
     )
-    set(SMB_PHYSICS_BACKEND_TARGET unofficial::omniverse-physx-sdk::sdk)
-    set(SMB_PHYSICS_BACKEND_DEFINITION SMB_PHYSICS_BACKEND_PHYSX=1)
-elseif (SMB_PHYSICS_BACKEND_NORMALIZED STREQUAL "jolt")
+    set(AETHER_PHYSICS_BACKEND_TARGET unofficial::omniverse-physx-sdk::sdk)
+    set(AETHER_PHYSICS_BACKEND_DEFINITION AETHER_PHYSICS_BACKEND_PHYSX=1)
+elseif (AETHER_PHYSICS_BACKEND_NORMALIZED STREQUAL "jolt")
     find_package(Jolt CONFIG REQUIRED)
-    set(SMB_PHYSICS_BACKEND_SOURCES
+    set(AETHER_PHYSICS_BACKEND_SOURCES
             AetherEngine/src/physics/jolt/JoltBackend.cpp
             AetherEngine/src/physics/jolt/JoltBackend.hpp
     )
-    set(SMB_PHYSICS_BACKEND_TARGET Jolt::Jolt)
-    set(SMB_PHYSICS_BACKEND_DEFINITION SMB_PHYSICS_BACKEND_JOLT=1)
+    set(AETHER_PHYSICS_BACKEND_TARGET Jolt::Jolt)
+    set(AETHER_PHYSICS_BACKEND_DEFINITION AETHER_PHYSICS_BACKEND_JOLT=1)
 else()
     message(FATAL_ERROR
-            "Unsupported SMB_PHYSICS_BACKEND='${SMB_PHYSICS_BACKEND}'. "
+            "Unsupported AETHER_PHYSICS_BACKEND='${AETHER_PHYSICS_BACKEND}'. "
             "Expected PhysX or Jolt."
     )
 endif()
@@ -55,6 +79,8 @@ endif()
 add_library(AetherEngine STATIC
         AetherEngine/src/window/Window.cpp
         AetherEngine/src/core/Engine.cpp
+        AetherEngine/src/core/EngineConfig.cpp
+        AetherEngine/headers/core/EngineConfig.hpp
         AetherEngine/headers/core/AetherEngine.hpp
         AetherEngine/src/systems/InputSystem.cpp
         AetherEngine/headers/systems/InputSystem.hpp
@@ -106,7 +132,7 @@ add_library(AetherEngine STATIC
         AetherEngine/src/physics/IPhysicsBackend.hpp
         AetherEngine/src/physics/PhysicsBackendFactory.cpp
         AetherEngine/src/physics/PhysicsBackendFactory.hpp
-        ${SMB_PHYSICS_BACKEND_SOURCES}
+        ${AETHER_PHYSICS_BACKEND_SOURCES}
         AetherEngine/headers/assets/AssetId.hpp
         AetherEngine/headers/assets/AssetTypes.hpp
         AetherEngine/headers/assets/AssetMetadata.hpp
@@ -132,7 +158,7 @@ target_include_directories(AetherEngine
         PRIVATE AetherEngine/src
 )
 
-target_compile_definitions(AetherEngine PRIVATE ${SMB_PHYSICS_BACKEND_DEFINITION})
+target_compile_definitions(AetherEngine PRIVATE ${AETHER_PHYSICS_BACKEND_DEFINITION})
 
 if (MSVC)
     target_compile_options(AetherEngine PRIVATE "/Zc:__cplusplus" "/Zc:preprocessor")
@@ -145,7 +171,7 @@ if (BUILD_TESTING)
     )
     target_link_libraries(aether_security_tests PRIVATE AetherEngine)
     target_compile_definitions(aether_security_tests PRIVATE
-            AETHER_TEST_ASSETS_ROOT="${CMAKE_SOURCE_DIR}/assets"
+            AETHER_TEST_ASSETS_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/projects/Sandbox/assets"
     )
     add_test(NAME security_regressions COMMAND aether_security_tests)
 
@@ -161,9 +187,36 @@ if (BUILD_TESTING)
     )
     target_link_libraries(aether_asset_registry_tests PRIVATE AetherEngine)
     target_compile_definitions(aether_asset_registry_tests PRIVATE
-            AETHER_TEST_ASSETS_ROOT="${CMAKE_SOURCE_DIR}/assets"
+            AETHER_TEST_ASSETS_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/projects/Sandbox/assets"
     )
     add_test(NAME asset_registry_regressions COMMAND aether_asset_registry_tests)
+
+    add_executable(aether_project_paths_tests tests/ProjectPathsTests.cpp)
+    target_link_libraries(aether_project_paths_tests PRIVATE AetherEngine)
+    add_test(NAME project_paths_regressions COMMAND aether_project_paths_tests)
+
+    add_executable(aether_scene_write_tests
+            tests/SceneWriteTests.cpp
+            AetherEngine/src/security/PathSecurity.cpp)
+    target_include_directories(aether_scene_write_tests PRIVATE AetherEngine/headers)
+    add_test(NAME scene_write_regressions COMMAND aether_scene_write_tests)
+
+    if (WIN32)
+        # This test compiles PathSecurity.cpp with local WinAPI wrappers, without
+        # introducing fault-injection hooks into the engine library.
+        add_executable(aether_scene_write_win32_fault_tests tests/PathSecurityWin32FaultTests.cpp)
+        target_include_directories(aether_scene_write_win32_fault_tests PRIVATE AetherEngine/headers)
+        foreach(scenario short_writes write_failure partial_failure flush_failure
+                metadata_failure collision collisions_exhausted)
+            add_test(NAME scene_write_win32_${scenario}
+                    COMMAND aether_scene_write_win32_fault_tests ${scenario})
+            set_tests_properties(scene_write_win32_${scenario} PROPERTIES TIMEOUT 30)
+        endforeach()
+    endif()
+    add_test(NAME runtime_assets_regressions COMMAND ${CMAKE_COMMAND}
+            "-DSTAGING_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/cmake/StageRuntimeAssets.cmake"
+            "-DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/runtime-assets-test"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/RuntimeAssetsTests.cmake")
 endif()
 
 add_executable(smb
@@ -205,23 +258,21 @@ target_include_directories(AetherEditor PRIVATE
         "${AETHER_IMGUI_SHADER_OUTPUT_DIR}"
 )
 
-set(ENGINE_ASSETS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/assets")
-
-function(link_engine_assets target_name)
-    set(runtime_assets_dir "$<TARGET_FILE_DIR:${target_name}>/assets")
-    add_custom_command(TARGET ${target_name} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E rm -rf
-            "${runtime_assets_dir}"
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${ENGINE_ASSETS_SOURCE_DIR}"
-            "${runtime_assets_dir}"
-            COMMENT "Copying ${target_name} runtime assets"
-            VERBATIM
-    )
-endfunction()
-
-link_engine_assets(smb)
-link_engine_assets(AetherEditor)
+set(AETHER_RUNTIME_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
+set_target_properties(smb AetherEditor PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${AETHER_RUNTIME_OUTPUT_DIR}")
+target_compile_definitions(AetherEditor PRIVATE
+        AETHER_DEFAULT_PROJECT_ROOT="${AETHER_PROJECT_ROOT}")
+add_custom_target(aether_runtime_assets
+        COMMAND ${CMAKE_COMMAND}
+                "-DSOURCE_ASSETS=${AETHER_PROJECT_ROOT}/assets"
+                "-DRUNTIME_ASSETS=${AETHER_RUNTIME_OUTPUT_DIR}/assets"
+                "-DBUILD_ROOT=${CMAKE_CURRENT_BINARY_DIR}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/StageRuntimeAssets.cmake"
+        COMMENT "Preparing game assets from ${AETHER_PROJECT_ROOT}"
+        VERBATIM
+)
+add_dependencies(smb aether_runtime_assets)
 
 target_link_libraries(AetherEngine PUBLIC
         SDL3::SDL3
@@ -232,7 +283,7 @@ target_link_libraries(AetherEngine PUBLIC
 )
 
 target_link_libraries(AetherEngine PRIVATE
-        ${SMB_PHYSICS_BACKEND_TARGET}
+        ${AETHER_PHYSICS_BACKEND_TARGET}
 )
 
 target_link_libraries(smb PRIVATE
@@ -259,6 +310,16 @@ if (MSVC)
         list(APPEND hardened_targets aether_asset_registry_tests)
         list(APPEND hardened_executables aether_asset_registry_tests)
     endif()
+    if (TARGET aether_project_paths_tests)
+        list(APPEND hardened_targets aether_project_paths_tests)
+        list(APPEND hardened_executables aether_project_paths_tests)
+    endif()
+    foreach(scene_test aether_scene_write_tests aether_scene_write_win32_fault_tests)
+        if (TARGET ${scene_test})
+            list(APPEND hardened_targets ${scene_test})
+            list(APPEND hardened_executables ${scene_test})
+        endif()
+    endforeach()
     foreach(hardened_target IN LISTS hardened_targets)
         target_compile_options(${hardened_target} PRIVATE "/sdl" "/guard:cf")
     endforeach()

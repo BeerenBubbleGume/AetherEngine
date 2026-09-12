@@ -8,6 +8,8 @@
 #include <filesystem>
 #include <functional>
 
+#include "EngineConfig.hpp"
+
 #include "assets/AssetManager.hpp"
 #include "scene/Scene.hpp"
 #include "systems/InputSystem.hpp"
@@ -18,14 +20,11 @@
 namespace AetherEngine::systems { class RenderSystem; }
 
 namespace AetherEngine::core {
-    class EngineError {
-    public:
-        int code;
-        std::string message;
-    };
-    struct EnginePaths {
-        std::filesystem::path assetsRoot;
-        std::filesystem::path shadersRoot;
+    enum class EngineState {
+        Starting,
+        Initialized,
+        Running,
+        Stopped
     };
 
     struct EngineContext {

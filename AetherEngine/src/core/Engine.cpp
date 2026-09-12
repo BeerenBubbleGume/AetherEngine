@@ -7,8 +7,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include "security/PathSecurity.hpp"
-
 #if defined(_WIN32)
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -16,7 +14,7 @@
 #include <Windows.h>
 #endif
 
-auto AetherEngine::Engine::initEngine() -> std::expected<void, core::EngineError> {
+auto AetherEngine::Engine::initEngine(const core::EngineInitConfig& config) -> std::expected<void, core::EngineError> {
 #if defined(_WIN32)
     constexpr DWORD SafeDllDirectories =
         LOAD_LIBRARY_SEARCH_APPLICATION_DIR |
@@ -35,19 +33,17 @@ auto AetherEngine::Engine::initEngine() -> std::expected<void, core::EngineError
     if (executableBasePath == nullptr || *executableBasePath == '\0') {
         return std::unexpected{core::EngineError{2, "Failed to determine the executable directory"}};
     }
-    auto canonicalAssetsPath = security::canonicalDirectory(
-        std::filesystem::path{executableBasePath} / "assets"
-    );
-    if (!canonicalAssetsPath) {
-        return std::unexpected{core::EngineError{2, canonicalAssetsPath.error().message}};
+    auto paths = core::resolveEnginePaths(config, std::filesystem::path{executableBasePath});
+    if (!paths) {
+        return std::unexpected(paths.error());
     }
-    m_assetsPath = std::move(*canonicalAssetsPath);
+    m_paths = std::move(*paths);
 
     sWindow = Window::createWindow();
     sInput = systems::InputSystem::createInputSystem();
     sRender = systems::RenderSystem::createRenderSystem();
-    sResource = resources::ResourceManager::createResourceManager(m_assetsPath);
-    sSceneSerializer = systems::SceneSerializer::createSceneSerializer(m_assetsPath / "scenes");
+    sResource = resources::ResourceManager::createResourceManager(m_paths.assetsRoot);
+    sSceneSerializer = systems::SceneSerializer::createSceneSerializer(m_paths.scenesRoot);
     sPhysics = systems::PhysicsSystem::createPhysicsSystem();
     if (!sWindow) {
         return std::unexpected{core::EngineError{2, "Failed to create window"}};
@@ -67,6 +63,15 @@ auto AetherEngine::Engine::initEngine() -> std::expected<void, core::EngineError
     if (!sPhysics) {
         return std::unexpected{core::EngineError{2, "Failed to create physics system"}};
     }
+    // Opening an existing project must never silently replace a broken scene
+    // with an empty document (which the application could then save over it).
+    auto loadedScene = sSceneSerializer->deserializeScene(config.startupScene);
+    if (!loadedScene) {
+        return std::unexpected(core::EngineError{
+            3, "Failed to load scene '" + config.startupScene + "': " + loadedScene.error().message
+        });
+    }
+    sScene = std::move(*loadedScene);
     auto resultInitWindow = sWindow->initWindow("SMB Engine", 1440, 1080);
     if (!resultInitWindow) {
         std::cerr << "Failed to init window: " << resultInitWindow.error().message << std::endl;
@@ -82,7 +87,7 @@ auto AetherEngine::Engine::initEngine() -> std::expected<void, core::EngineError
     if (!platform) {
         return std::unexpected{core::EngineError{3, "The active renderer has no supported asset platform profile"}};
     }
-    auto assetManager = assets::AssetManager::create(m_assetsPath, *sResource, *platform);
+    auto assetManager = assets::AssetManager::create(m_paths.assetsRoot, *sResource, *platform);
     if (!assetManager) {
         return std::unexpected{core::EngineError{
             3,
@@ -96,24 +101,12 @@ auto AetherEngine::Engine::initEngine() -> std::expected<void, core::EngineError
         std::cerr << "Failed to init physics: " << physicsInitResult.error().message << std::endl;
         return std::unexpected{core::EngineError{3, "Failed to init physics"}};
     }
-    try {
-        auto loadedScene = sSceneSerializer->deserializeScene("DefaultScene");
-
-        if (loadedScene) {
-            sScene = std::move(loadedScene.value());
-        } else {
-            sScene = scene::Scene::createScene("DefaultScene");
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "Failed to load scene: " << e.what() << std::endl;
-        return std::unexpected{core::EngineError{3, "Failed to load scene"}};
-    }
-
+    state = core::EngineState::Initialized;
     return std::expected<void, core::EngineError>{};
 }
 
 auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, core::EngineError> {
-    isRunning = true;
+    state = core::EngineState::Running;
     TimePoint lastTime = Clock::now();
     constexpr float MaxFrameDelta = 0.25f;
     constexpr std::size_t MaxPhysicsSubsteps = 8;
@@ -125,8 +118,8 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
         .sceneSerializer = *sSceneSerializer,
         .sceneAssetBinding = *sSceneAssetBinding,
         .window = *sWindow,
-        .paths = {m_assetsPath, m_assetsPath / "shaders"},
-        .requestQuit = [&]() { isRunning = false; }
+        .paths = m_paths,
+        .requestQuit = [&]() { state = core::EngineState::Stopped; }
     };
     auto appInitResult = app.init(ctx);
     if (!appInitResult) {
@@ -139,7 +132,7 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
         return std::unexpected{core::EngineError{4, "Failed to bind scene"}};
     }
     try {
-        while (isRunning) {
+        while (state == core::EngineState::Running) {
             TimePoint now = Clock::now();
             auto delta = std::chrono::duration<float>(now - lastTime).count();
             lastTime = now;
@@ -170,6 +163,7 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
             auto sceneSynchronizeResult = sSceneAssetBinding->synchronize(*sScene);
             if (!sceneSynchronizeResult) {
                 std::cerr << "Failed to synchronize scene: " << sceneSynchronizeResult.error().message << std::endl;
+                state = core::EngineState::Stopped;
                 throw std::runtime_error{sceneSynchronizeResult.error().message};
             }
             sRender->beginFrame();
@@ -225,7 +219,7 @@ auto AetherEngine::Engine::processEvents(core::IApplication& app) -> void {
     while (SDL_PollEvent(&event))
     {
         if (event.type == SDL_EVENT_QUIT){
-            isRunning = false;
+            state = core::EngineState::Stopped;
         }
 
         app.onEvent(event);

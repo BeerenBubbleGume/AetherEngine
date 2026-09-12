@@ -56,20 +56,22 @@ Important ownership boundaries:
 - Materials are assets of their own and load shader/texture dependencies
   through the same manager.
 
-The default scene uses schema version 2 and contains only asset IDs. Physical
-paths are isolated in `assets/registry/runtime-assets.json`; material dependency
-metadata lives in `assets/materials/`.
+The default project scene uses schema version 2 and contains only asset IDs.
+Physical paths are isolated in the project's `assets/registry/runtime-assets.json`;
+material dependency metadata lives in its `assets/materials/`.
 
 ## Project Layout
 
 - `AetherEngine/` — reusable engine headers and implementation.
 - `AetherEditor/` — editor application and ImGui/bgfx integration.
 - `smb/` — sample application/game layer.
-- `assets/registry/` — runtime asset manifest and platform variants.
-- `assets/materials/` — material assets and their dependency metadata.
-- `assets/scenes/` — versioned scene JSON files.
-- `assets/meshes/`, `assets/textures/`, `assets/shaders/` — source and cooked
-  runtime content.
+- `assets/templates/DefaultScene.scene.json` — starter scene template.
+- `assets/shaders/` — engine/editor shader support and embedded ImGui shaders.
+- `projects/Sandbox/` — the included authoring project, stored in version control.
+- `projects/Sandbox/assets/scenes/Main.scene.json` — editable project scene.
+- `projects/Sandbox/assets/registry/`, `materials/`, `meshes/`, `textures/`,
+  `shaders/` — the project's manifest, dependencies, source and cooked content.
+- `cmake/` — preparation of the disposable runtime asset copy.
 - `tests/` — security, physics-backend, and asset-registry regression tests.
 - `third_party/` — checked-in third-party artifacts; the build does not
   automatically execute the bundled unsigned content tools.
@@ -120,16 +122,55 @@ The physics backend is selected during configuration:
 
 ```powershell
 cmake -S . -B cmake-build-jolt `
-  -DSMB_PHYSICS_BACKEND=Jolt `
+  -DAETHER_PHYSICS_BACKEND=Jolt `
   -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
 ```
 
 Valid values are `PhysX` and `Jolt`. PhysX is the default except on macOS,
 where Jolt is used because the vcpkg PhysX port is unavailable.
 
-Both executable targets receive a copied `assets` directory next to the built
-binary. Runtime content is deliberately copied instead of being exposed through
-a junction or symlink.
+The default authoring project is `projects/Sandbox`. Select another existing
+project at configure time with `-DAETHER_PROJECT_ROOT="D:/projects/MyGame"`.
+It must contain `assets/scenes/`, `assets/shaders/` and
+`assets/registry/runtime-assets.json`. Keep projects outside the build directory
+and put the build directory outside the selected authoring project.
+
+The single `aether_runtime_assets` target copies the selected project's assets
+next to `smb`. Building `smb` also prepares assets when only scene/content files
+have changed. Stale files are removed only from the checked build destination.
+To refresh just the game content, run:
+
+```powershell
+cmake --build cmake-build-debug-visual-studio --config Debug --target aether_runtime_assets
+```
+
+Building `AetherEditor` alone does not copy assets. The editor opens the authoring
+project directly. Content is never linked into the build directory.
+
+## Authoring and Runtime Data
+
+```text
+assets/templates/DefaultScene.scene.json       starter template
+projects/Sandbox/assets/scenes/Main.scene.json authoring scene
+cmake-build-.../Debug/assets/scenes/Main.scene.json game copy
+```
+
+The included Sandbox scene was created once from the template. Opening the
+editor, configuring CMake and rebuilding never seed or overwrite project files
+from templates. Template changes do not propagate into existing projects.
+New-project creation UI/commands are not implemented yet; another project can
+currently be prepared by copying the complete Sandbox project to a new directory.
+
+`Engine::initEngine(EngineInitConfig)` accepts an explicit `projectRoot` and a
+`startupScene` (default `Main`). With a project root, the asset manager and scene
+serializer use that project's assets. With an empty project root, as in `smb`,
+they use the package beside the executable. `EngineContext::paths` exposes the
+resolved roots. Missing/invalid projects and scenes report an error; the engine
+does not fall back to another project or replace a broken scene with an empty one.
+
+Authoring changes belong in the project directory and version control. The
+runtime copy is disposable and is not a location for authoring or persistent game
+saves. Atomic scene writes and an editor document model remain separate work.
 
 ## Run
 
@@ -139,6 +180,19 @@ For a Visual Studio Debug build on Windows:
 .\cmake-build-debug-visual-studio\Debug\smb.exe
 .\cmake-build-debug-visual-studio\Debug\AetherEditor.exe
 ```
+
+The editor defaults to the project selected by CMake. Override it at launch:
+
+```powershell
+.\cmake-build-debug-visual-studio\Debug\AetherEditor.exe --project "D:\projects\MyGame" --scene Main
+```
+
+`--scene` takes a scene name without `.scene.json`. An explicit relative project
+path is resolved against the launch working directory; the configured default
+is absolute, so launching from an IDE or another directory works as well.
+Use `--help` for usage. A launch override affects only the editor; to package that
+project for `smb`, also select it with `AETHER_PROJECT_ROOT` in CMake. The sample
+game starts `Main` and expects the sample `player` entity.
 
 Sample controls:
 
@@ -162,7 +216,29 @@ Current suites cover:
 - secure path and native asset parsing regressions;
 - the selected physics backend contract;
 - asset manifest parsing and platform-variant selection;
-- typed runtime handle caching, reference counting, unload, and reload.
+- typed runtime handle caching, reference counting, unload, and loading again;
+- project/runtime path selection and saving author edits without touching templates
+  or the game package;
+- scene file creation and replacement, byte limits, unsafe paths, preservation of
+  original data on failure, and temporary-file cleanup;
+- on Windows, file identity after replacement, blocked readers, and injected WinAPI failures for
+  writes, flushing and metadata checks, plus short writes and temporary-name collisions;
+- repeatable runtime copying, stale-file removal and rejection of unsafe copy
+  destinations.
+
+Run just the scene-write tests with:
+
+```powershell
+cmake --build cmake-build-debug-visual-studio --config Debug --target aether_scene_write_tests aether_scene_write_win32_fault_tests
+ctest --test-dir cmake-build-debug-visual-studio -C Debug -R scene_write --output-on-failure
+```
+
+The fault-test target is Windows-only; omit it on other platforms. Both targets
+compile the current path-security implementation without linking the renderer or
+physics backend. Fault injection is confined to the test executable. Each test
+uses an isolated temporary directory; symlink checks report a skip if creation is
+unavailable. These tests check replacement behavior and failure handling, not
+durability across power loss.
 
 ## Assets and Platform Support
 
@@ -193,11 +269,6 @@ Traversal, unsafe rooted paths, symlinks/reparse points, hard-link aliases, and
 unsupported native containers are rejected according to the active platform.
 The Windows build also enables available compiler/linker hardening and restricts
 DLL search paths.
-
-The prior detailed review is recorded in
-[SECURITY_AUDIT.md](SECURITY_AUDIT.md). It is a dated audit report, not a formal
-proof or a replacement for fuzzing and cross-platform verification. Its open
-host ACL finding must be handled outside the repository.
 
 ## Near-Term Roadmap
 
