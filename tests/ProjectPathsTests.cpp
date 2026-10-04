@@ -58,7 +58,8 @@ int main() {
         }
         std::filesystem::create_directories(templateRoot);
         constexpr std::string_view original =
-            R"({"version":2,"name":"Main","entities":[{"id":"object","name":"Original","components":{}}]})";
+            R"({"version":2,"name":"Main","entities":[{"id":"0123456789abcdef0123456789abcdef","name":"Original","components":{}}]})";
+        constexpr scene::EntityId objectId{0x0123456789abcdefULL, 0x0123456789abcdefULL};
         const auto workingScene = projectRoot / "assets/scenes/Main.scene.json";
         const auto packagedScene = runtimeRoot / "assets/scenes/Main.scene.json";
         const auto templateScene = templateRoot / "DefaultScene.scene.json";
@@ -100,7 +101,7 @@ int main() {
                 auto loaded = serializer->deserializeScene("Main");
                 expect(loaded.has_value(), "open working scene", failures);
                 if (loaded) {
-                    auto object = (*loaded)->findEntityById("object");
+                    auto object = (*loaded)->findEntityById(objectId);
                     expect(object.has_value(), "find fixture object", failures);
                     if (object) {
                         (*loaded)->getComponent<components::IdentityComponent>(*object).name = "Author edit";
@@ -110,7 +111,7 @@ int main() {
                         auto reopened = serializer->deserializeScene("Main");
                         expect(reopened.has_value(), "reopen saved scene", failures);
                         if (reopened) {
-                            auto restored = (*reopened)->findEntityById("object");
+                            auto restored = (*reopened)->findEntityById(objectId);
                             expect(restored && (*reopened)->getComponent<components::IdentityComponent>(*restored).name == "Author edit",
                                 "author edit survives reopening", failures);
                         }

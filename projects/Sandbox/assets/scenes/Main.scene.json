@@ -1,10 +1,10 @@
 {
     "version": 2,
     "name": "Main",
-    "activeCamera": "camera",
+    "activeCamera": "11111111111111111111111111111111",
     "entities": [
         {
-            "id": "camera",
+            "id": "11111111111111111111111111111111",
             "name": "Test Camera",
             "components": {
                 "Transform": {
@@ -27,7 +27,7 @@
             }
         },
         {
-            "id": "player",
+            "id": "22222222222222222222222222222222",
             "name": "Player",
             "components": {
                 "Transform": {
@@ -45,7 +45,7 @@
             }
         },
         {
-            "id": "dynamic_rabbit",
+            "id": "44444444444444444444444444444444",
             "name": "Dynamic Rabbit",
             "components": {
                 "Transform": {
@@ -75,7 +75,7 @@
             }
         },
         {
-            "id": "ground",
+            "id": "33333333333333333333333333333333",
             "name": "Ground",
             "components": {
                 "Transform": {

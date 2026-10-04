@@ -134,7 +134,7 @@ namespace AetherEngine::systems {
                 break;
             }
             if (!m_actors.contains(handle)) {
-                createActorForEntity(scene, {handle, &scene});
+                createActorForEntity(scene, {.handle = handle, .scene = &scene});
             }
         }
     }

@@ -5,6 +5,7 @@
 #include "core/AetherEditor.hpp"
 
 #include <imgui.h>
+#include <iostream>
 
 #include "graphics/SceneView.hpp"
 #include "math/CameraMatrices.hpp"
@@ -57,7 +58,13 @@ auto AetherEditor::core::Editor::render(AetherEngine::core::EngineContext& ctx) 
         .clearColor = 0x20252bff
     };
 
-    ctx.renderer.renderScene(ctx.scene, ctx.assets, ctx.sceneAssetBinding, view);
+    try {
+        ctx.renderer.renderScene(ctx.scene, ctx.assets, ctx.sceneAssetBinding, view);
+    } catch (const std::exception& e) {
+        std::cerr << "Exception during editor render: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Unknown exception during editor render" << std::endl;
+    }
 
     if (m_gui) {
         m_gui->beginFrame();

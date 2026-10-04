@@ -219,6 +219,8 @@ Current suites cover:
 - typed runtime handle caching, reference counting, unload, and loading again;
 - project/runtime path selection and saving author edits without touching templates
   or the game package;
+- scene entity ownership and generations, persistent ID lookup and restoration,
+  mandatory identity protection, and active camera validation and cleanup;
 - scene file creation and replacement, byte limits, unsafe paths, preservation of
   original data on failure, and temporary-file cleanup;
 - on Windows, file identity after replacement, blocked readers, and injected WinAPI failures for
@@ -239,6 +241,17 @@ physics backend. Fault injection is confined to the test executable. Each test
 uses an isolated temporary directory; symlink checks report a skip if creation is
 unavailable. These tests check replacement behavior and failure handling, not
 durability across power loss.
+
+Run the entity lifecycle and camera tests with:
+
+```powershell
+cmake --build cmake-build-debug-visual-studio --config Debug --target aether_scene_entity_tests aether_project_paths_tests
+ctest --test-dir cmake-build-debug-visual-studio -C Debug -R "scene_entity_|project_paths_regressions" --output-on-failure
+```
+
+Each entity scenario is registered separately with CTest. The project-path test
+also verifies that the same persistent entity ID resolves after renaming, saving,
+and reopening the scene.
 
 ## Assets and Platform Support
 

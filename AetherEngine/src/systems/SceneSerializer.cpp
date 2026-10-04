@@ -26,6 +26,7 @@
 #include "components/PhysicsComponents.hpp"
 #include "components/TransformComponent.hpp"
 #include "security/PathSecurity.hpp"
+#include "scene/EntityId.hpp"
 
 namespace {
     using Json = nlohmann::json;
@@ -456,7 +457,7 @@ auto AetherEngine::systems::SceneSerializer::serializeScene(const scene::Scene &
     const auto activeCamera = scene.getActiveCamera();
     if (activeCamera.isValid()) {
         if (const auto* identity = registry.try_get<components::IdentityComponent>(activeCamera.handle)) {
-            sceneBody["activeCamera"] = identity->id;
+            sceneBody["activeCamera"] = toString(identity->id);
         }
     }
 
@@ -466,7 +467,7 @@ auto AetherEngine::systems::SceneSerializer::serializeScene(const scene::Scene &
             const auto* identity = registry.try_get<components::IdentityComponent>(entityHandle);
 
             const auto fallbackId = makeFallbackEntityId(entityHandle);
-            entityBody["id"] = identity ? identity->id : fallbackId;
+            entityBody["id"] = identity ? toString(identity->id) : fallbackId;
             entityBody["name"] = identity ? identity->name : fallbackId;
             entityBody["components"] = Json::object();
 
@@ -607,13 +608,12 @@ auto AetherEngine::systems::SceneSerializer::deserializeScene(std::string_view s
                 if (!entityIds.emplace(id).second) {
                     return std::unexpected(makeError(InvalidFormatErrorCode, "Scene contains duplicate entity ids"));
                 }
-                const auto entity = scene->createEntity();
 
-                scene->addComponent<components::IdentityComponent>(entity, components::IdentityComponent{
-                    .id = id,
-                    .name = name
-                });
-
+                auto entityId = scene::parseEntityId(id).value_or(scene::EntityId{});
+                if (!entityId.isValid()) {
+                    return std::unexpected(makeError(InvalidFormatErrorCode, "Invalid entity id"));
+                }
+                const auto entity = scene->createEntityWithId(entityId, name);
                 const auto componentsIt = entityBody.find("components");
                 if (componentsIt == entityBody.end()) {
                     continue;

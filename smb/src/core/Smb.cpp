@@ -49,7 +49,7 @@ namespace smb {
         ctx.input.bindKey(AetherEngine::systems::InputAction::Reset, AetherEngine::systems::Key::R);
         ctx.input.bindKey(AetherEngine::systems::InputAction::Quit, AetherEngine::systems::Key::Escape);
         if (!ctx.scene.isEmpty()) {
-            auto player = ctx.scene.findEntityById("player");
+            auto player = ctx.scene.findEntityByName("Player");
             if (!player) {
                 return std::unexpected(AetherEngine::core::EngineError{1, "Failed to find player entity"});
             }
@@ -73,11 +73,7 @@ namespace smb {
             return std::unexpected(AetherEngine::core::EngineError{1, materialAsset.error().message});
         }
 
-        auto camera = ctx.scene.createEntity();
-        ctx.scene.addComponent<AetherEngine::components::IdentityComponent>(camera, AetherEngine::components::IdentityComponent{
-            .id = "camera",
-            .name = "Camera"
-        });
+        auto camera = ctx.scene.createEntity("Camera");
 
         ctx.scene.addComponent<AetherEngine::components::TransformComponent>(camera, AetherEngine::components::TransformComponent{
             .transform = {
@@ -95,11 +91,7 @@ namespace smb {
 
         ctx.scene.setActiveCamera(camera);
 
-        auto player = ctx.scene.createEntity();
-        ctx.scene.addComponent<AetherEngine::components::IdentityComponent>(player, AetherEngine::components::IdentityComponent{
-            .id = "player",
-            .name = "Player"
-        });
+        auto player = ctx.scene.createEntity("Player");
         ctx.scene.addComponent<AetherEngine::components::TransformComponent>(player, AetherEngine::components::TransformComponent {
             .transform = AetherEngine::graphics::Transform{
                 .position = {0.0f, 0.0f, 0.0f},
@@ -115,11 +107,7 @@ namespace smb {
             .baseColor = {0.0f, 0.0f, 1.0f, 1.0f}
         });
 
-        auto secondBunny = ctx.scene.createEntity();
-        ctx.scene.addComponent<AetherEngine::components::IdentityComponent>(secondBunny, AetherEngine::components::IdentityComponent{
-            .id = "second_bunny",
-            .name = "Second Bunny"
-        });
+        auto secondBunny = ctx.scene.createEntity("Second Bunny");
         ctx.scene.addComponent<AetherEngine::components::TransformComponent>(secondBunny, AetherEngine::components::TransformComponent {
             .transform = AetherEngine::graphics::Transform{
                 .position = {-5.0f, -5.0f, -5.0f},
@@ -193,7 +181,7 @@ namespace smb {
         }
         if (ctx.input.mouseWheelY() != 0.0f) {
             const auto cameraEntity = ctx.scene.getActiveCamera();
-            if (cameraEntity.isValid() &&
+            if (ctx.scene.isAlive(cameraEntity) &&
                 cameraEntity.scene == &ctx.scene &&
                 ctx.scene.hasComponent<AetherEngine::components::CameraComponent,
                     AetherEngine::components::TransformComponent>(cameraEntity)) {
@@ -213,7 +201,7 @@ namespace smb {
 
     auto SMB::render(AetherEngine::core::EngineContext& ctx) -> void {
         const auto cameraEntity = ctx.scene.getActiveCamera();
-        if (!cameraEntity.isValid() ||
+        if (!ctx.scene.isAlive(cameraEntity) ||
             !ctx.scene.hasComponent<AetherEngine::components::TransformComponent, AetherEngine::components::CameraComponent>(cameraEntity)) {
             return;
         }

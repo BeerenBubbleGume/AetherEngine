@@ -6,10 +6,11 @@
 #define SMB_IDENTITYCOMPONENT_HPP
 
 #include <string>
+#include "scene/EntityId.hpp"
 
 namespace AetherEngine::components {
     struct IdentityComponent {
-        std::string id;
+        scene::EntityId id;
         std::string name;
     };
 }

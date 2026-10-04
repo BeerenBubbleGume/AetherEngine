@@ -151,6 +151,8 @@ add_library(AetherEngine STATIC
         AetherEngine/src/assets/loaders/MaterialLoader.cpp
         AetherEngine/src/systems/SceneAssetBindingSystem.cpp
         AetherEngine/headers/systems/SceneAssetBindingSystem.hpp
+        AetherEngine/src/scene/Entity.cpp
+        AetherEngine/headers/scene/EntityId.hpp
 )
 
 target_include_directories(AetherEngine
@@ -194,6 +196,14 @@ if (BUILD_TESTING)
     add_executable(aether_project_paths_tests tests/ProjectPathsTests.cpp)
     target_link_libraries(aether_project_paths_tests PRIVATE AetherEngine)
     add_test(NAME project_paths_regressions COMMAND aether_project_paths_tests)
+
+    add_executable(aether_scene_entity_tests tests/SceneEntityTests.cpp)
+    target_link_libraries(aether_scene_entity_tests PRIVATE AetherEngine)
+    foreach(scenario creation duplicate_id zero_id foreign_entities stale_generation empty_after_deletion
+            identity_protection camera_validation camera_deletion camera_component_removal)
+        add_test(NAME scene_entity_${scenario} COMMAND aether_scene_entity_tests ${scenario})
+        set_tests_properties(scene_entity_${scenario} PROPERTIES TIMEOUT 30)
+    endforeach()
 
     add_executable(aether_scene_write_tests
             tests/SceneWriteTests.cpp
@@ -314,7 +324,7 @@ if (MSVC)
         list(APPEND hardened_targets aether_project_paths_tests)
         list(APPEND hardened_executables aether_project_paths_tests)
     endif()
-    foreach(scene_test aether_scene_write_tests aether_scene_write_win32_fault_tests)
+    foreach(scene_test aether_scene_write_tests aether_scene_write_win32_fault_tests aether_scene_entity_tests)
         if (TARGET ${scene_test})
             list(APPEND hardened_targets ${scene_test})
             list(APPEND hardened_executables ${scene_test})

@@ -13,9 +13,7 @@ namespace AetherEngine::scene {
         entt::entity handle{entt::null};
         Scene* scene{nullptr};
 
-        [[nodiscard]] bool isValid() const {
-            return handle != entt::null && scene != nullptr;
-        }
+        [[nodiscard]] bool isValid() const;
     };
 }
 

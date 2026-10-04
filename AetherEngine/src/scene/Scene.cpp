@@ -21,15 +21,43 @@ namespace AetherEngine::scene {
     }
 
     auto Scene::isEmpty() const -> bool {
-        const auto* entityStorage = m_registry.storage<entt::entity>();
-        return !entityStorage || entityStorage->empty();
+        const auto* storage = m_registry.storage<entt::entity>();
+        return !storage || storage->free_list() == 0;
     }
 
-    auto Scene::createEntity() -> Entity {
-        return Entity({m_registry.create(), this});
+    auto Scene::createEntity(std::string_view name) -> Entity {
+        EntityId id;
+
+        do {
+            id = generateEntityId();
+        } while (!id.isValid() || findEntityById(id).has_value());
+
+        return createEntityWithId(id, name);
+    }
+
+    auto Scene::createEntityWithId(scene::EntityId id, std::string_view name) -> Entity {
+        if (!id.isValid()) {
+            throw std::runtime_error("Invalid EntityId");
+        }
+        if (m_entitiesById.contains(id)) {
+            throw std::runtime_error("Duplicate EntityId");
+        }
+        auto entity = m_registry.create();
+        m_registry.emplace<components::IdentityComponent>(entity, components::IdentityComponent{
+            .id = id,
+            .name = std::string{name}
+        });
+        m_entitiesById.emplace(id, entity);
+        return Entity({.handle = entity, .scene = this});
     }
 
     auto Scene::setActiveCamera(Entity camera) -> void {
+        if (!this->isAlive(camera)) {
+            throw std::runtime_error("Invalid entity");
+        }
+        if (!m_registry.all_of<components::CameraComponent>(camera.handle)) {
+            throw std::runtime_error("Entity is not a camera");
+        }
         m_activeCamera = camera;
     }
 
@@ -41,17 +69,49 @@ namespace AetherEngine::scene {
         }
     }
 
-    auto Scene::findEntityById(std::string_view id) -> std::optional<Entity> {
+    auto Scene::findEntityByName(std::string_view name) -> std::optional<Entity> {
         auto view = m_registry.view<AetherEngine::components::IdentityComponent>();
 
         for (auto entity : view) {
             const auto& identity = view.get<components::IdentityComponent>(entity);
-            if (identity.id == id) {
-                return Entity{entity, this};
+            if (identity.name == name) {
+                return Entity{.handle = entity, .scene = this};
             }
         }
 
         return std::nullopt;
+    }
+
+    auto Scene::findEntityById(scene::EntityId id) -> std::optional<Entity> {
+        const auto it = m_entitiesById.find(id);
+
+        if (it == m_entitiesById.end()) {
+            return std::nullopt;
+        }
+
+        return Entity{
+            .handle = it->second,
+            .scene = this
+        };
+    }
+
+    auto Scene::destroyEntity(Entity entt) -> void {
+        if (!this->isAlive(entt)) {
+            throw std::runtime_error("Invalid entity");
+        }
+        if (m_activeCamera &&
+            m_activeCamera->scene == entt.scene &&
+            m_activeCamera->handle == entt.handle) {
+            m_activeCamera.reset();
+            }
+        const auto& identity = m_registry.get<components::IdentityComponent>(entt.handle);
+        m_entitiesById.erase(identity.id);
+        m_registry.destroy(entt.handle);
+
+    }
+
+    auto Scene::isAlive(const Entity &entity) const -> bool {
+        return entity.scene == this && entity.handle != entt::null && m_registry.valid(entity.handle);
     }
 
     auto Scene::getRegistry() const -> const entt::registry & {
