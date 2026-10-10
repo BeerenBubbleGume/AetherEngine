@@ -111,7 +111,6 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
     constexpr float MaxFrameDelta = 0.25f;
     constexpr std::size_t MaxPhysicsSubsteps = 8;
     core::EngineContext ctx{
-        .scene = *sScene,
         .assets = *sAssets,
         .input = *sInput,
         .renderer = *sRender,
@@ -119,7 +118,11 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
         .sceneAssetBinding = *sSceneAssetBinding,
         .window = *sWindow,
         .paths = m_paths,
-        .requestQuit = [&]() { state = core::EngineState::Stopped; }
+        .requestQuit = [this]() { state = core::EngineState::Stopped; },
+        .getScene = [this]() -> scene::Scene& { return *sScene; },
+        .replaceScene = [this](scene::Scene::ScenePtr next) -> std::expected<void, core::EngineError> {
+            return replaceScene(std::move(next));
+        }
     };
     auto appInitResult = app.init(ctx);
     if (!appInitResult) {
@@ -229,4 +232,23 @@ auto AetherEngine::Engine::processEvents(core::IApplication& app) -> void {
 
 auto AetherEngine::Engine::update(float delta) const -> void {
     sInput->update(delta);
+}
+
+auto AetherEngine::Engine::replaceScene(scene::Scene::ScenePtr newScene) -> std::expected<void, core::EngineError> {
+    try {
+        if (!newScene) {
+            return std::unexpected{core::EngineError{6, "Cannot replace scene with a null scene"}};
+        }
+        auto sceneBindResult = sSceneAssetBinding->bindScene(*newScene);
+        if (!sceneBindResult) {
+            return std::unexpected{core::EngineError{6, "Failed to bind new scene: " + sceneBindResult.error().message}};
+        }
+        sPhysics->clearSceneBodies();
+        accumulator = 0.0f;
+        sScene = std::move(newScene);
+    } catch (...) {
+        std::cerr << "Exception during engine::replaceScene" << std::endl;
+        return std::unexpected{core::EngineError{6, "Exception during engine::replaceScene"}};
+    }
+    return {};
 }

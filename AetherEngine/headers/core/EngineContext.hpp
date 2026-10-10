@@ -28,7 +28,6 @@ namespace AetherEngine::core {
     };
 
     struct EngineContext {
-        scene::Scene& scene;
         assets::AssetManager& assets;
         systems::InputSystem& input;
         systems::RenderSystem& renderer;
@@ -39,6 +38,8 @@ namespace AetherEngine::core {
         const EnginePaths& paths;
 
         std::function<void()> requestQuit;
+        std::function<scene::Scene&()> getScene;
+        std::function<std::expected<void, EngineError>(scene::Scene::ScenePtr)> replaceScene;
     };
 
     struct EngineRunConfig {

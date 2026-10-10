@@ -8,6 +8,20 @@
 
 
 namespace AetherEngine::scene {
+    Scene & Scene::operator=(Scene &&other) noexcept {
+        if (this == &other) {
+            return *this;
+        }
+        m_registry.swap(other.m_registry);
+        m_entitiesById = std::move(other.m_entitiesById);
+        m_activeCamera = std::move(other.m_activeCamera);
+
+        other.m_registry.clear();
+        other.m_entitiesById.clear();
+        other.m_activeCamera = Entity{};
+        return *this;
+    }
+
     Scene::ScenePtr Scene::createScene() {
         return ScenePtr(new Scene(), SceneDeleter{});
     }
@@ -119,5 +133,15 @@ namespace AetherEngine::scene {
     }
 
     Scene::Scene(std::string_view name) : m_name(name) {
+    }
+
+    Scene::Scene(Scene &&other) noexcept : m_name(std::move(other.m_name)) {
+        m_registry.swap(other.m_registry);
+        m_activeCamera = other.m_activeCamera;
+        m_entitiesById = std::move(other.m_entitiesById);
+
+        other.m_entitiesById.clear();
+        other.m_registry.clear();
+        other.m_activeCamera = Entity{};
     }
 } // scene

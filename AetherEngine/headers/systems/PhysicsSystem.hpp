@@ -6,6 +6,7 @@
 #define SMB_PHYSICSSYSTEM_HPP
 #include <expected>
 #include <memory>
+#include <ranges>
 #include <unordered_map>
 
 #include <entt/entt.hpp>
@@ -34,7 +35,7 @@ namespace AetherEngine::systems {
         auto shutdown() -> void;
 
         auto fixedUpdate(scene::Scene& scene, float fixedDelta) -> void;
-
+        auto clearSceneBodies() -> void;
     private:
         auto syncActorsFromScene(scene::Scene& scene) -> void;
         auto syncSceneFromActors(scene::Scene& scene) -> void;

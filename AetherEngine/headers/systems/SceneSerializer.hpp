@@ -29,7 +29,7 @@ namespace AetherEngine::systems {
         SceneSerializer& operator=(const SceneSerializer&) = default;
 
         [[nodiscard]] static auto createSceneSerializer(const std::filesystem::path &scenesPath) -> SceneSerializerPtr;
-        [[nodiscard]] auto serializeScene(const scene::Scene &scene) const -> std::expected<void, SceneSerializerError>;
+        [[nodiscard]] auto serializeScene(const scene::Scene &scene, std::string_view fileStem = {}) const -> std::expected<void, SceneSerializerError>;
 
         [[nodiscard]] auto deserializeScene(
             std::string_view sceneName

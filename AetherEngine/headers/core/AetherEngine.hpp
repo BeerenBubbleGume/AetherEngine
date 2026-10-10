@@ -46,6 +46,7 @@ namespace AetherEngine {
 
         auto processEvents(core::IApplication& app) -> void;
         auto update(float delta) const -> void;
+        auto replaceScene(scene::Scene::ScenePtr newScene) -> std::expected<void, core::EngineError>;
 
 
         using WindowPtr = std::unique_ptr<Window, Window::WindowDeleter>;

@@ -32,7 +32,7 @@ namespace AetherEngine::scene {
         using ScenePtr = std::unique_ptr<Scene, SceneDeleter>;
         Scene(const Scene&) = delete;
         Scene& operator=(const Scene&) = delete;
-
+        Scene& operator=(Scene&&) noexcept;
 
         static ScenePtr createScene();
         static ScenePtr createScene(std::string_view name);
@@ -63,6 +63,7 @@ namespace AetherEngine::scene {
 
         [[nodiscard]] auto getRegistry() const -> const entt::registry &;
         Scene(std::string_view name);
+        Scene(Scene&& other) noexcept;
         Scene() = default;
         ~Scene() = default;
         entt::registry m_registry;

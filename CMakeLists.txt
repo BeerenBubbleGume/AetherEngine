@@ -244,6 +244,39 @@ add_executable(AetherEditor
         AetherEditor/src/ui/ImGuiBgfxRenderer.cpp
         AetherEditor/headers/ui/ImGuiBgfxRenderer.hpp
         AetherEditor/headers/core/ETypes.hpp
+        AetherEditor/src/core/EditorSession.cpp
+        AetherEditor/headers/core/EditorSession.hpp
+        AetherEditor/src/commands/CommandHistory.cpp
+        AetherEditor/headers/commands/CommandHistory.hpp
+        AetherEditor/src/commands/EditorCommand.cpp
+        AetherEditor/headers/commands/EditorCommand.hpp
+        AetherEditor/src/commands/EntityCommands.cpp
+        AetherEditor/headers/commands/EntityCommands.hpp
+        AetherEditor/src/commands/ComponentCommands.cpp
+        AetherEditor/headers/commands/ComponentCommands.hpp
+        AetherEditor/src/ui/EditorWorkspace.cpp
+        AetherEditor/headers/ui/EditorWorkspace.hpp
+        AetherEditor/src/ui/EditorLayout.cpp
+        AetherEditor/headers/ui/EditorLayout.hpp
+        AetherEditor/src/documents/SceneEditorDocument.cpp
+        AetherEditor/headers/documents/SceneEditorDocument.hpp
+        AetherEditor/src/documents/DocumentController.cpp
+        AetherEditor/headers/documents/DocumentController.hpp
+        AetherEditor/src/viewport/EditorCameraController.cpp
+        AetherEditor/headers/viewport/EditorCameraController.hpp
+        AetherEditor/headers/viewport/ViewportState.hpp
+        AetherEditor/src/input/EditorInputRouter.cpp
+        AetherEditor/headers/input/EditorInputRouter.hpp
+        AetherEditor/src/panels/SceneViewportPanel.cpp
+        AetherEditor/headers/panels/SceneViewportPanel.hpp
+        AetherEditor/src/panels/HierarchyPanel.cpp
+        AetherEditor/headers/panels/HierarchyPanel.hpp
+        AetherEditor/src/panels/InspectorPanel.cpp
+        AetherEditor/headers/panels/InspectorPanel.hpp
+        AetherEditor/src/panels/AssetBrowserPanel.cpp
+        AetherEditor/headers/panels/AssetBrowserPanel.hpp
+        AetherEditor/src/panels/ConsolePanel.cpp
+        AetherEditor/headers/panels/ConsolePanel.hpp
 )
 
 set(AETHER_IMGUI_SHADER_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/assets/shaders/generated")

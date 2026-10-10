@@ -5,11 +5,18 @@
 #ifndef SMB_ETYPES_HPP
 #define SMB_ETYPES_HPP
 #include <string>
+#include <scene/Scene.hpp>
 
 namespace AetherEditor::core {
     struct EditorError {
         int code;
         std::string msg;
+    };
+
+    struct SceneEditorDocument {
+        AetherEngine::scene::Scene* scene = nullptr;
+        std::string fileStem;
+        bool dirty = false;
     };
 }
 

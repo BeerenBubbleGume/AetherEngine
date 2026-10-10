@@ -64,6 +64,15 @@ namespace AetherEngine::systems {
         syncSceneFromActors(scene);
     }
 
+    auto PhysicsSystem::clearSceneBodies() -> void {
+        if (m_backend) {
+            for (const auto handle: m_actors | std::views::values) {
+                m_backend->destroyBody(handle);
+            }
+        }
+        m_actors.clear();
+    }
+
     auto PhysicsSystem::syncActorsFromScene(scene::Scene& scene) -> void {
         if (!m_backend) {
             return;

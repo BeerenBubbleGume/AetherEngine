@@ -91,6 +91,21 @@ namespace AetherEngine::systems {
                 m_mouse.x = event.wheel.mouse_x;
                 m_mouse.y = event.wheel.mouse_y;
                 break;
+            case SDL_EVENT_WINDOW_FOCUS_LOST:
+                m_keyDown.fill(false);
+                m_keyPressed.fill(false);
+                m_keyReleased.fill(false);
+
+                m_mouseDown.fill(false);
+                m_mousePressed.fill(false);
+                m_mouseReleased.fill(false);
+
+                m_mouse.deltaX = 0.0f;
+                m_mouse.deltaY = 0.0f;
+                m_mouse.wheelX = 0.0f;
+                m_mouse.wheelY = 0.0f;
+
+                break;
             default: break;
         }
     }

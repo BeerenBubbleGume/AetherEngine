@@ -519,18 +519,30 @@ namespace AetherEditor::ui {
             )) {
             return false;
         }
-        const auto* memory = bgfx::copy(
-            texture.Pixels,
-            static_cast<uint32_t>(dataSize)
-        );
+        const auto width = static_cast<uint16_t>(texture.Width);
+        const auto height = static_cast<uint16_t>(texture.Height);
+
         const auto handle = bgfx::createTexture2D(
-            static_cast<uint16_t>(texture.Width),
-            static_cast<uint16_t>(texture.Height),
+            width,
+            height,
             false,
             1,
             bgfx::TextureFormat::RGBA8,
             ImGuiSamplerLinear,
-            memory
+            nullptr
+        );
+
+        if (!bgfx::isValid(handle)) {
+            return false;
+        }
+
+        bgfx::updateTexture2D(
+            handle,
+            0, 0,
+            0, 0,
+            width,
+            height,
+            bgfx::copy(texture.Pixels, static_cast<uint32_t>(dataSize))
         );
         if (!bgfx::isValid(handle)) {
             return false;

@@ -429,7 +429,7 @@ auto AetherEngine::systems::SceneSerializer::createSceneSerializer(const std::fi
     return SceneSerializerPtr(new SceneSerializer(*canonicalScenes), SceneSerializerDeleter{});
 }
 
-auto AetherEngine::systems::SceneSerializer::serializeScene(const scene::Scene &scene) const -> std::expected<void, SceneSerializerError> {
+auto AetherEngine::systems::SceneSerializer::serializeScene(const scene::Scene &scene, const std::string_view fileStem) const -> std::expected<void, SceneSerializerError> {
     const auto currentScenesPath = security::resolveDirectoryWithin(
         m_scenesPath.parent_path(),
         m_scenesPath.filename().string()
@@ -437,9 +437,16 @@ auto AetherEngine::systems::SceneSerializer::serializeScene(const scene::Scene &
     if (!currentScenesPath || *currentScenesPath != m_scenesPath) {
         return std::unexpected(makeError(FileSystemErrorCode, "Scene directory is no longer the trusted canonical directory"));
     }
-
-    const auto filename = sceneFilename(scene.getName());
-    if (!filename) {
+    if (!fileStem.empty() && !security::isSafeSceneName(fileStem)) {
+        return std::unexpected(makeError(InvalidFormatErrorCode, "Scene file stem is not a safe file name"));
+    }
+    std::string filename;
+    if (!fileStem.empty()) {
+        filename = sceneFilename(fileStem).value_or("");
+    } else {
+        filename = sceneFilename(scene.getName()).value_or("");
+    }
+    if (filename.empty()) {
         return std::unexpected(makeError(InvalidFormatErrorCode, "Scene name is not a safe file name"));
     }
     const auto& registry = scene.getRegistry();
@@ -506,7 +513,7 @@ auto AetherEngine::systems::SceneSerializer::serializeScene(const scene::Scene &
 
     const auto writeResult = security::writeRegularFileWithin(
         m_scenesPath,
-        *filename,
+        filename,
         std::span<const std::uint8_t>{
             reinterpret_cast<const std::uint8_t*>(serialized.data()),
             serialized.size()
@@ -548,7 +555,7 @@ auto AetherEngine::systems::SceneSerializer::deserializeScene(std::string_view s
 
     Json sceneBody;
     try {
-        sceneBody = Json::parse(*sceneText);
+        sceneBody = Json::parse(sceneText.value());
     } catch (const std::bad_alloc&) {
         return std::unexpected(makeError(ParseErrorCode, "Not enough memory to parse scene JSON"));
     } catch (const Json::exception& error) {

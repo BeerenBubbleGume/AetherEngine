@@ -48,12 +48,12 @@ namespace smb {
         ctx.input.bindKey(AetherEngine::systems::InputAction::LookDown, AetherEngine::systems::Key::Down);
         ctx.input.bindKey(AetherEngine::systems::InputAction::Reset, AetherEngine::systems::Key::R);
         ctx.input.bindKey(AetherEngine::systems::InputAction::Quit, AetherEngine::systems::Key::Escape);
-        if (!ctx.scene.isEmpty()) {
-            auto player = ctx.scene.findEntityByName("Player");
+        if (!ctx.getScene().isEmpty()) {
+            auto player = ctx.getScene().findEntityByName("Player");
             if (!player) {
                 return std::unexpected(AetherEngine::core::EngineError{1, "Failed to find player entity"});
             }
-            if (!ctx.scene.hasComponent<AetherEngine::components::TransformComponent>(*player)) {
+            if (!ctx.getScene().hasComponent<AetherEngine::components::TransformComponent>(*player)) {
                 return std::unexpected(AetherEngine::core::EngineError{1, "Player entity has no Transform component"});
             }
             playerEntity = player;
@@ -73,9 +73,9 @@ namespace smb {
             return std::unexpected(AetherEngine::core::EngineError{1, materialAsset.error().message});
         }
 
-        auto camera = ctx.scene.createEntity("Camera");
+        auto camera = ctx.getScene().createEntity("Camera");
 
-        ctx.scene.addComponent<AetherEngine::components::TransformComponent>(camera, AetherEngine::components::TransformComponent{
+        ctx.getScene().addComponent<AetherEngine::components::TransformComponent>(camera, AetherEngine::components::TransformComponent{
             .transform = {
                 .position = {0.0f, 0.0f, 5.0f},
                 .rotation = Quat::identity(),
@@ -83,32 +83,32 @@ namespace smb {
             }
         });
 
-        ctx.scene.addComponent<AetherEngine::components::CameraComponent>(camera, AetherEngine::components::CameraComponent{
+        ctx.getScene().addComponent<AetherEngine::components::CameraComponent>(camera, AetherEngine::components::CameraComponent{
             .fovYDegrees = 60.0f,
             .nearPlane = 0.1f,
             .farPlane = 100.0f
         });
 
-        ctx.scene.setActiveCamera(camera);
+        ctx.getScene().setActiveCamera(camera);
 
-        auto player = ctx.scene.createEntity("Player");
-        ctx.scene.addComponent<AetherEngine::components::TransformComponent>(player, AetherEngine::components::TransformComponent {
+        auto player = ctx.getScene().createEntity("Player");
+        ctx.getScene().addComponent<AetherEngine::components::TransformComponent>(player, AetherEngine::components::TransformComponent {
             .transform = AetherEngine::graphics::Transform{
                 .position = {0.0f, 0.0f, 0.0f},
                 .rotation = Quat::identity(),
                 .scale = {1.0f, 1.0f, 1.0f}
             }
         });
-        ctx.scene.addComponent<AetherEngine::components::MeshComponent>(player, AetherEngine::components::MeshComponent {
+        ctx.getScene().addComponent<AetherEngine::components::MeshComponent>(player, AetherEngine::components::MeshComponent {
             .asset = *meshAsset,
         });
-        ctx.scene.addComponent<AetherEngine::components::MaterialComponent>(player, AetherEngine::components::MaterialComponent {
+        ctx.getScene().addComponent<AetherEngine::components::MaterialComponent>(player, AetherEngine::components::MaterialComponent {
             .asset = *materialAsset,
             .baseColor = {0.0f, 0.0f, 1.0f, 1.0f}
         });
 
-        auto secondBunny = ctx.scene.createEntity("Second Bunny");
-        ctx.scene.addComponent<AetherEngine::components::TransformComponent>(secondBunny, AetherEngine::components::TransformComponent {
+        auto secondBunny = ctx.getScene().createEntity("Second Bunny");
+        ctx.getScene().addComponent<AetherEngine::components::TransformComponent>(secondBunny, AetherEngine::components::TransformComponent {
             .transform = AetherEngine::graphics::Transform{
                 .position = {-5.0f, -5.0f, -5.0f},
                 .rotation = Quat::fromAxisAngleDegrees({0.0f, 1.0f, 0.0f}, 30.0f) *
@@ -116,17 +116,17 @@ namespace smb {
                 .scale = {2.0f, 2.0f, 2.0f}
             },
         });
-        ctx.scene.addComponent<AetherEngine::components::MeshComponent>(secondBunny, AetherEngine::components::MeshComponent {
+        ctx.getScene().addComponent<AetherEngine::components::MeshComponent>(secondBunny, AetherEngine::components::MeshComponent {
             .asset = *meshAsset,
         });
-        ctx.scene.addComponent<AetherEngine::components::MaterialComponent>(secondBunny, AetherEngine::components::MaterialComponent {
+        ctx.getScene().addComponent<AetherEngine::components::MaterialComponent>(secondBunny, AetherEngine::components::MaterialComponent {
             .asset = *materialAsset,
             .baseColor = {1.0f, 0.0f, 0.0f, 1.0f}
         });
-        ctx.scene.addComponent<AetherEngine::components::ColliderComponent>(secondBunny, AetherEngine::components::ColliderComponent {});
-        ctx.scene.addComponent<AetherEngine::components::RigidbodyComponent>(secondBunny, AetherEngine::components::RigidbodyComponent {});
+        ctx.getScene().addComponent<AetherEngine::components::ColliderComponent>(secondBunny, AetherEngine::components::ColliderComponent {});
+        ctx.getScene().addComponent<AetherEngine::components::RigidbodyComponent>(secondBunny, AetherEngine::components::RigidbodyComponent {});
         playerEntity = player;
-        auto serializeResult = ctx.sceneSerializer.serializeScene(ctx.scene);
+        auto serializeResult = ctx.sceneSerializer.serializeScene(ctx.getScene());
         if (!serializeResult) {
             return std::unexpected(AetherEngine::core::EngineError{1, serializeResult.error().message});
         }
@@ -134,11 +134,11 @@ namespace smb {
     }
 
     auto SMB::update(float dt, AetherEngine::core::EngineContext &ctx) -> void {
-        if (!playerEntity || !playerEntity->isValid() || playerEntity->scene != &ctx.scene ||
-            !ctx.scene.hasComponent<AetherEngine::components::TransformComponent>(*playerEntity)) {
+        if (!playerEntity || !playerEntity->isValid() || playerEntity->scene != &ctx.getScene() ||
+            !ctx.getScene().hasComponent<AetherEngine::components::TransformComponent>(*playerEntity)) {
             return;
         }
-        auto& object = ctx.scene.getComponent<AetherEngine::components::TransformComponent>(*playerEntity);
+        auto& object = ctx.getScene().getComponent<AetherEngine::components::TransformComponent>(*playerEntity);
 
         auto& t = object.transform;
 
@@ -180,12 +180,12 @@ namespace smb {
             t.rotation = (mouseDelta * t.rotation).normalized();
         }
         if (ctx.input.mouseWheelY() != 0.0f) {
-            const auto cameraEntity = ctx.scene.getActiveCamera();
-            if (ctx.scene.isAlive(cameraEntity) &&
-                cameraEntity.scene == &ctx.scene &&
-                ctx.scene.hasComponent<AetherEngine::components::CameraComponent,
+            const auto cameraEntity = ctx.getScene().getActiveCamera();
+            if (ctx.getScene().isAlive(cameraEntity) &&
+                cameraEntity.scene == &ctx.getScene() &&
+                ctx.getScene().hasComponent<AetherEngine::components::CameraComponent,
                     AetherEngine::components::TransformComponent>(cameraEntity)) {
-                auto& camera = ctx.scene.getComponent<AetherEngine::components::CameraComponent>(cameraEntity);
+                auto& camera = ctx.getScene().getComponent<AetherEngine::components::CameraComponent>(cameraEntity);
                 camera.fovYDegrees -= ctx.input.mouseWheelY() * 2.0f;
                 camera.fovYDegrees = std::clamp(camera.fovYDegrees, 20.0f, 100.0f);
             }
@@ -200,15 +200,15 @@ namespace smb {
     }
 
     auto SMB::render(AetherEngine::core::EngineContext& ctx) -> void {
-        const auto cameraEntity = ctx.scene.getActiveCamera();
-        if (!ctx.scene.isAlive(cameraEntity) ||
-            !ctx.scene.hasComponent<AetherEngine::components::TransformComponent, AetherEngine::components::CameraComponent>(cameraEntity)) {
+        const auto cameraEntity = ctx.getScene().getActiveCamera();
+        if (!ctx.getScene().isAlive(cameraEntity) ||
+            !ctx.getScene().hasComponent<AetherEngine::components::TransformComponent, AetherEngine::components::CameraComponent>(cameraEntity)) {
             return;
         }
 
         const auto extent = ctx.renderer.backbufferExtent();
-        const auto& cameraTransform = ctx.scene.getComponent<AetherEngine::components::TransformComponent>(cameraEntity);
-        const auto& camera = ctx.scene.getComponent<AetherEngine::components::CameraComponent>(cameraEntity);
+        const auto& cameraTransform = ctx.getScene().getComponent<AetherEngine::components::TransformComponent>(cameraEntity);
+        const auto& camera = ctx.getScene().getComponent<AetherEngine::components::CameraComponent>(cameraEntity);
 
         const AetherEngine::graphics::SceneView view{
             .viewId = 0,
@@ -223,7 +223,7 @@ namespace smb {
             .clearColor = camera.clearColor
         };
 
-        ctx.renderer.renderScene(ctx.scene, ctx.assets, ctx.sceneAssetBinding, view);
+        ctx.renderer.renderScene(ctx.getScene(), ctx.assets, ctx.sceneAssetBinding, view);
     }
 
     auto SMB::run() -> void {
