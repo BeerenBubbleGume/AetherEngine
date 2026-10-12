@@ -4,12 +4,17 @@
 
 #ifndef SMB_EDITORSESSION_HPP
 #define SMB_EDITORSESSION_HPP
+#include <optional>
 
-namespace AetherEditor {
-    namespace core {
-        class EditorSession {
-        };
-    } // core
-} // AetherEditor
+#include "scene/EntityId.hpp"
+
+
+namespace AetherEditor::core {
+    class EditorSession {
+    public:
+        std::optional<AetherEngine::scene::EntityId> selectedEntity{};
+    };
+} // core
+// AetherEditor
 
 #endif //SMB_EDITORSESSION_HPP

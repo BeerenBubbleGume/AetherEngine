@@ -323,6 +323,11 @@ namespace AetherEngine::math {
                        (2.0f * s) * u.cross(vector);
         }
 
+        Vec3 Quat::toEulerXYZDegrees() const {
+                const auto q = detail::toGlm(normalized());
+                return detail::fromGlm(glm::degrees(glm::eulerAngles(q)));
+        }
+
         Quat Quat::identity() {
                 return {1.0f, 0.0f, 0.0f, 0.0f};
         }

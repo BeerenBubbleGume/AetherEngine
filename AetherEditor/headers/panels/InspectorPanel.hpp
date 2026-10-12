@@ -6,6 +6,12 @@
 #define SMB_INSPECTORPANEL_HPP
 #include <memory>
 #include <imgui.h>
+#include <optional>
+
+#include "core/EditorSession.hpp"
+#include "commands/CommandHistory.hpp"
+#include "scene/Scene.hpp"
+#include "math/Types.hpp"
 
 namespace AetherEditor::panels {
     class InspectorPanel {
@@ -17,7 +23,9 @@ namespace AetherEditor::panels {
         };
         using InspectorPanelPtr = std::unique_ptr<InspectorPanel, InspectorPanelDeleter>;
         static auto createInspectorPanel() -> InspectorPanelPtr;
-        auto draw(bool &open) -> void;
+        auto draw(bool &open, AetherEngine::scene::Scene &scene, const core::EditorSession &session, commands::CommandHistory& history) -> bool;
+        auto finishTransformEdit(AetherEngine::scene::Scene& scene, commands::CommandHistory& history) -> void;
+        [[nodiscard]] auto hasPendingEdit() const -> bool;
         InspectorPanel(const InspectorPanel&) = delete;
         InspectorPanel& operator=(const InspectorPanel&) = delete;
         InspectorPanel(InspectorPanel&&) = delete;
@@ -25,6 +33,16 @@ namespace AetherEditor::panels {
     private:
         InspectorPanel() = default;
         ~InspectorPanel() = default;
+        struct PendingTransformEdit {
+            AetherEngine::scene::EntityId entityId;
+            ImGuiID widgetId;
+            AetherEngine::math::Transform before;
+        };
+
+        std::optional<PendingTransformEdit> m_transformEdit;
+        std::optional<AetherEngine::scene::EntityId> m_rotationEntity{};
+        AetherEngine::math::Vec3 m_rotationDegrees{};
+        AetherEngine::math::Quat m_rotationQuaternion{};
     };
 } // panel
 // AetherEditor

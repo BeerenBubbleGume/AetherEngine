@@ -6,9 +6,11 @@
 #define SMB_ENTITYID_HPP
 
 #include <charconv>
+#include <chrono>
 #include <memory>
 #include <string_view>
 #include <optional>
+#include <cinttypes>
 #include <random>
 
 namespace AetherEngine::scene {

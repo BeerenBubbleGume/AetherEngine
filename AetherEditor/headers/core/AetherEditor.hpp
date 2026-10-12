@@ -15,6 +15,9 @@
 #include <input/EditorInputRouter.hpp>
 #include <viewport/EditorCameraController.hpp>
 
+#include "EditorSession.hpp"
+#include "commands/CommandHistory.hpp"
+
 namespace AetherEditor::core {
     class Editor final : public AetherEngine::core::IApplication {
     public:
@@ -49,6 +52,8 @@ namespace AetherEditor::core {
         InputRouterPtr m_inputRouter;
         CameraControllerPtr m_cameraController;
         SceneEditorDocument m_document{};
+        EditorSession m_session{};
+        commands::CommandHistory m_history{};
         float m_frameDelta = 0.0f;
         bool m_relativeMouseMode = false;
 

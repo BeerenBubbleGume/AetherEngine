@@ -10,10 +10,18 @@ namespace AetherEditor::ui {
         return EditorWorkspacePtr(new EditorWorkspace(), EditorWorkspaceDeleter{});
     }
 
-    auto EditorWorkspace::draw(AetherEngine::components::CameraComponent &camera) -> viewport::SceneViewportFrame {
-        drawMenuBar();
+    auto EditorWorkspace::draw(AetherEngine::components::CameraComponent &camera, AetherEngine::scene::Scene &scene, AetherEditor::core::EditorSession& session, commands
+                               ::CommandHistory &history) -> EditorWorkspaceFrame {
+        EditorWorkspaceFrame frame{};
+
+        drawMenuBar(history, frame);
         drawDockspace();
-        return drawPanels(camera);
+
+        auto panels = drawPanels(camera, scene, session, history);
+        frame.viewport = panels.viewport;
+        frame.sceneChanged = panels.sceneChanged;
+        processHistoryShortcuts(history, frame);
+        return frame;
     }
 
     auto EditorWorkspace::init() -> std::expected<void, AetherEditor::core::EditorError> {
@@ -49,6 +57,11 @@ namespace AetherEditor::ui {
         return {};
     }
 
+    auto EditorWorkspace::finishPendingEdits(AetherEngine::scene::Scene &scene,
+        commands::CommandHistory &history) const -> void {
+        m_inspector->finishTransformEdit(scene, history);
+    }
+
     auto EditorWorkspace::drawDockspace() -> void {
         ImGui::DockSpaceOverViewport(
             0,
@@ -57,20 +70,26 @@ namespace AetherEditor::ui {
         );
     }
 
-    auto EditorWorkspace::drawPanels(AetherEngine::components::CameraComponent &camera) -> viewport::SceneViewportFrame {
-        if (m_showInspector) {
-            m_inspector->draw(m_showInspector);
-        }
+    auto EditorWorkspace::drawPanels(AetherEngine::components::CameraComponent &camera, AetherEngine::scene::Scene &scene, core::EditorSession &session, commands
+                                     ::CommandHistory &history) -> EditorWorkspaceFrame {
+        EditorWorkspaceFrame frame{};
+
         if (m_showHierarchy) {
-            m_hierarchy->draw(m_showHierarchy);
+            m_hierarchy->draw(m_showHierarchy, scene, session);
+        }
+        if (m_showInspector) {
+            frame.sceneChanged =
+                m_inspector->draw(m_showInspector, scene, session, history);
+        } else {
+            m_inspector->finishTransformEdit(scene, history);
         }
         if (m_showSceneViewport) {
-            return m_sceneViewport->draw(m_showSceneViewport, camera);
+            frame.viewport = m_sceneViewport->draw(m_showSceneViewport, camera);
         }
-        return {};
+        return frame;
     }
 
-    auto EditorWorkspace::drawMenuBar() -> void {
+    auto EditorWorkspace::drawMenuBar(const commands::CommandHistory &history, EditorWorkspaceFrame &frame) -> void {
         if (ImGui::BeginMainMenuBar()) {
             if (ImGui::BeginMenu("View")) {
                 ImGui::MenuItem("Asset Browser", nullptr, &m_showAssetBrowser);
@@ -81,8 +100,42 @@ namespace AetherEditor::ui {
 
                 ImGui::EndMenu();
             }
+            if (ImGui::BeginMenu("Edit")) {
+                frame.undoRequested = ImGui::MenuItem(
+                    "Undo", "Ctrl+Z", false,
+                    history.canUndo() || m_inspector->hasPendingEdit()
+                );
 
+                frame.redoRequested = ImGui::MenuItem(
+                    "Redo", "Ctrl+Y", false,
+                    history.canRedo() && !m_inspector->hasPendingEdit()
+                );
+
+                ImGui::EndMenu();
+            }
             ImGui::EndMainMenuBar();
+        }
+    }
+
+    auto EditorWorkspace::processHistoryShortcuts(const commands::CommandHistory &history,
+        EditorWorkspaceFrame &frame) const -> void {
+        constexpr ImGuiInputFlags flags = ImGuiInputFlags_RouteGlobal;
+
+        const bool undoPressed = ImGui::Shortcut(ImGuiMod_Ctrl  | ImGuiKey_Z, flags);
+        const bool redoPressed = ImGui::Shortcut(ImGuiMod_Ctrl  | ImGuiKey_Y, flags);
+
+        const bool redoShiftZPressed = ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Y, flags);
+
+        if (frame.undoRequested || frame.redoRequested) {
+            return;
+        }
+        if (ImGui::IsAnyItemActive() || m_inspector->hasPendingEdit()) {
+            return;
+        }
+        if (undoPressed && history.canUndo()) {
+            frame.undoRequested = true;
+        } else if ((redoPressed || redoShiftZPressed) && history.canRedo()) {
+            frame.redoRequested = true;
         }
     }
 } // ui

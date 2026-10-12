@@ -105,6 +105,7 @@ namespace AetherEngine::math {
                 [[nodiscard]] float length() const;
                 [[nodiscard]] Quat normalized() const;
                 [[nodiscard]] Vec3 rotate(Vec3 vector) const;
+                [[nodiscard]] Vec3 toEulerXYZDegrees() const;
                 static Quat identity();
                 static Quat fromAxisAngleDegrees(Vec3 axis, float degrees);
                 static Quat fromAxisAngleRadians(Vec3 axis, float radians);

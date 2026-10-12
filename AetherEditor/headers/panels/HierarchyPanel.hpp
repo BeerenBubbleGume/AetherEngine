@@ -7,6 +7,9 @@
 #include <memory>
 #include <imgui.h>
 
+#include "scene/Scene.hpp"
+#include "core/EditorSession.hpp"
+
 namespace AetherEditor::panels {
     class HierarchyPanel {
     public:
@@ -17,7 +20,7 @@ namespace AetherEditor::panels {
         };
         using HierarchyPanelPtr = std::unique_ptr<HierarchyPanel, HierarchyPanelDeleter>;
         static auto createHierarchyPanel() -> HierarchyPanelPtr;
-        auto draw(bool &open) -> void;
+        auto draw(bool &open, AetherEngine::scene::Scene& scene, core::EditorSession &session) -> void;
 
         HierarchyPanel(const HierarchyPanel&) = delete;
         HierarchyPanel& operator=(const HierarchyPanel&) = delete;

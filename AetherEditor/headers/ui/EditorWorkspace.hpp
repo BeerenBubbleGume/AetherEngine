@@ -8,6 +8,7 @@
 #include <memory>
 #include <imgui.h>
 
+#include "core/EditorSession.hpp"
 #include "core/ETypes.hpp"
 #include "panels/InspectorPanel.hpp"
 #include "panels/HierarchyPanel.hpp"
@@ -20,6 +21,12 @@ namespace AetherEditor::ui {
         Hierarchy,
         Inspector,
         SceneViewport
+    };
+    struct EditorWorkspaceFrame {
+        viewport::SceneViewportFrame viewport{};
+        bool sceneChanged = false;
+        bool undoRequested = false;
+        bool redoRequested = false;
     };
     class EditorWorkspace {
     public:
@@ -34,16 +41,20 @@ namespace AetherEditor::ui {
         EditorWorkspace(EditorWorkspace&&) = delete;
         EditorWorkspace& operator=(EditorWorkspace&&) = delete;
         static auto create() -> EditorWorkspacePtr;
-        auto draw(AetherEngine::components::CameraComponent &camera) -> viewport::SceneViewportFrame;
+        auto draw(AetherEngine::components::CameraComponent &camera, AetherEngine::scene::Scene &scene, AetherEditor::core::EditorSession& session, commands
+                  ::CommandHistory &history) -> EditorWorkspaceFrame;
         auto init() -> std::expected<void, AetherEditor::core::EditorError>;
         auto setPanelVisible(EditorWorkspacePanels panel, bool visible) -> std::expected<void, AetherEditor::core::EditorError>;
+        auto finishPendingEdits(AetherEngine::scene::Scene& scene, commands::CommandHistory& history) const -> void;
     private:
         EditorWorkspace() = default;
         ~EditorWorkspace() = default;
 
         auto drawDockspace() -> void;
-        auto drawPanels(AetherEngine::components::CameraComponent &camera) -> viewport::SceneViewportFrame;
-        auto drawMenuBar() -> void;
+        auto drawPanels(AetherEngine::components::CameraComponent &camera, AetherEngine::scene::Scene &scene, core::EditorSession &session, commands
+                        ::CommandHistory &history) -> EditorWorkspaceFrame;
+        auto drawMenuBar(const commands::CommandHistory &history, EditorWorkspaceFrame &frame) -> void;
+        auto processHistoryShortcuts(const commands::CommandHistory& history, EditorWorkspaceFrame& frame) const -> void;
 
         using InspectorPtr = panels::InspectorPanel::InspectorPanelPtr;
         using HierarchyPtr = panels::HierarchyPanel::HierarchyPanelPtr;

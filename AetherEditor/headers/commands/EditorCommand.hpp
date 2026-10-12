@@ -5,11 +5,19 @@
 #ifndef SMB_EDITORCOMMAND_HPP
 #define SMB_EDITORCOMMAND_HPP
 
-namespace AetherEditor {
-    namespace commands {
-        class EditorCommand {
-        };
-    } // commands
-} // AetherEditor
+namespace AetherEngine::scene {
+    class Scene;
+}
+
+namespace AetherEditor::commands {
+    class EditorCommand {
+    public:
+        virtual ~EditorCommand() = default;
+
+        virtual auto apply(AetherEngine::scene::Scene& scene) -> bool = 0;
+        virtual auto undo(AetherEngine::scene::Scene& scene) -> bool = 0;
+    };
+} // commands
+// AetherEditor
 
 #endif //SMB_EDITORCOMMAND_HPP

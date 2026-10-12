@@ -39,7 +39,7 @@ auto AetherEditor::core::Editor::init(
     }
     m_cameraController = viewport::EditorCameraController::createEditorCameraController();
     m_inputRouter = input::EditorInputRouter::createEditorInputRouter();
-
+    m_document.scene = &ctx.getScene();
     return {};
 }
 
@@ -90,7 +90,21 @@ auto AetherEditor::core::Editor::render(AetherEngine::core::EngineContext& ctx) 
         window != nullptr &&
         (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) != 0;
 
-    const auto viewportFrame = m_workspace->draw(m_editorCamera);
+    const auto workspaceFrame = m_workspace->draw(m_editorCamera, ctx.getScene(), m_session, m_history);
+    if (workspaceFrame.undoRequested) {
+        if (m_history.undo(ctx.getScene())) {
+            m_document.dirty = true;
+        }
+    } else if (workspaceFrame.redoRequested) {
+        if (m_history.redo(ctx.getScene())) {
+            m_document.dirty = true;
+        }
+    }
+    const auto& viewportFrame = workspaceFrame.viewport;
+
+    if (workspaceFrame.sceneChanged) {
+        m_document.dirty = true;
+    }
     auto cameraInput = m_inputRouter->route(viewportFrame.state, ctx.input, applicationFocused);
 
     if (!setRelativeMouseMode(window, cameraInput.looking)) {
@@ -173,7 +187,12 @@ auto AetherEditor::core::Editor::saveAs(AetherEngine::core::EngineContext &ctx, 
 }
 
 auto AetherEditor::core::Editor::save(AetherEngine::core::EngineContext &ctx) -> std::expected<void, AetherEngine::core::EngineError> {
-    auto serialized = ctx.sceneSerializer.serializeScene(*m_document.scene);
+    if (!m_document.scene) {
+        return std::unexpected(
+            AetherEngine::core::EngineError{2, "No scene to save"}
+            );
+    }
+    auto serialized = ctx.sceneSerializer.serializeScene(*m_document.scene, m_document.fileStem);
     if (!serialized) {
         return std::unexpected(AetherEngine::core::EngineError{2, serialized.error().message});
     }
@@ -189,7 +208,9 @@ auto AetherEditor::core::Editor::load(AetherEngine::core::EngineContext &ctx, st
             AetherEngine::core::EngineError{2, loaded.error().message}
         );
     }
-
+    if (m_workspace) {
+        m_workspace->finishPendingEdits(ctx.getScene(), m_history);
+    }
     auto replaced = ctx.replaceScene(std::move(*loaded));
     if (!replaced) {
         return std::unexpected(replaced.error());
@@ -198,11 +219,16 @@ auto AetherEditor::core::Editor::load(AetherEngine::core::EngineContext &ctx, st
     m_document.scene = &ctx.getScene();
     m_document.fileStem = filename;
     m_document.dirty = false;
+    m_session.selectedEntity.reset();
+    m_history.clear();
     return {};
 }
 
 auto AetherEditor::core::Editor::newScene(AetherEngine::core::EngineContext &ctx, std::string_view name) -> std::expected<void, AetherEngine::core::EngineError> {
     auto createdScene = AetherEngine::scene::Scene::createScene(name);
+    if (m_workspace) {
+        m_workspace->finishPendingEdits(ctx.getScene(), m_history);
+    }
     auto replaced = ctx.replaceScene(std::move(createdScene));
     if (!replaced) {
         return std::unexpected(replaced.error());
@@ -210,6 +236,8 @@ auto AetherEditor::core::Editor::newScene(AetherEngine::core::EngineContext &ctx
     m_document.scene = &ctx.getScene();
     m_document.fileStem.clear();
     m_document.dirty = true;
+    m_session.selectedEntity.reset();
+    m_history.clear();
     return {};
 }
 

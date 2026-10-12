@@ -4,12 +4,27 @@
 
 #ifndef SMB_COMMANDHISTORY_HPP
 #define SMB_COMMANDHISTORY_HPP
+#include <memory>
+#include "scene/Scene.hpp"
+#include "EditorCommand.hpp"
 
-namespace AetherEditor {
-    namespace commands {
-        class CommandHistory {
-        };
-    } // commands
-} // AetherEditor
+namespace AetherEditor::commands {
+    class CommandHistory {
+    public:
+        auto execute(std::unique_ptr<EditorCommand> command, AetherEngine::scene::Scene& scene) -> bool;
+        auto recordApplied(std::unique_ptr<EditorCommand> command) -> bool;
+        auto undo(AetherEngine::scene::Scene& scene) -> bool;
+        auto redo(AetherEngine::scene::Scene& scene) -> bool;
+        auto clear() -> void;
+
+        [[nodiscard]] auto canUndo() const -> bool;
+        [[nodiscard]] auto canRedo() const -> bool;
+
+    private:
+        std::vector<std::unique_ptr<EditorCommand>> m_commands;
+        std::size_t m_cursor = 0;
+    };
+} // commands
+// AetherEditor
 
 #endif //SMB_COMMANDHISTORY_HPP
