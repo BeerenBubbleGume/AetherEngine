@@ -22,6 +22,10 @@ namespace AetherEditor::commands {
             return false;
         }
         m_commands.reserve(m_cursor + 1);
+        if (m_savedCursor && *m_savedCursor > m_cursor) {
+            m_savedCursor.reset();
+        }
+
         m_commands.resize(m_cursor);
         m_commands.push_back(std::move(command));
         m_cursor = m_commands.size();
@@ -53,6 +57,11 @@ namespace AetherEditor::commands {
     auto CommandHistory::clear() -> void {
         m_commands.clear();
         m_cursor = 0;
+        m_savedCursor = 0;
+    }
+
+    auto CommandHistory::markSaved() -> void {
+        m_savedCursor = m_cursor;
     }
 
     auto CommandHistory::canUndo() const -> bool {
@@ -61,6 +70,10 @@ namespace AetherEditor::commands {
 
     auto CommandHistory::canRedo() const -> bool {
         return  m_cursor < m_commands.size();
+    }
+
+    auto CommandHistory::isDirty() const -> bool {
+        return !m_savedCursor || *m_savedCursor != m_cursor;
     }
 } // commands
 // AetherEditor

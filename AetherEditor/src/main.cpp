@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Opened project: " << config.projectRoot.string() << '\n';
 
-    auto editor = AetherEditor::core::Editor::createEditor();
+    auto editor = AetherEditor::core::Editor::createEditor(config.startupScene);
     auto runResult = engine->run(*editor);
     return runResult ? 0 : 1;
 }

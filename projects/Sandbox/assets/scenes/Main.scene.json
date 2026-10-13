@@ -1,101 +1,171 @@
 {
-    "version": 2,
-    "name": "Main",
     "activeCamera": "11111111111111111111111111111111",
     "entities": [
         {
-            "id": "11111111111111111111111111111111",
-            "name": "Test Camera",
             "components": {
-                "Transform": {
-                    "position": [0.0, 0.0, 8.0],
-                    "rotation": [1.0, 0.0, 0.0, 0.0],
-                    "scale": [1.0, 1.0, 1.0]
-                },
-                "Camera": {
-                    "enabled": true,
-                    "projection": 0,
-                    "fovYDegrees": 60.0,
-                    "nearPlane": 0.1,
-                    "farPlane": 100.0,
-                    "orthographicHeight": 10.0,
-                    "clearFlags": 3,
-                    "clearColor": 809568255,
-                    "priority": 0,
-                    "layerMask": 4294967295
-                }
-            }
-        },
-        {
-            "id": "22222222222222222222222222222222",
-            "name": "Player",
-            "components": {
-                "Transform": {
-                    "position": [-1.75, -0.75, 0.0],
-                    "rotation": [1.0, 0.0, 0.0, 0.0],
-                    "scale": [1.0, 1.0, 1.0]
-                },
-                "Mesh": {
-                    "asset": "11111111111111111111111111111111"
-                },
-                "Material": {
-                    "asset": "44444444444444444444444444444444",
-                    "baseColor": [0.1, 0.3, 1.0, 1.0]
-                }
-            }
-        },
-        {
-            "id": "44444444444444444444444444444444",
-            "name": "Dynamic Rabbit",
-            "components": {
-                "Transform": {
-                    "position": [1.75, 2.25, 0.0],
-                    "rotation": [1.0, 0.0, 0.0, 0.0],
-                    "scale": [1.0, 1.0, 1.0]
-                },
-                "Mesh": {
-                    "asset": "11111111111111111111111111111111"
-                },
-                "Material": {
-                    "asset": "44444444444444444444444444444444",
-                    "baseColor": [1.0, 0.15, 0.1, 1.0]
-                },
-                "Rigidbody": {
-                    "dynamic": true,
-                    "mass": 1.0,
-                    "useGravity": true
-                },
                 "Collider": {
-                    "type": "Box",
-                    "size": [1.2, 1.8, 1.2],
-                    "radius": 0.5,
                     "height": 1.0,
-                    "trigger": false
-                }
-            }
-        },
-        {
-            "id": "33333333333333333333333333333333",
-            "name": "Ground",
-            "components": {
-                "Transform": {
-                    "position": [0.0, -2.0, 0.0],
-                    "rotation": [1.0, 0.0, 0.0, 0.0],
-                    "scale": [1.0, 1.0, 1.0]
+                    "radius": 0.5,
+                    "size": [
+                        12.0,
+                        0.5,
+                        6.0
+                    ],
+                    "trigger": false,
+                    "type": "Box"
                 },
                 "Rigidbody": {
                     "dynamic": false,
                     "mass": 1.0,
                     "useGravity": false
                 },
-                "Collider": {
-                    "type": "Box",
-                    "size": [12.0, 0.5, 6.0],
-                    "radius": 0.5,
-                    "height": 1.0,
-                    "trigger": false
+                "Transform": {
+                    "position": [
+                        0.0,
+                        -2.0,
+                        0.0
+                    ],
+                    "rotation": [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
                 }
-            }
+            },
+            "id": "33333333333333333333333333333333",
+            "name": "Ground"
+        },
+        {
+            "components": {
+                "Collider": {
+                    "height": 1.0,
+                    "radius": 0.5,
+                    "size": [
+                        1.2000000476837158,
+                        1.7999999523162842,
+                        1.2000000476837158
+                    ],
+                    "trigger": false,
+                    "type": "Box"
+                },
+                "Material": {
+                    "asset": "44444444444444444444444444444444",
+                    "baseColor": [
+                        1.0,
+                        0.15000000596046448,
+                        0.10000000149011612,
+                        1.0
+                    ]
+                },
+                "Mesh": {
+                    "asset": "11111111111111111111111111111111"
+                },
+                "Rigidbody": {
+                    "dynamic": true,
+                    "mass": 1.0,
+                    "useGravity": true
+                },
+                "Transform": {
+                    "position": [
+                        2.700000047683716,
+                        -0.30000001192092896,
+                        -1.5499999523162842
+                    ],
+                    "rotation": [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                }
+            },
+            "id": "44444444444444444444444444444444",
+            "name": "Dynamic Rabbit"
+        },
+        {
+            "components": {
+                "Material": {
+                    "asset": "44444444444444444444444444444444",
+                    "baseColor": [
+                        0.10000000149011612,
+                        0.30000001192092896,
+                        1.0,
+                        1.0
+                    ]
+                },
+                "Mesh": {
+                    "asset": "11111111111111111111111111111111"
+                },
+                "Transform": {
+                    "position": [
+                        -1.75,
+                        -0.75,
+                        0.0
+                    ],
+                    "rotation": [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                }
+            },
+            "id": "22222222222222222222222222222222",
+            "name": "Player"
+        },
+        {
+            "components": {
+                "Camera": {
+                    "clearColor": 809568255,
+                    "clearFlags": 3,
+                    "enabled": true,
+                    "farPlane": 100.0,
+                    "fovYDegrees": 60.0,
+                    "layerMask": 4294967295,
+                    "nearPlane": 0.10000000149011612,
+                    "orthographicHeight": 10.0,
+                    "priority": 0,
+                    "projection": 0
+                },
+                "Transform": {
+                    "position": [
+                        0.0,
+                        0.0,
+                        8.0
+                    ],
+                    "rotation": [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                }
+            },
+            "id": "11111111111111111111111111111111",
+            "name": "Test Camera"
         }
-    ]
+    ],
+    "name": "Main",
+    "version": 2
 }

@@ -7,12 +7,14 @@
 #include <expected>
 #include <memory>
 #include <imgui.h>
+#include <imgui_stdlib.h>
 
 #include "core/EditorSession.hpp"
 #include "core/ETypes.hpp"
 #include "panels/InspectorPanel.hpp"
 #include "panels/HierarchyPanel.hpp"
 #include "panels/SceneViewportPanel.hpp"
+#include "documents/SceneEditorDocument.hpp"
 
 namespace AetherEditor::ui {
     enum class EditorWorkspacePanels {
@@ -22,11 +24,21 @@ namespace AetherEditor::ui {
         Inspector,
         SceneViewport
     };
+    enum class SceneLoadDecision {
+        None,
+        DiscardChanges,
+        Cancel
+    };
     struct EditorWorkspaceFrame {
         viewport::SceneViewportFrame viewport{};
         bool sceneChanged = false;
         bool undoRequested = false;
         bool redoRequested = false;
+        bool saveRequested = false;
+        std::optional<std::string> saveAsFileStem;
+        std::optional<std::string> loadFileStem;
+        bool refreshSceneListRequested = false;
+        SceneLoadDecision loadDecision = SceneLoadDecision::None;
     };
     class EditorWorkspace {
     public:
@@ -42,10 +54,16 @@ namespace AetherEditor::ui {
         EditorWorkspace& operator=(EditorWorkspace&&) = delete;
         static auto create() -> EditorWorkspacePtr;
         auto draw(AetherEngine::components::CameraComponent &camera, AetherEngine::scene::Scene &scene, AetherEditor::core::EditorSession& session, commands
-                  ::CommandHistory &history) -> EditorWorkspaceFrame;
+                  ::CommandHistory &history, const docs::SceneEditorDocument &document) -> EditorWorkspaceFrame;
         auto init() -> std::expected<void, AetherEditor::core::EditorError>;
         auto setPanelVisible(EditorWorkspacePanels panel, bool visible) -> std::expected<void, AetherEditor::core::EditorError>;
         auto finishPendingEdits(AetherEngine::scene::Scene& scene, commands::CommandHistory& history) const -> void;
+        auto requestCloseSaveAs() -> void;
+        auto requestCloseLoad() -> void;
+        auto requestConfirmLoad() -> void;
+        auto setAvailableScenes(std::vector<std::string> scenes) -> void;
+
+        [[nodiscard]] auto hasPendingChanges(AetherEngine::scene::Scene& scene) const -> bool;
     private:
         EditorWorkspace() = default;
         ~EditorWorkspace() = default;
@@ -53,8 +71,8 @@ namespace AetherEditor::ui {
         auto drawDockspace() -> void;
         auto drawPanels(AetherEngine::components::CameraComponent &camera, AetherEngine::scene::Scene &scene, core::EditorSession &session, commands
                         ::CommandHistory &history) -> EditorWorkspaceFrame;
-        auto drawMenuBar(const commands::CommandHistory &history, EditorWorkspaceFrame &frame) -> void;
-        auto processHistoryShortcuts(const commands::CommandHistory& history, EditorWorkspaceFrame& frame) const -> void;
+        auto drawMenuBar(const commands::CommandHistory &history, EditorWorkspaceFrame &frame, const docs::SceneEditorDocument &document) -> void;
+        auto processHistoryShortcuts(const commands::CommandHistory& history, EditorWorkspaceFrame& frame, const docs::SceneEditorDocument &document) const -> void;
 
         using InspectorPtr = panels::InspectorPanel::InspectorPanelPtr;
         using HierarchyPtr = panels::HierarchyPanel::HierarchyPanelPtr;
@@ -69,6 +87,16 @@ namespace AetherEditor::ui {
         bool m_showSceneViewport = true;
         bool m_showAssetBrowser = true;
         bool m_showConsole = true;
+
+        bool m_openSaveAs = false;
+        bool m_closeSaveAs = false;
+        char m_saveAsName[129]{};
+
+        bool m_openLoad = false;
+        bool m_closeLoad = false;
+        bool m_openLoadConfirmation = false;
+        std::string m_loadName;
+        std::vector<std::string> m_availableScenes;
     };
 
 } // ui

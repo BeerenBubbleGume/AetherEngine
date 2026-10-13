@@ -11,16 +11,16 @@ namespace AetherEditor::ui {
     }
 
     auto EditorWorkspace::draw(AetherEngine::components::CameraComponent &camera, AetherEngine::scene::Scene &scene, AetherEditor::core::EditorSession& session, commands
-                               ::CommandHistory &history) -> EditorWorkspaceFrame {
+                               ::CommandHistory &history, const docs::SceneEditorDocument &document) -> EditorWorkspaceFrame {
         EditorWorkspaceFrame frame{};
 
-        drawMenuBar(history, frame);
+        drawMenuBar(history, frame, document);
         drawDockspace();
 
         auto panels = drawPanels(camera, scene, session, history);
         frame.viewport = panels.viewport;
         frame.sceneChanged = panels.sceneChanged;
-        processHistoryShortcuts(history, frame);
+        processHistoryShortcuts(history, frame, document);
         return frame;
     }
 
@@ -62,6 +62,26 @@ namespace AetherEditor::ui {
         m_inspector->finishTransformEdit(scene, history);
     }
 
+    auto EditorWorkspace::requestCloseSaveAs() -> void {
+        m_closeSaveAs = true;
+    }
+
+    auto EditorWorkspace::requestCloseLoad() -> void {
+        m_closeLoad = true;
+    }
+
+    auto EditorWorkspace::requestConfirmLoad() -> void {
+        m_openLoadConfirmation = true;
+    }
+
+    auto EditorWorkspace::setAvailableScenes(std::vector<std::string> scenes) -> void {
+        m_availableScenes = std::move(scenes);
+    }
+
+    auto EditorWorkspace::hasPendingChanges(AetherEngine::scene::Scene &scene) const -> bool {
+        return m_inspector->hasPendingChanges(scene);
+    }
+
     auto EditorWorkspace::drawDockspace() -> void {
         ImGui::DockSpaceOverViewport(
             0,
@@ -89,8 +109,24 @@ namespace AetherEditor::ui {
         return frame;
     }
 
-    auto EditorWorkspace::drawMenuBar(const commands::CommandHistory &history, EditorWorkspaceFrame &frame) -> void {
+    auto EditorWorkspace::drawMenuBar(const commands::CommandHistory &history, EditorWorkspaceFrame &frame, const docs::SceneEditorDocument &document) -> void {
         if (ImGui::BeginMainMenuBar()) {
+            if (ImGui::BeginMenu("File")) {
+                frame.saveRequested = ImGui::MenuItem(
+                    "Save",
+                    "Ctrl+S",
+                    false,
+                    document.scene != nullptr && !document.fileStem.empty()
+                );
+                if (ImGui::MenuItem("Save As...")) {
+                    m_openSaveAs = true;
+                }
+                if (ImGui::MenuItem("Open...")) {
+                    m_openLoad = true;
+                    frame.refreshSceneListRequested = true;
+                }
+                ImGui::EndMenu();
+            }
             if (ImGui::BeginMenu("View")) {
                 ImGui::MenuItem("Asset Browser", nullptr, &m_showAssetBrowser);
                 ImGui::MenuItem("Console", nullptr, &m_showConsole);
@@ -113,26 +149,149 @@ namespace AetherEditor::ui {
 
                 ImGui::EndMenu();
             }
+            const char* sceneName = document.fileStem.empty() ? "Untitled" : document.fileStem.c_str();
+
+            ImGui::SameLine();
+            ImGui::Text(
+                "%s%s",
+                sceneName,
+                document.dirty ? " *" : ""
+            );
             ImGui::EndMainMenuBar();
+            if (m_openSaveAs) {
+                ImGui::OpenPopup("Save scene as");
+                m_openSaveAs = false;
+            }
+
+            if (ImGui::BeginPopupModal(
+                    "Save scene as",
+                    nullptr,
+                    ImGuiWindowFlags_AlwaysAutoResize
+                )) {
+                if (m_closeSaveAs) {
+                    m_closeSaveAs = false;
+                    ImGui::CloseCurrentPopup();
+                } else {
+                    ImGui::InputText(
+                        "Scene name",
+                        m_saveAsName,
+                        sizeof(m_saveAsName)
+                    );
+
+                    if (ImGui::Button("Cancel")) {
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::BeginDisabled(m_saveAsName[0] == '\0');
+
+                    if (ImGui::Button("Save")) {
+                        frame.saveAsFileStem = std::string{m_saveAsName};
+                    }
+
+                    ImGui::EndDisabled();
+                }
+                ImGui::EndPopup();
+            }
+            if (m_openLoad) {
+                ImGui::OpenPopup("Open scene");
+                m_openLoad = false;
+            }
+            if (ImGui::BeginPopupModal(
+                "Open scene",
+                nullptr,
+                ImGuiWindowFlags_AlwaysAutoResize)) {
+                if (m_closeLoad) {
+                    m_closeLoad = false;
+                    ImGui::CloseCurrentPopup();
+                } else {
+                    ImGui::InputText("Scene name", &m_loadName);
+
+                    if (ImGui::BeginListBox("Scenes", ImVec2{360, 200})) {
+                        for (const auto& name : m_availableScenes) {
+                            const bool selected = m_loadName == name;
+
+                            if (ImGui::Selectable(name.c_str(), selected)) {
+                                m_loadName = name;
+                            }
+                        }
+
+                        ImGui::EndListBox();
+                    }
+
+                    if (ImGui::Button("Refresh")) {
+                        frame.refreshSceneListRequested = true;
+                    }
+
+                    ImGui::BeginDisabled(m_loadName.empty());
+
+                    if (ImGui::Button("Open")) {
+                        frame.loadFileStem = m_loadName;
+                    }
+
+                    ImGui::EndDisabled();
+
+                    ImGui::SameLine();
+
+                    if (ImGui::Button("Cancel")) {
+                        ImGui::CloseCurrentPopup();
+                    }
+
+                    if (m_openLoadConfirmation) {
+                        ImGui::OpenPopup("Unsaved changes");
+                        m_openLoadConfirmation = false;
+                    }
+
+                    if (ImGui::BeginPopupModal(
+                        "Unsaved changes",
+                        nullptr,
+                        ImGuiWindowFlags_AlwaysAutoResize
+                    )) {
+                        ImGui::TextUnformatted("The current scene has unsaved changes.");
+                        ImGui::TextUnformatted("Open another scene without saving?");
+
+                        if (ImGui::Button("Open without saving")) {
+                            frame.loadDecision = SceneLoadDecision::DiscardChanges;
+                            ImGui::CloseCurrentPopup();
+                        }
+
+                        ImGui::SameLine();
+
+                        if (ImGui::Button("Cancel")) {
+                            frame.loadDecision = SceneLoadDecision::Cancel;
+                            ImGui::CloseCurrentPopup();
+                        }
+
+                        ImGui::EndPopup();
+                    }
+                }
+                ImGui::EndPopup();
+            }
         }
     }
 
     auto EditorWorkspace::processHistoryShortcuts(const commands::CommandHistory &history,
-        EditorWorkspaceFrame &frame) const -> void {
+                                                  EditorWorkspaceFrame &frame, const docs::SceneEditorDocument &document) const -> void {
         constexpr ImGuiInputFlags flags = ImGuiInputFlags_RouteGlobal;
 
         const bool undoPressed = ImGui::Shortcut(ImGuiMod_Ctrl  | ImGuiKey_Z, flags);
         const bool redoPressed = ImGui::Shortcut(ImGuiMod_Ctrl  | ImGuiKey_Y, flags);
 
         const bool redoShiftZPressed = ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Y, flags);
-
-        if (frame.undoRequested || frame.redoRequested) {
+        const bool savePressed = ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, flags);
+        if (ImGui::IsPopupOpen(
+            nullptr,
+            ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel
+        )) {
+            return;
+        }
+        if (frame.undoRequested || frame.redoRequested || frame.saveRequested) {
             return;
         }
         if (ImGui::IsAnyItemActive() || m_inspector->hasPendingEdit()) {
             return;
         }
-        if (undoPressed && history.canUndo()) {
+        if (savePressed && document.scene != nullptr && !document.fileStem.empty()) {
+            frame.saveRequested = true;
+        } else if (undoPressed && history.canUndo()) {
             frame.undoRequested = true;
         } else if ((redoPressed || redoShiftZPressed) && history.canRedo()) {
             frame.redoRequested = true;

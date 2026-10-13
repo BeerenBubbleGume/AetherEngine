@@ -26,6 +26,7 @@ namespace AetherEditor::panels {
         auto draw(bool &open, AetherEngine::scene::Scene &scene, const core::EditorSession &session, commands::CommandHistory& history) -> bool;
         auto finishTransformEdit(AetherEngine::scene::Scene& scene, commands::CommandHistory& history) -> void;
         [[nodiscard]] auto hasPendingEdit() const -> bool;
+        [[nodiscard]] auto hasPendingChanges(AetherEngine::scene::Scene& scene) const -> bool;
         InspectorPanel(const InspectorPanel&) = delete;
         InspectorPanel& operator=(const InspectorPanel&) = delete;
         InspectorPanel(InspectorPanel&&) = delete;

@@ -12,12 +12,6 @@ namespace AetherEditor::core {
         int code;
         std::string msg;
     };
-
-    struct SceneEditorDocument {
-        AetherEngine::scene::Scene* scene = nullptr;
-        std::string fileStem;
-        bool dirty = false;
-    };
 }
 
 

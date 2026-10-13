@@ -16,13 +16,15 @@ namespace AetherEditor::commands {
         auto undo(AetherEngine::scene::Scene& scene) -> bool;
         auto redo(AetherEngine::scene::Scene& scene) -> bool;
         auto clear() -> void;
+        auto markSaved() -> void;
 
         [[nodiscard]] auto canUndo() const -> bool;
         [[nodiscard]] auto canRedo() const -> bool;
-
+        [[nodiscard]] auto isDirty() const -> bool;
     private:
         std::vector<std::unique_ptr<EditorCommand>> m_commands;
         std::size_t m_cursor = 0;
+        std::optional<std::size_t> m_savedCursor{0};
     };
 } // commands
 // AetherEditor

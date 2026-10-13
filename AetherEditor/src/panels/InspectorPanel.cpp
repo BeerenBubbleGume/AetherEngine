@@ -173,5 +173,25 @@ namespace AetherEditor::panels {
     auto InspectorPanel::hasPendingEdit() const -> bool {
         return m_transformEdit.has_value();
     }
+
+    auto InspectorPanel::hasPendingChanges(AetherEngine::scene::Scene &scene) const -> bool {
+        if (!m_transformEdit) {
+            return false;
+        }
+        const auto entity = scene.findEntityById(m_transformEdit->entityId);
+        if (!entity) {
+            return false;
+        }
+        const auto* component = scene.tryGetComponent<AetherEngine::components::TransformComponent>(*entity);
+        if (!component) {
+            return false;
+        }
+        const auto& before = m_transformEdit->before;
+        const auto& current = component->transform;
+
+        return before.position != current.position ||
+                before.rotation != current.rotation ||
+                before.scale != current.scale;
+    }
 } // panel
 // AetherEditor

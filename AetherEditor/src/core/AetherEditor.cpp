@@ -6,6 +6,7 @@
 
 #include <imgui.h>
 #include <iostream>
+#include <SDL3/SDL_messagebox.h>
 
 #include "graphics/SceneView.hpp"
 #include "math/CameraMatrices.hpp"
@@ -39,7 +40,7 @@ auto AetherEditor::core::Editor::init(
     }
     m_cameraController = viewport::EditorCameraController::createEditorCameraController();
     m_inputRouter = input::EditorInputRouter::createEditorInputRouter();
-    m_document.scene = &ctx.getScene();
+    m_documentController->setScene(ctx.getScene());
     return {};
 }
 
@@ -90,21 +91,96 @@ auto AetherEditor::core::Editor::render(AetherEngine::core::EngineContext& ctx) 
         window != nullptr &&
         (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) != 0;
 
-    const auto workspaceFrame = m_workspace->draw(m_editorCamera, ctx.getScene(), m_session, m_history);
-    if (workspaceFrame.undoRequested) {
-        if (m_history.undo(ctx.getScene())) {
-            m_document.dirty = true;
-        }
-    } else if (workspaceFrame.redoRequested) {
-        if (m_history.redo(ctx.getScene())) {
-            m_document.dirty = true;
+    const auto workspaceFrame = m_workspace->draw(m_editorCamera, ctx.getScene(), m_session, m_history, m_documentController->getDocument());
+    if (workspaceFrame.refreshSceneListRequested) {
+        auto scenes = docs::DocumentController::listScenes(ctx);
+
+        if (scenes) {
+            m_workspace->setAvailableScenes(std::move(*scenes));
+        } else {
+            m_workspace->setAvailableScenes({});
+
+            SDL_ShowSimpleMessageBox(
+                SDL_MESSAGEBOX_ERROR,
+                "Scene list failed",
+                scenes.error().message.c_str(),
+                ctx.window.getSDLWindow()
+            );
         }
     }
+    if (workspaceFrame.undoRequested) {
+        m_workspace->finishPendingEdits(ctx.getScene(), m_history);
+        m_history.undo(ctx.getScene());
+    } else if (workspaceFrame.redoRequested) {
+        m_workspace->finishPendingEdits(ctx.getScene(), m_history);
+        m_history.redo(ctx.getScene());
+    }
+    if (workspaceFrame.saveAsFileStem) {
+        m_workspace->finishPendingEdits(ctx.getScene(), m_history);
+
+        const auto result =
+            saveAs(ctx, *workspaceFrame.saveAsFileStem);
+
+        if (result) {
+            m_workspace->requestCloseSaveAs();
+        } else {
+            SDL_ShowSimpleMessageBox(
+                SDL_MESSAGEBOX_ERROR,
+                "Save As failed",
+                result.error().message.c_str(),
+                ctx.window.getSDLWindow()
+            );
+        }
+    } else if (workspaceFrame.saveRequested) {
+        m_workspace->finishPendingEdits(ctx.getScene(), m_history);
+
+        const auto result = save(ctx);
+
+        if (!result) {
+            SDL_ShowSimpleMessageBox(
+                SDL_MESSAGEBOX_ERROR,
+                "Save failed",
+                result.error().message.c_str(),
+                ctx.window.getSDLWindow()
+            );
+        }
+    }
+    updateDocumentDirty(ctx);
+
+    if (workspaceFrame.loadFileStem) {
+        m_workspace->finishPendingEdits(ctx.getScene(), m_history);
+        updateDocumentDirty(ctx);
+        m_pendingLoadFileStem = *workspaceFrame.loadFileStem;
+
+        if (m_documentController->getDocument().dirty) {
+            m_workspace->requestConfirmLoad();
+        }
+    }
+
+    const bool loadConfirmed =
+        workspaceFrame.loadDecision == ui::SceneLoadDecision::DiscardChanges;
+    const bool loadWithoutConfirmation =
+        workspaceFrame.loadFileStem && !m_documentController->getDocument().dirty;
+
+    if (workspaceFrame.loadDecision == ui::SceneLoadDecision::Cancel) {
+        m_pendingLoadFileStem.reset();
+    } else if (m_pendingLoadFileStem && (loadConfirmed || loadWithoutConfirmation)) {
+        const auto result = load(ctx, *m_pendingLoadFileStem);
+        if (result) {
+            m_workspace->requestCloseLoad();
+        } else {
+            SDL_ShowSimpleMessageBox(
+                SDL_MESSAGEBOX_ERROR,
+                "Load failed",
+                result.error().message.c_str(),
+                ctx.window.getSDLWindow()
+            );
+        }
+        m_pendingLoadFileStem.reset();
+    }
+    updateDocumentDirty(ctx);
     const auto& viewportFrame = workspaceFrame.viewport;
 
-    if (workspaceFrame.sceneChanged) {
-        m_document.dirty = true;
-    }
     auto cameraInput = m_inputRouter->route(viewportFrame.state, ctx.input, applicationFocused);
 
     if (!setRelativeMouseMode(window, cameraInput.looking)) {
@@ -165,84 +241,65 @@ auto AetherEditor::core::Editor::shutdown(AetherEngine::core::EngineContext& ctx
 }
 
 auto AetherEditor::core::Editor::saveAs(AetherEngine::core::EngineContext &ctx, std::string_view filename) -> std::expected<void, AetherEngine::core::EngineError> {
-    if (!m_document.scene) {
-        return std::unexpected(
-            AetherEngine::core::EngineError{2, "No scene to save"}
-        );
+    auto result = m_documentController->saveAs(ctx, filename);
+    if (result) {
+        m_history.markSaved();
     }
-    if (filename.empty()) {
-        return std::unexpected(
-            AetherEngine::core::EngineError{2, "Scene file name is empty"}
-        );
-    }
-
-    auto serialized = ctx.sceneSerializer.serializeScene(*m_document.scene, filename);
-    if (!serialized) {
-        return std::unexpected(AetherEngine::core::EngineError{2, serialized.error().message});
-    }
-    m_document.fileStem = filename;
-    m_document.dirty = false;
-
-    return {};
+    return result;
 }
 
 auto AetherEditor::core::Editor::save(AetherEngine::core::EngineContext &ctx) -> std::expected<void, AetherEngine::core::EngineError> {
-    if (!m_document.scene) {
-        return std::unexpected(
-            AetherEngine::core::EngineError{2, "No scene to save"}
-            );
+    auto result = m_documentController->save(ctx);
+    if (result) {
+        m_history.markSaved();
     }
-    auto serialized = ctx.sceneSerializer.serializeScene(*m_document.scene, m_document.fileStem);
-    if (!serialized) {
-        return std::unexpected(AetherEngine::core::EngineError{2, serialized.error().message});
-    }
-    m_document.dirty = false;
-
-    return {};
+    return result;
 }
 
 auto AetherEditor::core::Editor::load(AetherEngine::core::EngineContext &ctx, std::string_view filename) -> std::expected<void, AetherEngine::core::EngineError> {
-    auto loaded = ctx.sceneSerializer.deserializeScene(filename);
-    if (!loaded) {
-        return std::unexpected(
-            AetherEngine::core::EngineError{2, loaded.error().message}
-        );
-    }
+
     if (m_workspace) {
         m_workspace->finishPendingEdits(ctx.getScene(), m_history);
     }
-    auto replaced = ctx.replaceScene(std::move(*loaded));
-    if (!replaced) {
-        return std::unexpected(replaced.error());
+    auto loadResult = m_documentController->load(ctx, filename);
+    if (!loadResult) {
+        return std::unexpected(loadResult.error());
     }
-
-    m_document.scene = &ctx.getScene();
-    m_document.fileStem = filename;
-    m_document.dirty = false;
     m_session.selectedEntity.reset();
     m_history.clear();
     return {};
 }
 
 auto AetherEditor::core::Editor::newScene(AetherEngine::core::EngineContext &ctx, std::string_view name) -> std::expected<void, AetherEngine::core::EngineError> {
-    auto createdScene = AetherEngine::scene::Scene::createScene(name);
     if (m_workspace) {
         m_workspace->finishPendingEdits(ctx.getScene(), m_history);
     }
-    auto replaced = ctx.replaceScene(std::move(createdScene));
-    if (!replaced) {
-        return std::unexpected(replaced.error());
+    auto newSceneResult = m_documentController->newScene(ctx, name);
+    if (!newSceneResult) {
+        return std::unexpected(newSceneResult.error());
     }
-    m_document.scene = &ctx.getScene();
-    m_document.fileStem.clear();
-    m_document.dirty = true;
     m_session.selectedEntity.reset();
     m_history.clear();
     return {};
 }
 
-auto AetherEditor::core::Editor::createEditor() -> AetherEditorPtr {
-    return AetherEditorPtr(new Editor());
+auto AetherEditor::core::Editor::updateDocumentDirty(AetherEngine::core::EngineContext& ctx) -> void {
+    const auto& document = m_documentController->getDocument();
+    m_documentController->dirty(
+        document.scene != nullptr &&
+        (
+            document.fileStem.empty() ||
+            m_history.isDirty() ||
+            m_workspace->hasPendingChanges(ctx.getScene())
+        )
+    );
+}
+
+auto AetherEditor::core::Editor::createEditor(std::string_view initialFileStem) -> AetherEditorPtr {
+    auto editor = AetherEditorPtr(new Editor());
+    editor->m_documentController = docs::DocumentController::createDocumentController();
+    editor->m_documentController->setFileStem(initialFileStem);
+    return editor;
 }
 
 auto AetherEditor::core::Editor::runConfig() const -> AetherEngine::core::EngineRunConfig {

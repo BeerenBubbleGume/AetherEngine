@@ -5,6 +5,9 @@
 #ifndef SMB_AETHEREDITOR_HPP
 #define SMB_AETHEREDITOR_HPP
 #include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
 
 #include "components/CameraComponent.hpp"
 #include "components/TransformComponent.hpp"
@@ -17,6 +20,8 @@
 
 #include "EditorSession.hpp"
 #include "commands/CommandHistory.hpp"
+#include "documents/DocumentController.hpp"
+#include "documents/SceneEditorDocument.hpp"
 
 namespace AetherEditor::core {
     class Editor final : public AetherEngine::core::IApplication {
@@ -31,19 +36,20 @@ namespace AetherEditor::core {
         auto render(AetherEngine::core::EngineContext& ctx) -> void override;
         auto shutdown(AetherEngine::core::EngineContext& ctx) -> void override;
 
+        [[nodiscard]] static auto createEditor(std::string_view initialFileStem) -> AetherEditorPtr;
+        [[nodiscard]] auto runConfig() const -> AetherEngine::core::EngineRunConfig override;
+    private:
         auto saveAs(AetherEngine::core::EngineContext& ctx, std::string_view filename) -> std::expected<void, AetherEngine::core::EngineError>;
         auto save(AetherEngine::core::EngineContext& ctx) -> std::expected<void, AetherEngine::core::EngineError>;
         auto load(AetherEngine::core::EngineContext& ctx, std::string_view filename) -> std::expected<void, AetherEngine::core::EngineError>;
         auto newScene(AetherEngine::core::EngineContext& ctx, std::string_view name) -> std::expected<void, AetherEngine::core::EngineError>;
-
-        [[nodiscard]] static auto createEditor() -> AetherEditorPtr;
-        [[nodiscard]] auto runConfig() const -> AetherEngine::core::EngineRunConfig override;
-    private:
+        auto updateDocumentDirty(AetherEngine::core::EngineContext& ctx) -> void;
         Editor() = default;
         using EditorGuiPtr = ui::EditorGui::EditorGuiPtr;
         using EditorWorkspacePtr = ui::EditorWorkspace::EditorWorkspacePtr;
         using InputRouterPtr  = input::EditorInputRouter::EditorInputRouterPtr;
         using CameraControllerPtr = viewport::EditorCameraController::EditorCameraControllerPtr;
+        using DocumentControllerPtr = docs::DocumentController::DocumentControllerPtr;
         AetherEngine::components::TransformComponent m_editorCameraTransform{};
         AetherEngine::components::CameraComponent m_editorCamera{};
 
@@ -51,9 +57,10 @@ namespace AetherEditor::core {
         EditorWorkspacePtr m_workspace;
         InputRouterPtr m_inputRouter;
         CameraControllerPtr m_cameraController;
-        SceneEditorDocument m_document{};
+        DocumentControllerPtr m_documentController;
         EditorSession m_session{};
         commands::CommandHistory m_history{};
+        std::optional<std::string> m_pendingLoadFileStem;
         float m_frameDelta = 0.0f;
         bool m_relativeMouseMode = false;
 
