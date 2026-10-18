@@ -41,7 +41,7 @@ namespace AetherEngine {
         [[nodiscard]] auto getState() const -> core::EngineState {return state;}
         static EnginePtr createEngine();
     private:
-        Engine() = default;
+        Engine();
         ~Engine();
 
         auto processEvents(core::IApplication& app) -> void;
@@ -61,6 +61,8 @@ namespace AetherEngine {
         using Clock = std::chrono::steady_clock;
         using Duration = std::chrono::duration<float>;
         using TimePoint = Clock::time_point;
+        // Declared before systems so logging remains alive throughout teardown.
+        logging::Logger m_logger;
         WindowPtr sWindow;
         InputSystemPtr sInput;
         RenderSystemPtr sRender;

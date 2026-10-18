@@ -33,6 +33,8 @@ find_package(bgfx CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
+find_package(Threads REQUIRED)
 
 if (APPLE)
     set(AETHER_DEFAULT_PHYSICS_BACKEND "Jolt")
@@ -101,6 +103,12 @@ add_library(AetherEngine STATIC
         AetherEngine/headers/core/IApplication.hpp
         AetherEngine/src/core/EngineContext.cpp
         AetherEngine/headers/core/EngineContext.hpp
+        AetherEngine/src/logging/Logger.cpp
+        AetherEngine/src/logging/SpdlogSupport.hpp
+        AetherEngine/headers/logging/Logger.hpp
+        AetherEngine/headers/logging/LogLevel.hpp
+        AetherEngine/headers/logging/LogRecord.hpp
+        AetherEngine/headers/logging/ILogSink.hpp
         AetherEngine/headers/components/CameraComponent.hpp
         AetherEngine/headers/components/MeshComponent.hpp
         AetherEngine/headers/components/TransformComponent.hpp
@@ -168,6 +176,11 @@ endif()
 
 include(CTest)
 if (BUILD_TESTING)
+    add_executable(aether_logger_tests tests/LoggerTests.cpp)
+    target_link_libraries(aether_logger_tests PRIVATE AetherEngine spdlog::spdlog)
+    add_test(NAME logger_regressions COMMAND aether_logger_tests)
+    set_tests_properties(logger_regressions PROPERTIES TIMEOUT 30)
+
     add_executable(aether_security_tests
             tests/SecurityRegressionTests.cpp
     )
@@ -192,6 +205,24 @@ if (BUILD_TESTING)
             AETHER_TEST_ASSETS_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/projects/Sandbox/assets"
     )
     add_test(NAME asset_registry_regressions COMMAND aether_asset_registry_tests)
+
+    add_executable(aether_editor_asset_catalog_tests
+            tests/EditorAssetCatalogTests.cpp
+            AetherEditor/src/assets/AssetCatalogService.cpp)
+    target_include_directories(aether_editor_asset_catalog_tests PRIVATE AetherEditor/headers)
+    target_link_libraries(aether_editor_asset_catalog_tests PRIVATE AetherEngine)
+    target_compile_definitions(aether_editor_asset_catalog_tests PRIVATE
+            AETHER_TEST_ASSETS_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/projects/Sandbox/assets")
+    add_test(NAME editor_asset_catalog_regressions COMMAND aether_editor_asset_catalog_tests)
+
+    add_executable(aether_editor_component_commands_tests
+            tests/EditorComponentCommandsTests.cpp
+            AetherEditor/src/commands/ComponentCommands.cpp
+            AetherEditor/src/commands/EntityCommands.cpp
+            AetherEditor/src/commands/CommandHistory.cpp)
+    target_include_directories(aether_editor_component_commands_tests PRIVATE AetherEditor/headers)
+    target_link_libraries(aether_editor_component_commands_tests PRIVATE AetherEngine)
+    add_test(NAME editor_component_commands_regressions COMMAND aether_editor_component_commands_tests)
 
     add_executable(aether_project_paths_tests tests/ProjectPathsTests.cpp)
     target_link_libraries(aether_project_paths_tests PRIVATE AetherEngine)
@@ -237,6 +268,8 @@ add_executable(smb
 
 add_executable(AetherEditor
         AetherEditor/src/main.cpp
+        AetherEditor/src/assets/AssetCatalogService.cpp
+        AetherEditor/headers/assets/AssetCatalogService.hpp
         AetherEditor/src/core/AetherEditor.cpp
         AetherEditor/headers/core/AetherEditor.hpp
         AetherEditor/src/ui/EditorGui.cpp
@@ -318,6 +351,7 @@ add_custom_target(aether_runtime_assets
 add_dependencies(smb aether_runtime_assets)
 
 target_link_libraries(AetherEngine PUBLIC
+        Threads::Threads
         SDL3::SDL3
         EnTT::EnTT
         bgfx::bgfx
@@ -326,6 +360,7 @@ target_link_libraries(AetherEngine PUBLIC
 )
 
 target_link_libraries(AetherEngine PRIVATE
+        spdlog::spdlog
         ${AETHER_PHYSICS_BACKEND_TARGET}
 )
 
@@ -357,7 +392,7 @@ if (MSVC)
         list(APPEND hardened_targets aether_project_paths_tests)
         list(APPEND hardened_executables aether_project_paths_tests)
     endif()
-    foreach(scene_test aether_scene_write_tests aether_scene_write_win32_fault_tests aether_scene_entity_tests)
+    foreach(scene_test aether_scene_write_tests aether_scene_write_win32_fault_tests aether_scene_entity_tests aether_logger_tests aether_editor_asset_catalog_tests aether_editor_component_commands_tests)
         if (TARGET ${scene_test})
             list(APPEND hardened_targets ${scene_test})
             list(APPEND hardened_executables ${scene_test})

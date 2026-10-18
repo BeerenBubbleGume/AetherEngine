@@ -17,6 +17,8 @@ Notices were copied from the local vcpkg installation and bundled bgfx/bx header
 | nlohmann-json | 3.12.0 | direct runtime dependency | vcpkg_installed\x64-windows\share\nlohmann-json\copyright |
 | PhysX | 5.5.0 | direct runtime dependency | vcpkg_installed\x64-windows\share\physx\copyright |
 | SDL3 | 3.4.10 | direct runtime dependency | vcpkg_installed\x64-windows\share\sdl3\copyright |
+| spdlog | 1.17.0 | private engine logging dependency | cmake-build-debug-visual-studio\vcpkg_installed\x64-windows\share\spdlog\copyright |
+| fmt | 12.1.0 | spdlog transitive dependency | cmake-build-debug-visual-studio\vcpkg_installed\x64-windows\share\fmt\copyright |
 | shaderc | 2026.2 | direct tool dependency | vcpkg_installed\x64-windows\share\shaderc\copyright |
 | glslang | 16.3.0 | shaderc transitive dependency | vcpkg_installed\x64-windows\share\glslang\copyright |
 | SPIRV-Headers | 1.4.350.0 | shaderc/SPIRV-Tools transitive dependency | vcpkg_installed\x64-windows\share\spirv-headers\copyright |
@@ -33,6 +35,72 @@ Notices were copied from the local vcpkg installation and bundled bgfx/bx header
 | tinystl | bundled with bx/bgfx headers | bgfx/bx bundled header component | vcpkg_installed\x64-windows\include\bx\tinystl\LICENSE |
 
 ## Full Notices
+
+### spdlog 1.17.0
+
+Source: cmake-build-debug-visual-studio\vcpkg_installed\x64-windows\share\spdlog\copyright
+
+````text
+The MIT License (MIT)
+
+Copyright (c) 2016 - present, Gabi Melman and spdlog contributors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+-- NOTE: Third party dependency used by this software --
+This software depends on the fmt lib (MIT License),
+and users must comply to its license: https://raw.githubusercontent.com/fmtlib/fmt/master/LICENSE
+````
+
+### fmt 12.1.0
+
+Source: cmake-build-debug-visual-studio\vcpkg_installed\x64-windows\share\fmt\copyright
+
+````text
+Copyright (c) 2012 - present, Victor Zverovich and {fmt} contributors
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+--- Optional exception to the license ---
+
+As an exception, if, as a result of your compiling your source code, portions
+of this Software are embedded into a machine-executable object form of such
+source code, you may redistribute such embedded portions in such object form
+without including the above copyright and permission notices.
+````
 
 ### Jolt Physics 5.5.0
 

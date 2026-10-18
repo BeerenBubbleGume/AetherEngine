@@ -18,6 +18,7 @@
       "platform": "!osx"
     },
     "sdl3",
+    "spdlog",
     "nlohmann-json"
   ]
 }

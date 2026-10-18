@@ -2,7 +2,9 @@ cmake-build-*/
 *.zip
 vcpkg_installed/
 .idea/
+__pycache__/
 *.obj
+!projects/**/assets/meshes/source/**/*.obj
 *.o
 *.so
 *.dll

@@ -1,83 +1,176 @@
 {
-    "version": 1,
     "assets": [
         {
-            "id": "11111111111111111111111111111111",
-            "type": "mesh",
-            "alias": "asset://meshes/bunny",
-            "variants": [
-                {
-                    "platform": {
-                        "os": "any",
-                        "architecture": "any",
-                        "graphics": "any"
-                    },
-                    "path": "meshes/bin/bunny.bin"
-                }
-            ]
-        },
-        {
-            "id": "22222222222222222222222222222222",
-            "type": "texture",
-            "alias": "asset://textures/brick",
-            "variants": [
-                {
-                    "platform": {
-                        "os": "any",
-                        "architecture": "any",
-                        "graphics": "any"
-                    },
-                    "path": "textures/bin/brick.ktx"
-                }
-            ]
-        },
-        {
-            "id": "33333333333333333333333333333333",
-            "type": "shader",
-            "alias": "asset://shaders/basic",
-            "variants": [
-                {
-                    "platform": {
-                        "os": "windows",
-                        "architecture": "x64",
-                        "graphics": "d3d11"
-                    },
-                    "artifacts": {
-                        "vertex": "shaders/bin/win32/basic_vs.bin",
-                        "fragment": "shaders/bin/win32/basic_fs.bin"
-                    }
-                },
-                {
-                    "platform": {
-                        "os": "macos",
-                        "architecture": "arm64",
-                        "graphics": "metal"
-                    },
-                    "artifacts": {
-                        "vertex": "shaders/bin/osx_arm/basic_vs.bin",
-                        "fragment": "shaders/bin/osx_arm/basic_fs.bin"
-                    }
-                }
-            ]
-        },
-        {
-            "id": "44444444444444444444444444444444",
-            "type": "material",
             "alias": "asset://materials/brick",
             "dependencies": [
                 "33333333333333333333333333333333",
                 "22222222222222222222222222222222"
             ],
+            "id": "44444444444444444444444444444444",
+            "type": "material",
             "variants": [
                 {
+                    "contentHash": 0,
+                    "path": "materials/brick.material.json",
                     "platform": {
-                        "os": "any",
                         "architecture": "any",
-                        "graphics": "any"
+                        "graphics": "any",
+                        "os": "any"
+                    }
+                }
+            ]
+        },
+        {
+            "alias": "asset://meshes/bunny",
+            "dependencies": [],
+            "id": "11111111111111111111111111111111",
+            "type": "mesh",
+            "variants": [
+                {
+                    "contentHash": 0,
+                    "path": "meshes/bin/bunny.bin",
+                    "platform": {
+                        "architecture": "any",
+                        "graphics": "any",
+                        "os": "any"
+                    }
+                }
+            ]
+        },
+        {
+            "alias": "asset://meshes/primitives/cone",
+            "dependencies": [],
+            "id": "73eaac92a1eb5203b506195daf05cdaa",
+            "type": "mesh",
+            "variants": [
+                {
+                    "contentHash": 0,
+                    "path": "meshes/bin/primitives/cone.bin",
+                    "platform": {
+                        "architecture": "any",
+                        "graphics": "any",
+                        "os": "any"
+                    }
+                }
+            ]
+        },
+        {
+            "alias": "asset://meshes/primitives/cube",
+            "dependencies": [],
+            "id": "1a057b9e401851b2acd3a18a9664c3a0",
+            "type": "mesh",
+            "variants": [
+                {
+                    "contentHash": 0,
+                    "path": "meshes/bin/primitives/cube.bin",
+                    "platform": {
+                        "architecture": "any",
+                        "graphics": "any",
+                        "os": "any"
+                    }
+                }
+            ]
+        },
+        {
+            "alias": "asset://meshes/primitives/cylinder",
+            "dependencies": [],
+            "id": "1403e257926651b399cf724d89f9e094",
+            "type": "mesh",
+            "variants": [
+                {
+                    "contentHash": 0,
+                    "path": "meshes/bin/primitives/cylinder.bin",
+                    "platform": {
+                        "architecture": "any",
+                        "graphics": "any",
+                        "os": "any"
+                    }
+                }
+            ]
+        },
+        {
+            "alias": "asset://meshes/primitives/plane",
+            "dependencies": [],
+            "id": "793eafc06137533c8b9fac599b596ef5",
+            "type": "mesh",
+            "variants": [
+                {
+                    "contentHash": 0,
+                    "path": "meshes/bin/primitives/plane.bin",
+                    "platform": {
+                        "architecture": "any",
+                        "graphics": "any",
+                        "os": "any"
+                    }
+                }
+            ]
+        },
+        {
+            "alias": "asset://meshes/primitives/sphere",
+            "dependencies": [],
+            "id": "5c9024edef525241b17920a11c35c06b",
+            "type": "mesh",
+            "variants": [
+                {
+                    "contentHash": 0,
+                    "path": "meshes/bin/primitives/sphere.bin",
+                    "platform": {
+                        "architecture": "any",
+                        "graphics": "any",
+                        "os": "any"
+                    }
+                }
+            ]
+        },
+        {
+            "alias": "asset://shaders/basic",
+            "dependencies": [],
+            "id": "33333333333333333333333333333333",
+            "type": "shader",
+            "variants": [
+                {
+                    "artifacts": {
+                        "fragment": "shaders/bin/win32/basic_fs.bin",
+                        "vertex": "shaders/bin/win32/basic_vs.bin"
                     },
-                    "path": "materials/brick.material.json"
+                    "contentHash": 0,
+                    "platform": {
+                        "architecture": "x64",
+                        "graphics": "d3d11",
+                        "os": "windows"
+                    }
+                },
+                {
+                    "artifacts": {
+                        "fragment": "shaders/bin/osx_arm/basic_fs.bin",
+                        "vertex": "shaders/bin/osx_arm/basic_vs.bin"
+                    },
+                    "contentHash": 0,
+                    "platform": {
+                        "architecture": "arm64",
+                        "graphics": "metal",
+                        "os": "macos"
+                    }
+                }
+            ]
+        },
+        {
+            "alias": "asset://textures/brick",
+            "dependencies": [],
+            "id": "22222222222222222222222222222222",
+            "type": "texture",
+            "variants": [
+                {
+                    "contentHash": 0,
+                    "path": "textures/bin/brick.ktx",
+                    "platform": {
+                        "architecture": "any",
+                        "graphics": "any",
+                        "os": "any"
+                    }
                 }
             ]
         }
-    ]
+    ],
+    "version": 1
 }

@@ -17,6 +17,49 @@ namespace {
     constexpr std::size_t MaxVariantsPerAsset = 32;
     constexpr std::size_t MaxDependenciesPerAsset = 64;
 
+    auto pathString(const std::filesystem::path& path) -> std::string {
+        const auto value = path.generic_u8string();
+        return {value.begin(), value.end()};
+    }
+
+    auto serializeRecord(const AssetRecord& record) -> Json {
+        constexpr std::string_view Types[]{"mesh", "texture", "shader", "material", "scene", "audio", "script", "prefab"};
+        constexpr std::string_view Systems[]{"any", "windows", "macos", "linux"};
+        constexpr std::string_view Architectures[]{"any", "x64", "arm64"};
+        constexpr std::string_view Backends[]{"any", "d3d11", "d3d12", "vulkan", "metal", "opengl", "opengles"};
+        const auto name = []<std::size_t N>(const std::string_view (&names)[N], auto value) {
+            const auto index = static_cast<std::size_t>(value);
+            return index < N ? names[index] : std::string_view{"invalid"};
+        };
+        Json body{
+            {"id", toString(record.id)}, {"type", name(Types, record.type)},
+            {"alias", record.alias}, {"dependencies", Json::array()}, {"variants", Json::array()}
+        };
+        for (const auto id : record.dependencies) body["dependencies"].push_back(toString(id));
+        for (const auto& variant : record.variants) {
+            Json value{
+                {"platform", {{"os", name(Systems, variant.platform.os)},
+                    {"architecture", name(Architectures, variant.platform.architecture)},
+                    {"graphics", name(Backends, variant.platform.graphics)}}},
+                {"contentHash", variant.contentHash}
+            };
+            if (!variant.cookedPath.empty()) value["path"] = pathString(variant.cookedPath);
+            if (!variant.artifacts.empty()) {
+                value["artifacts"] = Json::object();
+                for (const auto& [key, path] : variant.artifacts) value["artifacts"][key] = pathString(path);
+            }
+            body["variants"].push_back(std::move(value));
+        }
+        return body;
+    }
+
+    auto serializeCatalog(std::vector<AssetRecord> records) -> Json {
+        std::ranges::sort(records, {}, &AssetRecord::alias);
+        Json body{{"version", 1}, {"assets", Json::array()}};
+        for (const auto& record : records) body["assets"].push_back(serializeRecord(record));
+        return body;
+    }
+
     [[nodiscard]] auto parseAssetType(std::string_view value) -> std::optional<AssetType> {
         if (value == "mesh") return AssetType::Mesh;
         if (value == "texture") return AssetType::Texture;
@@ -67,7 +110,7 @@ namespace {
         if (text.empty() || text.size() > 4096 || text.contains(':')) {
             return std::nullopt;
         }
-        std::filesystem::path path{text};
+        std::filesystem::path path{std::u8string{text.begin(), text.end()}};
         if (path.is_absolute() || path.has_root_path()) {
             return std::nullopt;
         }
@@ -113,15 +156,22 @@ namespace AetherEngine::assets {
         -> std::expected<void, AssetError> {
         const auto source = security::readRegularFileWithin(
             m_assetsRoot,
-            manifest.generic_string(),
+            pathString(manifest),
             MaxManifestBytes
         );
         if (!source) {
             return std::unexpected(AssetError{1, "Failed to read asset manifest: " + source.error().message});
         }
 
+        return loadContents(std::string_view{reinterpret_cast<const char*>(source->bytes.data()), source->bytes.size()});
+    }
+
+    auto AssetRegistry::loadContents(std::string_view contents) -> std::expected<void, AssetError> {
         try {
-            const auto body = Json::parse(source->bytes.begin(), source->bytes.end());
+            if (contents.size() > MaxManifestBytes) {
+                return std::unexpected(AssetError{2, "Asset manifest exceeds the size limit"});
+            }
+            const auto body = Json::parse(contents);
             if (!body.is_object() || body.value("version", 0) != 1) {
                 return std::unexpected(AssetError{2, "Unsupported or malformed asset manifest"});
             }
@@ -242,6 +292,36 @@ namespace AetherEngine::assets {
         }
     }
 
+    auto AssetRegistry::addAssets(std::span<const AssetRecord> records) -> std::expected<void, AssetError> {
+        if (records.empty()) return {};
+        if (records.size() > MaxAssetRecords - m_records.size()) {
+            return std::unexpected(AssetError{2, "Asset catalog record limit reached"});
+        }
+        try {
+            auto all = listAssets();
+            all.insert(all.end(), records.begin(), records.end());
+            return loadContents(serializeCatalog(std::move(all)).dump());
+        } catch (const Json::exception& error) {
+            return std::unexpected(AssetError{2, "Failed to serialize catalog: " + std::string{error.what()}});
+        } catch (const std::bad_alloc&) {
+            return std::unexpected(AssetError{3, "Not enough memory to extend asset catalog"});
+        }
+    }
+
+    auto AssetRegistry::saveManifest(const std::filesystem::path& manifest) const -> std::expected<void, AssetError> {
+        try {
+            const auto contents = serializeCatalog(listAssets()).dump(4);
+            const auto saved = security::writeRegularFileWithin(m_assetsRoot, pathString(manifest),
+                {reinterpret_cast<const std::uint8_t*>(contents.data()), contents.size()}, MaxManifestBytes);
+            if (!saved) return std::unexpected(AssetError{1, "Failed to save asset catalog: " + saved.error().message});
+            return {};
+        } catch (const Json::exception& error) {
+            return std::unexpected(AssetError{2, "Failed to serialize catalog: " + std::string{error.what()}});
+        } catch (const std::bad_alloc&) {
+            return std::unexpected(AssetError{3, "Not enough memory to save asset catalog"});
+        }
+    }
+
     auto AssetRegistry::find(AssetId id) const -> const AssetRecord* {
         const auto found = m_records.find(id);
         return found == m_records.end() ? nullptr : &found->second;
@@ -276,5 +356,16 @@ namespace AetherEngine::assets {
 
     auto AssetRegistry::assetsRoot() const noexcept -> const std::filesystem::path& {
         return m_assetsRoot;
+    }
+
+    auto AssetRegistry::listAssets() const -> std::vector<AssetRecord> {
+        std::vector<AssetRecord> result;
+        result.reserve(m_records.size());
+        for (const auto& [id, record] : m_records) {
+            static_cast<void>(id);
+            result.push_back(record);
+        }
+        std::ranges::sort(result, {}, &AssetRecord::alias);
+        return result;
     }
 }

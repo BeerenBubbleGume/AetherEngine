@@ -32,7 +32,27 @@ namespace AetherEngine::assets {
         if (auto loaded = manager->m_registry.loadManifest(manifest); !loaded) {
             return std::unexpected(loaded.error());
         }
+        manager->m_manifest = manifest;
         return manager;
+    }
+
+    auto AssetManager::registerAssets(std::span<const AssetRecord> records) -> std::expected<void, AssetError> {
+        if (records.empty()) {
+            return {};
+        }
+        try {
+            auto candidate = m_registry;
+            if (auto added = candidate.addAssets(records); !added) {
+                return std::unexpected(added.error());
+            }
+            if (auto saved = candidate.saveManifest(m_manifest); !saved) {
+                return std::unexpected(saved.error());
+            }
+            m_registry = std::move(candidate);
+            return {};
+        } catch (const std::bad_alloc&) {
+            return std::unexpected(AssetError{3, "Not enough memory to update asset catalog"});
+        }
     }
 
     auto AssetManager::registerLoader(std::unique_ptr<IAssetLoader> loader)

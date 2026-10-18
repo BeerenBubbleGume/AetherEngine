@@ -13,6 +13,16 @@
 #include "scene/Scene.hpp"
 #include "math/Types.hpp"
 
+namespace AetherEngine::assets {
+    class AssetRegistry;
+}
+
+namespace AetherEngine::components {
+    struct MaterialComponent;
+    struct MeshComponent;
+    struct TransformComponent;
+}
+
 namespace AetherEditor::panels {
     class InspectorPanel {
     public:
@@ -23,7 +33,8 @@ namespace AetherEditor::panels {
         };
         using InspectorPanelPtr = std::unique_ptr<InspectorPanel, InspectorPanelDeleter>;
         static auto createInspectorPanel() -> InspectorPanelPtr;
-        auto draw(bool &open, AetherEngine::scene::Scene &scene, const core::EditorSession &session, commands::CommandHistory& history) -> bool;
+        auto draw(bool &open, AetherEngine::scene::Scene &scene, const core::EditorSession &session, commands::CommandHistory& history, const
+                  AetherEngine::assets::AssetRegistry &registry) -> bool;
         auto finishTransformEdit(AetherEngine::scene::Scene& scene, commands::CommandHistory& history) -> void;
         [[nodiscard]] auto hasPendingEdit() const -> bool;
         [[nodiscard]] auto hasPendingChanges(AetherEngine::scene::Scene& scene) const -> bool;
@@ -32,6 +43,41 @@ namespace AetherEditor::panels {
         InspectorPanel(InspectorPanel&&) = delete;
         InspectorPanel& operator=(InspectorPanel&&) = delete;
     private:
+        auto drawEntity(
+            AetherEngine::scene::Scene& scene,
+            AetherEngine::scene::Entity entity,
+            commands::CommandHistory& history,
+            const AetherEngine::assets::AssetRegistry& registry,
+            bool& transformEditActive
+        ) -> bool;
+        auto drawTransform(
+            AetherEngine::scene::Scene& scene,
+            AetherEngine::scene::EntityId entityId,
+            AetherEngine::components::TransformComponent& component,
+            commands::CommandHistory& history,
+            bool& editActive
+        ) -> bool;
+        auto drawMesh(
+            AetherEngine::scene::Scene& scene,
+            AetherEngine::scene::Entity entity,
+            commands::CommandHistory& history,
+            const AetherEngine::assets::AssetRegistry& registry
+        ) -> bool;
+        auto drawMaterial(
+            AetherEngine::scene::Scene& scene,
+            AetherEngine::scene::Entity entity,
+            commands::CommandHistory& history,
+            const AetherEngine::assets::AssetRegistry& registry
+        ) -> bool;
+        auto beginTransformEdit(
+            AetherEngine::scene::Scene& scene,
+            AetherEngine::scene::EntityId entityId,
+            const AetherEngine::math::Transform& before,
+            commands::CommandHistory& history,
+            bool& editActive
+        ) -> void;
+        auto endTransformEdit(AetherEngine::scene::Scene& scene, commands::CommandHistory& history) -> void;
+
         InspectorPanel() = default;
         ~InspectorPanel() = default;
         struct PendingTransformEdit {

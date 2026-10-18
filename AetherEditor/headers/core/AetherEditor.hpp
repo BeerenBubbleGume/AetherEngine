@@ -39,6 +39,19 @@ namespace AetherEditor::core {
         [[nodiscard]] static auto createEditor(std::string_view initialFileStem) -> AetherEditorPtr;
         [[nodiscard]] auto runConfig() const -> AetherEngine::core::EngineRunConfig override;
     private:
+        static auto renderBackground(AetherEngine::graphics::RenderExtent extent) -> void;
+        auto processWorkspaceActions(AetherEngine::core::EngineContext& ctx, const ui::EditorWorkspaceFrame& frame) -> void;
+        auto refreshSceneList(AetherEngine::core::EngineContext& ctx) -> void;
+        auto scanTextures(AetherEngine::core::EngineContext& ctx) -> void;
+        auto processAssetActions(AetherEngine::core::EngineContext& ctx, const panels::AssetBrowserFrame& frame) -> void;
+        auto createEntity(AetherEngine::core::EngineContext& ctx) -> void;
+        auto renameEntity(AetherEngine::core::EngineContext& ctx, const panels::RenameEntityRequest& request) -> void;
+        auto processHistoryActions(AetherEngine::core::EngineContext& ctx, const ui::EditorWorkspaceFrame& frame) -> void;
+        auto processSaveRequests(AetherEngine::core::EngineContext& ctx, const ui::EditorWorkspaceFrame& frame) -> void;
+        auto processDocumentActions(AetherEngine::core::EngineContext& ctx, const ui::EditorWorkspaceFrame& frame) -> void;
+        auto updateEditorCamera(AetherEngine::core::EngineContext& ctx, const viewport::SceneViewportFrame& frame, bool applicationFocused) -> void;
+        auto renderSceneViewport(AetherEngine::core::EngineContext& ctx, const viewport::SceneViewportFrame& frame) const -> void;
+
         auto saveAs(AetherEngine::core::EngineContext& ctx, std::string_view filename) -> std::expected<void, AetherEngine::core::EngineError>;
         auto save(AetherEngine::core::EngineContext& ctx) -> std::expected<void, AetherEngine::core::EngineError>;
         auto load(AetherEngine::core::EngineContext& ctx, std::string_view filename) -> std::expected<void, AetherEngine::core::EngineError>;
@@ -60,7 +73,7 @@ namespace AetherEditor::core {
         DocumentControllerPtr m_documentController;
         EditorSession m_session{};
         commands::CommandHistory m_history{};
-        std::optional<std::string> m_pendingLoadFileStem;
+        std::optional<PendingDocumentAction> m_pendingDocumentAction;
         float m_frameDelta = 0.0f;
         bool m_relativeMouseMode = false;
 

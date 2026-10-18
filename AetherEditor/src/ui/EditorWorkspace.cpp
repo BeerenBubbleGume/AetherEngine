@@ -11,15 +11,19 @@ namespace AetherEditor::ui {
     }
 
     auto EditorWorkspace::draw(AetherEngine::components::CameraComponent &camera, AetherEngine::scene::Scene &scene, AetherEditor::core::EditorSession& session, commands
-                               ::CommandHistory &history, const docs::SceneEditorDocument &document) -> EditorWorkspaceFrame {
+                               ::CommandHistory &history, const docs::SceneEditorDocument &document, const AetherEngine::logging::Logger &logger, const
+                               AetherEngine::assets::AssetRegistry &registry) -> EditorWorkspaceFrame {
         EditorWorkspaceFrame frame{};
 
         drawMenuBar(history, frame, document);
         drawDockspace();
 
-        auto panels = drawPanels(camera, scene, session, history);
+        auto panels = drawPanels(camera, scene, session, history, logger, registry);
         frame.viewport = panels.viewport;
         frame.sceneChanged = panels.sceneChanged;
+        frame.createEntityRequested = panels.createEntityRequested;
+        frame.renameEntityRequested = std::move(panels.renameEntityRequested);
+        frame.assets = std::move(panels.assets);
         processHistoryShortcuts(history, frame, document);
         return frame;
     }
@@ -28,27 +32,29 @@ namespace AetherEditor::ui {
         m_hierarchy = panels::HierarchyPanel::createHierarchyPanel();
         m_inspector = panels::InspectorPanel::createInspectorPanel();
         m_sceneViewport = panels::SceneViewportPanel::createSceneViewportPanel();
-        if (!m_hierarchy || !m_inspector || !m_sceneViewport) {
+        m_console = panels::ConsolePanel::createConsolePanel();
+        m_assetBrowser = panels::AssetBrowserPanel::createAssetBrowserPanel();
+        if (!m_hierarchy || !m_inspector || !m_sceneViewport || !m_console || !m_assetBrowser) {
             return std::unexpected(AetherEditor::core::EditorError{5, "Failed to create panels"});
         }
         return {};
     }
 
-    auto EditorWorkspace::setPanelVisible(EditorWorkspacePanels panel, bool visible) -> std::expected<void, AetherEditor::core::EditorError> {
+    auto EditorWorkspace::setPanelVisible(core::EditorWorkspacePanels panel, bool visible) -> std::expected<void, AetherEditor::core::EditorError> {
         switch (panel) {
-            case EditorWorkspacePanels::AssetBrowser:
+            case core::EditorWorkspacePanels::AssetBrowser:
                 m_showAssetBrowser = visible;
                 break;
-            case EditorWorkspacePanels::Console:
+            case core::EditorWorkspacePanels::Console:
                 m_showConsole = visible;
                 break;
-            case EditorWorkspacePanels::Hierarchy:
+            case core::EditorWorkspacePanels::Hierarchy:
                 m_showHierarchy = visible;
                 break;
-            case EditorWorkspacePanels::Inspector:
+            case core::EditorWorkspacePanels::Inspector:
                 m_showInspector = visible;
                 break;
-            case EditorWorkspacePanels::SceneViewport:
+            case core::EditorWorkspacePanels::SceneViewport:
                 m_showSceneViewport = visible;
                 break;
             default:
@@ -60,6 +66,18 @@ namespace AetherEditor::ui {
     auto EditorWorkspace::finishPendingEdits(AetherEngine::scene::Scene &scene,
         commands::CommandHistory &history) const -> void {
         m_inspector->finishTransformEdit(scene, history);
+    }
+
+    auto EditorWorkspace::requestOpenSaveAs() -> void {
+        m_openSaveAs = true;
+    }
+
+    auto EditorWorkspace::setAssetStatus(std::string message, bool error) -> void {
+        m_assetBrowser->setStatus(std::move(message), error);
+    }
+
+    auto EditorWorkspace::materialCreated(AetherEngine::assets::AssetId id) -> void {
+        m_assetBrowser->materialCreated(id);
     }
 
     auto EditorWorkspace::requestCloseSaveAs() -> void {
@@ -91,20 +109,31 @@ namespace AetherEditor::ui {
     }
 
     auto EditorWorkspace::drawPanels(AetherEngine::components::CameraComponent &camera, AetherEngine::scene::Scene &scene, core::EditorSession &session, commands
-                                     ::CommandHistory &history) -> EditorWorkspaceFrame {
+                                     ::CommandHistory &history, const AetherEngine::logging::Logger &logger, const AetherEngine::assets::AssetRegistry &
+                                     registry) -> EditorWorkspaceFrame {
         EditorWorkspaceFrame frame{};
 
         if (m_showHierarchy) {
-            m_hierarchy->draw(m_showHierarchy, scene, session);
+            auto hierarchy = m_hierarchy->draw(m_showHierarchy, scene, session);
+            frame.createEntityRequested = hierarchy.createEntityRequested;
+            frame.renameEntityRequested = std::move(hierarchy.renameEntityRequested);
+        } else {
+            m_hierarchy->cancelRename();
         }
         if (m_showInspector) {
             frame.sceneChanged =
-                m_inspector->draw(m_showInspector, scene, session, history);
+                m_inspector->draw(m_showInspector, scene, session, history, registry);
         } else {
             m_inspector->finishTransformEdit(scene, history);
         }
         if (m_showSceneViewport) {
             frame.viewport = m_sceneViewport->draw(m_showSceneViewport, camera);
+        }
+        if (m_showConsole) {
+            m_console->draw(m_showConsole, logger);
+        }
+        if (m_showAssetBrowser) {
+            frame.assets = m_assetBrowser->draw(m_showAssetBrowser, registry.listAssets());
         }
         return frame;
     }
@@ -116,10 +145,16 @@ namespace AetherEditor::ui {
                     "Save",
                     "Ctrl+S",
                     false,
-                    document.scene != nullptr && !document.fileStem.empty()
+                    document.scene != nullptr
                 );
                 if (ImGui::MenuItem("Save As...")) {
                     m_openSaveAs = true;
+                }
+                if (ImGui::MenuItem("New Scene")) {
+                    frame.documentActionRequested = core::PendingDocumentAction{
+                        .kind = core::DocumentActionKind::NewScene,
+                        .sceneName = "Untitled"
+                    };
                 }
                 if (ImGui::MenuItem("Open...")) {
                     m_openLoad = true;
@@ -192,6 +227,7 @@ namespace AetherEditor::ui {
                 ImGui::EndPopup();
             }
             if (m_openLoad) {
+                m_closeLoad = false;
                 ImGui::OpenPopup("Open scene");
                 m_openLoad = false;
             }
@@ -200,7 +236,6 @@ namespace AetherEditor::ui {
                 nullptr,
                 ImGuiWindowFlags_AlwaysAutoResize)) {
                 if (m_closeLoad) {
-                    m_closeLoad = false;
                     ImGui::CloseCurrentPopup();
                 } else {
                     ImGui::InputText("Scene name", &m_loadName);
@@ -224,7 +259,10 @@ namespace AetherEditor::ui {
                     ImGui::BeginDisabled(m_loadName.empty());
 
                     if (ImGui::Button("Open")) {
-                        frame.loadFileStem = m_loadName;
+                        frame.documentActionRequested = core::PendingDocumentAction{
+                            core::DocumentActionKind::OpenScene,
+                            m_loadName
+                        };
                     }
 
                     ImGui::EndDisabled();
@@ -234,35 +272,35 @@ namespace AetherEditor::ui {
                     if (ImGui::Button("Cancel")) {
                         ImGui::CloseCurrentPopup();
                     }
-
-                    if (m_openLoadConfirmation) {
-                        ImGui::OpenPopup("Unsaved changes");
-                        m_openLoadConfirmation = false;
-                    }
-
-                    if (ImGui::BeginPopupModal(
-                        "Unsaved changes",
-                        nullptr,
-                        ImGuiWindowFlags_AlwaysAutoResize
-                    )) {
-                        ImGui::TextUnformatted("The current scene has unsaved changes.");
-                        ImGui::TextUnformatted("Open another scene without saving?");
-
-                        if (ImGui::Button("Open without saving")) {
-                            frame.loadDecision = SceneLoadDecision::DiscardChanges;
-                            ImGui::CloseCurrentPopup();
-                        }
-
-                        ImGui::SameLine();
-
-                        if (ImGui::Button("Cancel")) {
-                            frame.loadDecision = SceneLoadDecision::Cancel;
-                            ImGui::CloseCurrentPopup();
-                        }
-
-                        ImGui::EndPopup();
-                    }
                 }
+                ImGui::EndPopup();
+            }
+            m_closeLoad = false;
+            if (m_openLoadConfirmation) {
+                ImGui::OpenPopup("Unsaved changes");
+                m_openLoadConfirmation = false;
+            }
+
+            if (ImGui::BeginPopupModal(
+                "Unsaved changes",
+                nullptr,
+                ImGuiWindowFlags_AlwaysAutoResize
+            )) {
+                ImGui::TextUnformatted("The current scene has unsaved changes.");
+                ImGui::TextUnformatted("Open another scene without saving?");
+
+                if (ImGui::Button("Open without saving")) {
+                    frame.loadDecision = core::SceneLoadDecision::DiscardChanges;
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::SameLine();
+
+                if (ImGui::Button("Cancel")) {
+                    frame.loadDecision = core::SceneLoadDecision::Cancel;
+                    ImGui::CloseCurrentPopup();
+                }
+
                 ImGui::EndPopup();
             }
         }
@@ -286,10 +324,10 @@ namespace AetherEditor::ui {
         if (frame.undoRequested || frame.redoRequested || frame.saveRequested) {
             return;
         }
-        if (ImGui::IsAnyItemActive() || m_inspector->hasPendingEdit()) {
+        if (ImGui::IsAnyItemActive() || m_inspector->hasPendingEdit() || m_hierarchy->isRenaming()) {
             return;
         }
-        if (savePressed && document.scene != nullptr && !document.fileStem.empty()) {
+        if (savePressed && document.scene != nullptr) {
             frame.saveRequested = true;
         } else if (undoPressed && history.canUndo()) {
             frame.undoRequested = true;

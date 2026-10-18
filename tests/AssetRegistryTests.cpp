@@ -90,6 +90,20 @@ int main() {
             expect(managerResult.has_value(), "create runtime asset manager", failures);
             if (managerResult) {
                 auto manager = std::move(*managerResult);
+                for (const auto name : {"plane", "cube", "sphere", "cylinder", "cone"}) {
+                    const auto primitive = manager->reference<RuntimeMeshAsset>(std::string{"asset://meshes/primitives/"} + name);
+                    expect(primitive.has_value(), "resolve primitive mesh alias", failures);
+                    if (!primitive) continue;
+                    const auto handle = manager->load(*primitive);
+                    expect(handle.has_value(), "load uncompressed primitive geometry", failures);
+                    if (handle) {
+                        const auto* loadedMesh = manager->get(*handle);
+                        expect(loadedMesh && loadedMesh->mesh() && loadedMesh->mesh()->isValid(),
+                               "primitive mesh has valid runtime buffers", failures);
+                        manager->unload(primitive->id);
+                        expect(!manager->get(*handle), "release primitive runtime mesh", failures);
+                    }
+                }
                 const auto reference = manager->reference<RuntimeMeshAsset>("asset://meshes/bunny");
                 expect(reference.has_value(), "create typed mesh reference", failures);
                 if (reference) {

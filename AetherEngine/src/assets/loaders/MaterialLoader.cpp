@@ -76,9 +76,10 @@ namespace AetherEngine::assets {
                 if (context.variant.cookedPath.empty()) {
                     return std::unexpected(AssetError{7, "Material asset has no cooked path"});
                 }
+                const auto path = context.variant.cookedPath.generic_u8string();
                 const auto source = security::readRegularFileWithin(
                     context.assetsRoot,
-                    context.variant.cookedPath.generic_string(),
+                    std::string{path.begin(), path.end()},
                     MaxMaterialBytes
                 );
                 if (!source) {

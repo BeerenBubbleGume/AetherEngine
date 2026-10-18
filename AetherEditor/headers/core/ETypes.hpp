@@ -12,6 +12,26 @@ namespace AetherEditor::core {
         int code;
         std::string msg;
     };
+    enum class DocumentActionKind {
+        NewScene,
+        OpenScene
+    };
+    struct PendingDocumentAction {
+        DocumentActionKind kind;
+        std::string sceneName;
+    };
+    enum class EditorWorkspacePanels {
+        AssetBrowser,
+        Console,
+        Hierarchy,
+        Inspector,
+        SceneViewport
+    };
+    enum class SceneLoadDecision {
+        None,
+        DiscardChanges,
+        Cancel
+    };
 }
 
 

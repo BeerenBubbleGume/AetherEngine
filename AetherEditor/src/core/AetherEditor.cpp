@@ -4,13 +4,30 @@
 
 #include "core/AetherEditor.hpp"
 
-#include <imgui.h>
-#include <iostream>
+#include "commands/EntityCommands.hpp"
+
 #include <SDL3/SDL_messagebox.h>
+#include <utility>
+#include "assets/AssetCatalogService.hpp"
 
 #include "graphics/SceneView.hpp"
 #include "math/CameraMatrices.hpp"
 #include "systems/RenderSystem.hpp"
+
+namespace {
+    auto showEditorError(
+        const char* title,
+        const AetherEngine::core::EngineError& error,
+        SDL_Window* window
+    ) -> void {
+        SDL_ShowSimpleMessageBox(
+            SDL_MESSAGEBOX_ERROR,
+            title,
+            error.message.c_str(),
+            window
+        );
+    }
+}
 
 auto AetherEditor::core::Editor::init(
     AetherEngine::core::EngineContext &ctx) -> std::expected<void, AetherEngine::core::EngineError> {
@@ -41,6 +58,8 @@ auto AetherEditor::core::Editor::init(
     m_cameraController = viewport::EditorCameraController::createEditorCameraController();
     m_inputRouter = input::EditorInputRouter::createEditorInputRouter();
     m_documentController->setScene(ctx.getScene());
+    scanTextures(ctx);
+    ctx.logger.info("Editor initialized", "Editor");
     return {};
 }
 
@@ -68,14 +87,39 @@ auto AetherEditor::core::Editor::update(float dt, AetherEngine::core::EngineCont
 
 auto AetherEditor::core::Editor::render(AetherEngine::core::EngineContext& ctx) -> void {
     const auto backbufferExtent = ctx.renderer.backbufferExtent();
+    renderBackground(backbufferExtent);
+
+    m_gui->beginFrame();
+    auto* window = ctx.window.getSDLWindow();
+    const bool applicationFocused =
+        window != nullptr &&
+        (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) != 0;
+
+    const auto frame = m_workspace->draw(
+        m_editorCamera,
+        ctx.getScene(),
+        m_session,
+        m_history,
+        m_documentController->getDocument(),
+        ctx.logger, ctx.assets.registry()
+    );
+
+    processWorkspaceActions(ctx, frame);
+    updateEditorCamera(ctx, frame.viewport, applicationFocused);
+    renderSceneViewport(ctx, frame.viewport);
+
+    m_gui->endFrame(backbufferExtent);
+}
+
+auto AetherEditor::core::Editor::renderBackground(AetherEngine::graphics::RenderExtent extent) -> void {
     constexpr bgfx::ViewId BackgroundView = 0;
 
     bgfx::setViewFrameBuffer(BackgroundView, BGFX_INVALID_HANDLE);
     bgfx::setViewRect(
         BackgroundView,
         0, 0,
-        backbufferExtent.width,
-        backbufferExtent.height
+        extent.width,
+        extent.height
     );
     bgfx::setViewClear(
         BackgroundView,
@@ -83,147 +127,253 @@ auto AetherEditor::core::Editor::render(AetherEngine::core::EngineContext& ctx) 
         0x20252bff
     );
     bgfx::touch(BackgroundView);
+}
 
-    m_gui->beginFrame();
-    auto* window = ctx.window.getSDLWindow();
+auto AetherEditor::core::Editor::processWorkspaceActions(
+    AetherEngine::core::EngineContext& ctx,
+    const ui::EditorWorkspaceFrame& frame
+) -> void {
+    if (frame.refreshSceneListRequested) {
+        refreshSceneList(ctx);
+    }
 
-    const bool applicationFocused =
-        window != nullptr &&
-        (SDL_GetWindowFlags(window) & SDL_WINDOW_INPUT_FOCUS) != 0;
+    processAssetActions(ctx, frame.assets);
 
-    const auto workspaceFrame = m_workspace->draw(m_editorCamera, ctx.getScene(), m_session, m_history, m_documentController->getDocument());
-    if (workspaceFrame.refreshSceneListRequested) {
-        auto scenes = docs::DocumentController::listScenes(ctx);
+    if (frame.renameEntityRequested) {
+        renameEntity(ctx, *frame.renameEntityRequested);
+    }
+    if (frame.createEntityRequested) {
+        createEntity(ctx);
+    }
+    processHistoryActions(ctx, frame);
+    processSaveRequests(ctx, frame);
+    processDocumentActions(ctx, frame);
+    updateDocumentDirty(ctx);
+}
 
-        if (scenes) {
-            m_workspace->setAvailableScenes(std::move(*scenes));
+auto AetherEditor::core::Editor::refreshSceneList(AetherEngine::core::EngineContext& ctx) -> void {
+    auto scenes = docs::DocumentController::listScenes(ctx);
+    if (scenes) {
+        m_workspace->setAvailableScenes(std::move(*scenes));
+    } else {
+        m_workspace->setAvailableScenes({});
+        showEditorError("Scene list failed", scenes.error(), ctx.window.getSDLWindow());
+    }
+}
+
+auto AetherEditor::core::Editor::scanTextures(AetherEngine::core::EngineContext& ctx) -> void {
+    const auto report = assets::AssetCatalogService::scanTextures(ctx.assets);
+    if (!report) {
+        ctx.logger.error(report.error().message, "Assets");
+        m_workspace->setAssetStatus(report.error().message, true);
+        return;
+    }
+    for (const auto& warning : report->warnings) ctx.logger.warning(warning, "Assets");
+    const auto message = "Textures added: " + std::to_string(report->added) +
+        "; already registered: " + std::to_string(report->existing) +
+        "; skipped: " + std::to_string(report->warnings.size());
+    ctx.logger.info(message, "Assets");
+    m_workspace->setAssetStatus(message, false);
+}
+
+auto AetherEditor::core::Editor::processAssetActions(
+    AetherEngine::core::EngineContext& ctx, const panels::AssetBrowserFrame& frame
+) -> void {
+    if (frame.scanTexturesRequested) scanTextures(ctx);
+    if (frame.createMaterial) {
+        const auto created = assets::AssetCatalogService::createMaterial(ctx.assets, *frame.createMaterial);
+        if (created) {
+            const auto message = "Material created: " + frame.createMaterial->name;
+            ctx.logger.info(message, "Assets");
+            m_workspace->setAssetStatus(message, false);
+            m_workspace->materialCreated(*created);
         } else {
-            m_workspace->setAvailableScenes({});
-
-            SDL_ShowSimpleMessageBox(
-                SDL_MESSAGEBOX_ERROR,
-                "Scene list failed",
-                scenes.error().message.c_str(),
-                ctx.window.getSDLWindow()
-            );
+            ctx.logger.error(created.error().message, "Assets");
+            m_workspace->setAssetStatus(created.error().message, true);
         }
     }
-    if (workspaceFrame.undoRequested) {
+}
+
+auto AetherEditor::core::Editor::createEntity(AetherEngine::core::EngineContext& ctx) -> void {
+    auto& scene = ctx.getScene();
+    m_workspace->finishPendingEdits(scene, m_history);
+
+    std::string name = "Entity";
+    for (std::size_t suffix = 1; scene.findEntityByName(name); ++suffix) {
+        name = "Entity (" + std::to_string(suffix) + ")";
+    }
+    auto entityId = AetherEngine::scene::generateEntityId();
+    while (!entityId.isValid() || scene.findEntityById(entityId)) {
+        entityId = AetherEngine::scene::generateEntityId();
+    }
+
+    if (m_history.execute(std::make_unique<commands::CreateEntityCommand>(entityId, name), scene)) {
+        m_session.selectedEntity = entityId;
+    }
+}
+
+auto AetherEditor::core::Editor::renameEntity(
+    AetherEngine::core::EngineContext& ctx, const panels::RenameEntityRequest& request
+) -> void {
+    auto& scene = ctx.getScene();
+    const auto entity = scene.findEntityById(request.entityId);
+    if (!entity) {
+        return;
+    }
+    const auto& before = scene.getComponent<AetherEngine::components::IdentityComponent>(*entity).name;
+    if (before == request.name) {
+        return;
+    }
+    m_workspace->finishPendingEdits(scene, m_history);
+    m_history.execute(std::make_unique<commands::RenameEntityCommand>(request.entityId, before, request.name), scene);
+}
+
+auto AetherEditor::core::Editor::processHistoryActions(
+    AetherEngine::core::EngineContext& ctx,
+    const ui::EditorWorkspaceFrame& frame
+) -> void {
+    if (frame.undoRequested) {
         m_workspace->finishPendingEdits(ctx.getScene(), m_history);
         m_history.undo(ctx.getScene());
-    } else if (workspaceFrame.redoRequested) {
+    } else if (frame.redoRequested) {
         m_workspace->finishPendingEdits(ctx.getScene(), m_history);
         m_history.redo(ctx.getScene());
     }
-    if (workspaceFrame.saveAsFileStem) {
+    if (m_session.selectedEntity && !ctx.getScene().findEntityById(*m_session.selectedEntity)) {
+        m_session.selectedEntity.reset();
+    }
+}
+
+auto AetherEditor::core::Editor::processSaveRequests(
+    AetherEngine::core::EngineContext& ctx,
+    const ui::EditorWorkspaceFrame& frame
+) -> void {
+    if (frame.saveAsFileStem) {
         m_workspace->finishPendingEdits(ctx.getScene(), m_history);
-
-        const auto result =
-            saveAs(ctx, *workspaceFrame.saveAsFileStem);
-
+        const auto result = saveAs(ctx, *frame.saveAsFileStem);
         if (result) {
             m_workspace->requestCloseSaveAs();
         } else {
-            SDL_ShowSimpleMessageBox(
-                SDL_MESSAGEBOX_ERROR,
-                "Save As failed",
-                result.error().message.c_str(),
-                ctx.window.getSDLWindow()
-            );
+            showEditorError("Save As failed", result.error(), ctx.window.getSDLWindow());
         }
-    } else if (workspaceFrame.saveRequested) {
-        m_workspace->finishPendingEdits(ctx.getScene(), m_history);
-
-        const auto result = save(ctx);
-
-        if (!result) {
-            SDL_ShowSimpleMessageBox(
-                SDL_MESSAGEBOX_ERROR,
-                "Save failed",
-                result.error().message.c_str(),
-                ctx.window.getSDLWindow()
-            );
-        }
+        return;
     }
-    updateDocumentDirty(ctx);
 
-    if (workspaceFrame.loadFileStem) {
+    if (!frame.saveRequested) {
+        return;
+    }
+
+    m_workspace->finishPendingEdits(ctx.getScene(), m_history);
+    if (m_documentController->getDocument().fileStem.empty()) {
+        m_workspace->requestOpenSaveAs();
+        return;
+    }
+
+    const auto result = save(ctx);
+    if (!result) {
+        showEditorError("Save failed", result.error(), ctx.window.getSDLWindow());
+    }
+}
+
+auto AetherEditor::core::Editor::processDocumentActions(
+    AetherEngine::core::EngineContext& ctx,
+    const ui::EditorWorkspaceFrame& frame
+) -> void {
+    updateDocumentDirty(ctx);
+    if (frame.documentActionRequested) {
         m_workspace->finishPendingEdits(ctx.getScene(), m_history);
         updateDocumentDirty(ctx);
-        m_pendingLoadFileStem = *workspaceFrame.loadFileStem;
+        m_pendingDocumentAction = *frame.documentActionRequested;
 
         if (m_documentController->getDocument().dirty) {
             m_workspace->requestConfirmLoad();
         }
     }
 
-    const bool loadConfirmed =
-        workspaceFrame.loadDecision == ui::SceneLoadDecision::DiscardChanges;
-    const bool loadWithoutConfirmation =
-        workspaceFrame.loadFileStem && !m_documentController->getDocument().dirty;
+    const bool actionConfirmed = frame.loadDecision == SceneLoadDecision::DiscardChanges;
+    const bool actionWithoutConfirmation =
+        frame.documentActionRequested.has_value() && !m_documentController->getDocument().dirty;
 
-    if (workspaceFrame.loadDecision == ui::SceneLoadDecision::Cancel) {
-        m_pendingLoadFileStem.reset();
-    } else if (m_pendingLoadFileStem && (loadConfirmed || loadWithoutConfirmation)) {
-        const auto result = load(ctx, *m_pendingLoadFileStem);
-        if (result) {
-            m_workspace->requestCloseLoad();
-        } else {
-            SDL_ShowSimpleMessageBox(
-                SDL_MESSAGEBOX_ERROR,
-                "Load failed",
-                result.error().message.c_str(),
-                ctx.window.getSDLWindow()
-            );
-        }
-        m_pendingLoadFileStem.reset();
+    if (frame.loadDecision == SceneLoadDecision::Cancel) {
+        m_pendingDocumentAction.reset();
+        return;
     }
-    updateDocumentDirty(ctx);
-    const auto& viewportFrame = workspaceFrame.viewport;
+    if (!m_pendingDocumentAction || (!actionConfirmed && !actionWithoutConfirmation)) {
+        return;
+    }
 
-    auto cameraInput = m_inputRouter->route(viewportFrame.state, ctx.input, applicationFocused);
+    const auto action = *m_pendingDocumentAction;
+    std::expected<void, AetherEngine::core::EngineError> result;
+    switch (action.kind) {
+        case DocumentActionKind::NewScene:
+            result = newScene(ctx, action.sceneName);
+            break;
 
-    if (!setRelativeMouseMode(window, cameraInput.looking)) {
+        case DocumentActionKind::OpenScene:
+            result = load(ctx, action.sceneName);
+            break;
+    }
+
+    if (result) {
+        if (action.kind == DocumentActionKind::OpenScene) {
+            m_workspace->requestCloseLoad();
+        }
+    } else {
+        showEditorError("Scene action failed", result.error(), ctx.window.getSDLWindow());
+    }
+
+    m_pendingDocumentAction.reset();
+}
+
+auto AetherEditor::core::Editor::updateEditorCamera(
+    AetherEngine::core::EngineContext& ctx,
+    const viewport::SceneViewportFrame& frame,
+    bool applicationFocused
+) -> void {
+    auto cameraInput = m_inputRouter->route(frame.state, ctx.input, applicationFocused);
+
+    if (!setRelativeMouseMode(ctx.window.getSDLWindow(), cameraInput.looking)) {
         m_inputRouter->cancel();
         cameraInput = {};
     }
-    if (viewportFrame.target && viewportFrame.state.visible) {
-        m_cameraController->dolly(m_editorCameraTransform, m_editorCamera, cameraInput.dolly);
-        if (cameraInput.looking) {
-            m_cameraController->look(m_editorCameraTransform, cameraInput.lookDelta);
-            m_cameraController->move(m_editorCameraTransform, m_editorCamera, cameraInput.moveAxis, m_frameDelta);
-        }
-        const auto sceneExtent = viewportFrame.target->extent();
-        const AetherEngine::graphics::SceneView view{
-            .viewId = 10,
-            .target = viewportFrame.target,
-            .viewMatrix =
-                AetherEngine::math::CameraMatrices::makeView(
-                    m_editorCameraTransform
-                ),
-            .projectionMatrix =
-                AetherEngine::math::CameraMatrices::makeProjection(
-                    m_editorCamera,
-                    sceneExtent.width,
-                    sceneExtent.height
-                ),
-            .viewport = {
-                .width = sceneExtent.width,
-                .height = sceneExtent.height
-            },
-            .clearFlags = BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH,
-            .clearColor = 0x20252bff
-        };
-
-        ctx.renderer.renderScene(
-            ctx.getScene(),
-            ctx.assets,
-            ctx.sceneAssetBinding,
-            view
-        );
+    if (!frame.target || !frame.state.visible) {
+        return;
     }
 
-    m_gui->endFrame(backbufferExtent);
+    m_cameraController->dolly(m_editorCameraTransform, m_editorCamera, cameraInput.dolly);
+    if (cameraInput.looking) {
+        m_cameraController->look(m_editorCameraTransform, cameraInput.lookDelta);
+        m_cameraController->move(m_editorCameraTransform, m_editorCamera, cameraInput.moveAxis, m_frameDelta);
+    }
+}
+
+auto AetherEditor::core::Editor::renderSceneViewport(
+    AetherEngine::core::EngineContext& ctx,
+    const viewport::SceneViewportFrame& frame
+) const -> void {
+    if (!frame.target || !frame.state.visible) {
+        return;
+    }
+
+    const auto sceneExtent = frame.target->extent();
+    const AetherEngine::graphics::SceneView view{
+        .viewId = 10,
+        .target = frame.target,
+        .viewMatrix = AetherEngine::math::CameraMatrices::makeView(m_editorCameraTransform),
+        .projectionMatrix = AetherEngine::math::CameraMatrices::makeProjection(
+            m_editorCamera,
+            sceneExtent.width,
+            sceneExtent.height
+        ),
+        .viewport = {
+            .width = sceneExtent.width,
+            .height = sceneExtent.height
+        },
+        .clearFlags = BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH,
+        .clearColor = 0x20252bff
+    };
+
+    ctx.renderer.renderScene(ctx.getScene(), ctx.assets, ctx.sceneAssetBinding, view);
 }
 
 auto AetherEditor::core::Editor::shutdown(AetherEngine::core::EngineContext& ctx) -> void {

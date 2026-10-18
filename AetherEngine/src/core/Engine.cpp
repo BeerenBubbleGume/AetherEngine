@@ -6,6 +6,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <spdlog/sinks/stdout_sinks.h>
+
+#include "logging/SpdlogSupport.hpp"
 
 #if defined(_WIN32)
 #ifndef NOMINMAX
@@ -13,6 +16,28 @@
 #endif
 #include <Windows.h>
 #endif
+
+namespace {
+    class StderrLogSink final : public AetherEngine::logging::ILogSink {
+    public:
+        StderrLogSink() { m_sink.set_pattern("[%l][%n] %v"); }
+
+        auto write(const AetherEngine::logging::LogRecord& record) -> void override {
+            using namespace AetherEngine::logging::detail;
+            const spdlog::details::log_msg message{
+                record.timestamp, spdlog::source_loc{}, toSpdlogView(record.category),
+                toSpdlogLevel(record.level), toSpdlogView(record.message)};
+            m_sink.log(message);
+        }
+
+    private:
+        spdlog::sinks::stderr_sink_mt m_sink;
+    };
+}
+
+AetherEngine::Engine::Engine() {
+    m_logger.addSink(std::make_shared<StderrLogSink>());
+}
 
 auto AetherEngine::Engine::initEngine(const core::EngineInitConfig& config) -> std::expected<void, core::EngineError> {
 #if defined(_WIN32)
@@ -74,12 +99,12 @@ auto AetherEngine::Engine::initEngine(const core::EngineInitConfig& config) -> s
     sScene = std::move(*loadedScene);
     auto resultInitWindow = sWindow->initWindow("SMB Engine", 1440, 1080);
     if (!resultInitWindow) {
-        std::cerr << "Failed to init window: " << resultInitWindow.error().message << std::endl;
+        m_logger.error("Failed to init window: " + resultInitWindow.error().message, "Engine");
         return std::unexpected{core::EngineError{3, "Failed to init window"}};
     }
     auto resultInitRenderer = sRender->init(*sWindow->getSDLWindow());
     if (!resultInitRenderer) {
-        std::cerr << "Failed to init renderer: " << resultInitRenderer.error().message << std::endl;
+        m_logger.error("Failed to init renderer: " + resultInitRenderer.error().message, "Engine");
         return std::unexpected{core::EngineError{3, "Failed to init renderer"}};
     }
 
@@ -98,7 +123,7 @@ auto AetherEngine::Engine::initEngine(const core::EngineInitConfig& config) -> s
     sSceneAssetBinding = systems::SceneAssetBindingSystem::create(*sAssets);
     auto physicsInitResult = sPhysics->init();
     if (!physicsInitResult) {
-        std::cerr << "Failed to init physics: " << physicsInitResult.error().message << std::endl;
+        m_logger.error("Failed to init physics: " + physicsInitResult.error().message, "Engine");
         return std::unexpected{core::EngineError{3, "Failed to init physics"}};
     }
     state = core::EngineState::Initialized;
@@ -111,6 +136,7 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
     constexpr float MaxFrameDelta = 0.25f;
     constexpr std::size_t MaxPhysicsSubsteps = 8;
     core::EngineContext ctx{
+        .logger = m_logger,
         .assets = *sAssets,
         .input = *sInput,
         .renderer = *sRender,
@@ -126,12 +152,12 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
     };
     auto appInitResult = app.init(ctx);
     if (!appInitResult) {
-        std::cerr << "Failed to init application: " << appInitResult.error().message << std::endl;
+        m_logger.error("Failed to init application: " + appInitResult.error().message, "Engine");
         return std::unexpected{core::EngineError{4, "Failed to init application"}};
     }
     auto sceneBindResult = sSceneAssetBinding->bindScene(*sScene);
     if (!sceneBindResult) {
-        std::cerr << "Failed to bind scene: " << sceneBindResult.error().message << std::endl;
+        m_logger.error("Failed to bind scene: " + sceneBindResult.error().message, "Engine");
         return std::unexpected{core::EngineError{4, "Failed to bind scene"}};
     }
     try {
@@ -165,7 +191,7 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
             app.update(delta, ctx);
             auto sceneSynchronizeResult = sSceneAssetBinding->synchronize(*sScene);
             if (!sceneSynchronizeResult) {
-                std::cerr << "Failed to synchronize scene: " << sceneSynchronizeResult.error().message << std::endl;
+                m_logger.error("Failed to synchronize scene: " + sceneSynchronizeResult.error().message, "Engine");
                 state = core::EngineState::Stopped;
                 throw std::runtime_error{sceneSynchronizeResult.error().message};
             }
@@ -175,11 +201,11 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
         }
     } catch (const std::exception& e) {
         app.shutdown(ctx);
-        std::cerr << "Exception during engine run: " << e.what() << std::endl;
+        m_logger.error(std::string{"Exception during engine run: "} + e.what(), "Engine");
         return std::unexpected{core::EngineError{5, "Exception during engine run"}};
     } catch (...) {
         app.shutdown(ctx);
-        std::cerr << "Unknown exception during engine run" << std::endl;
+        m_logger.error("Unknown exception during engine run", "Engine");
         return std::unexpected{core::EngineError{5, "Unknown exception during engine run"}};
     }
 
@@ -247,7 +273,7 @@ auto AetherEngine::Engine::replaceScene(scene::Scene::ScenePtr newScene) -> std:
         accumulator = 0.0f;
         sScene = std::move(newScene);
     } catch (...) {
-        std::cerr << "Exception during engine::replaceScene" << std::endl;
+        m_logger.error("Exception during engine::replaceScene", "Engine");
         return std::unexpected{core::EngineError{6, "Exception during engine::replaceScene"}};
     }
     return {};

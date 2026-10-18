@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <span>
 #include <type_traits>
 #include <unordered_map>
 
@@ -47,6 +48,9 @@ namespace AetherEngine::assets {
         auto registerLoader(std::unique_ptr<IAssetLoader> loader)
             -> std::expected<void, AssetError>;
 
+        // Additive catalog update at a frame boundary; existing runtime handles remain valid.
+        auto registerAssets(std::span<const AssetRecord> records) -> std::expected<void, AssetError>;
+
         template<typename T>
         [[nodiscard]] auto reference(std::string_view alias) const
             -> std::expected<AssetRef<T>, AssetError>;
@@ -84,6 +88,7 @@ namespace AetherEngine::assets {
         auto releaseDependencies(const AssetRecord& record) -> void;
 
         std::filesystem::path m_assetsRoot;
+        std::filesystem::path m_manifest;
         resources::ResourceManager* m_resources{};
         PlatformProfile m_platform{};
         AssetRegistry m_registry;

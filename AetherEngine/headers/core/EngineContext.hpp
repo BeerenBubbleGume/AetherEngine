@@ -11,6 +11,7 @@
 #include "EngineConfig.hpp"
 
 #include "assets/AssetManager.hpp"
+#include "logging/Logger.hpp"
 #include "scene/Scene.hpp"
 #include "systems/InputSystem.hpp"
 #include "systems/SceneSerializer.hpp"
@@ -28,6 +29,7 @@ namespace AetherEngine::core {
     };
 
     struct EngineContext {
+        logging::Logger& logger;
         assets::AssetManager& assets;
         systems::InputSystem& input;
         systems::RenderSystem& renderer;

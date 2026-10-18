@@ -38,6 +38,7 @@ namespace smb {
     }
 
     auto SMB::init(AetherEngine::core::EngineContext &ctx) -> std::expected<void, AetherEngine::core::EngineError> {
+        ctx.logger.info("Initializing game", "Game");
         ctx.input.bindKey(AetherEngine::systems::InputAction::MoveLeft, AetherEngine::systems::Key::A);
         ctx.input.bindKey(AetherEngine::systems::InputAction::MoveRight, AetherEngine::systems::Key::D);
         ctx.input.bindKey(AetherEngine::systems::InputAction::MoveForward, AetherEngine::systems::Key::W);

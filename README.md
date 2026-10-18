@@ -25,6 +25,7 @@ specific machine or graphics backend.
 - ImGui editor integration and a separate editor camera.
 - Bounded and validated scene, mesh, texture, and shader inputs.
 - Hardened filesystem access for runtime assets and scenes.
+- Thread-safe logging through `EngineContext`, with bounded history and pluggable sinks.
 
 ## Architecture
 
@@ -60,6 +61,61 @@ The default project scene uses schema version 2 and contains only asset IDs.
 Physical paths are isolated in the project's `assets/registry/runtime-assets.json`;
 material dependency metadata lives in its `assets/materials/`.
 
+## Logging
+
+The engine owns `logging::Logger`, a RAII wrapper over a synchronous spdlog
+backend, and shares it with both game and editor through `EngineContext::logger`:
+
+```cpp
+ctx.logger.info("Scene loaded", "Game");
+ctx.logger.warning("Asset is missing", "Editor");
+ctx.logger.setMinLevel(AetherEngine::logging::LogLevel::Debug);
+ctx.logger.setCapacity(2048);
+const auto records = ctx.logger.snapshot();
+```
+
+Levels are `Trace`, `Debug`, `Info`, `Warning`, `Error`, and `Fatal`; the default
+minimum is `Info`. `fatal()` records a message without terminating the process.
+Each `LogRecord` owns its message and category, plus a sequence number, timestamp,
+producer thread ID, and truncation flag. The default ring retains the newest 1024
+records, with at most 4096 message bytes and 128 category bytes per record.
+Oversized UTF-8 strings are truncated at code point boundaries. A capacity of zero
+disables history while keeping sink delivery. Resizing retains the newest records;
+`clear()` empties history without resetting sequence numbers. Snapshots are
+independent copies in sequence order and can be read safely by UI code.
+
+Use `addSink(std::shared_ptr<ILogSink>)` and `removeSink(...)` for output consumers.
+The engine installs a spdlog-backed synchronized stderr sink. A standalone
+`Logger` starts with no output subscribers. Sinks receive new, filtered, bounded records synchronously on producer
+threads, outside the history lock; custom sinks must synchronize their own state
+and must not directly call UI APIs from worker threads. Concurrent sink calls may
+arrive out of sequence. Sink exceptions are isolated from other sinks and callers.
+Removal does not wait for in-flight writes, which retain shared ownership of the
+sink. Stop/join workers before destroying the engine/logger. Logging itself may
+still throw on allocation failure, and slow sinks delay the calling producer.
+
+The backend is private behind `Logger::Impl`; public engine headers expose no
+spdlog types. Each logger owns its backend and subscriptions without registering
+in spdlog's global registry or calling global `shutdown()`. Scope exit releases
+these resources, leaving other loggers in the host process untouched.
+
+spdlog handles level filtering and backend dispatch; the engine's custom record
+sink preserves `LogRecord`, sequence numbering, byte limits, runtime resizing,
+and the reentrant `ILogSink` contract. Filtered calls do not acquire the history
+mutex. Subscriber lists are copied on changes only. History stores each record
+once, and snapshots copy immutable records' text outside the history lock.
+
+The backend choice favors the current synchronous API and independent RAII
+ownership. [spdlog](https://github.com/gabime/spdlog) is also used by
+[Hazel](https://github.com/TheCherno/Hazel/blob/master/Hazel/src/Hazel/Core/Log.cpp).
+[Quill](https://github.com/odygrd/quill) is a candidate if background processing
+and producer latency become requirements; its asynchronous delivery would change
+the current callback contract. [Loguru](https://github.com/emilk/loguru) offers
+game-screen callbacks but uses process-wide configuration. The native
+[ezEngine logging system](https://ezengine.net/pages/docs/debugging/logging.html)
+is a useful integration reference, rather than a small standalone dependency.
+No comparative throughput claim is made without a workload-specific benchmark.
+
 ## Project Layout
 
 - `AetherEngine/` — reusable engine headers and implementation.
@@ -86,6 +142,7 @@ The project uses CMake and vcpkg manifest mode. Direct dependencies are:
 - bgfx
 - glm
 - nlohmann/json
+- spdlog (with fmt through vcpkg)
 - Dear ImGui with docking and SDL3 bindings
 - Jolt Physics
 - NVIDIA PhysX on non-macOS platforms
@@ -194,6 +251,65 @@ Use `--help` for usage. A launch override affects only the editor; to package th
 project for `smb`, also select it with `AETHER_PROJECT_ROOT` in CMake. The sample
 game starts `Main` and expects the sample `player` entity.
 
+In the editor, the Asset Browser scans the project's `assets/textures/bin`
+directory and its subdirectories at startup and when **Refresh KTX** is pressed.
+New supported 2D RGBA8 KTX1 textures are registered in `assets/registry/runtime-assets.json`;
+their IDs survive restarts, and GPU resources are loaded when used. Skipped files
+and errors are reported in the Console.
+
+**New Material...** opens a dialog for a name, shader, and texture. Selecting a
+texture in the browser first prefills the texture field. Creation saves
+`assets/materials/<name>.material.json` and its catalog entry. The material can
+then be assigned to an object's Material component in the Inspector and saved
+with the scene. Existing material files are preserved.
+
+The Inspector also shows **Select mesh...** and **Select material...** for entities
+without those components. Selecting an asset adds the corresponding component;
+Undo removes it and Redo restores it. Assign both a mesh and a material to render
+an entity. Shaders and textures are selected when creating the material. A physics
+collider, such as the sample Ground, does not provide render geometry.
+
+**Create Entity** at the top of the Hierarchy adds and selects an empty entity
+with a default Transform at the origin. Names start at `Entity`, then `Entity (1)`,
+`Entity (2)`, and so on, using the first available name. Assign a mesh and material
+in the Inspector to make it visible. Creation supports Undo/Redo with a stable
+entity ID and is saved with the scene.
+
+Double-click an entity in the Hierarchy to rename it inline. Enter or clicking
+outside the field applies a valid name; Escape cancels. Renaming supports
+Undo/Redo and scene saving, preserves the entity ID, and allows shared display
+names. Blank names are rejected. Hiding the Hierarchy or switching scenes cancels
+an unfinished rename.
+
+Sandbox includes five registered primitives under `asset://meshes/primitives/`:
+
+| Mesh | Dimensions at Scale = (1, 1, 1) | Triangles |
+| --- | --- | --- |
+| `plane` | 1 x 1 in XZ, front side faces +Y | 2 |
+| `cube` | 1 x 1 x 1, hard face normals | 12 |
+| `sphere` | radius 0.5, 32 sectors / 16 latitude divisions | 960 |
+| `cylinder` | radius 0.5, height 1 along Y, capped | 128 |
+| `cone` | base radius 0.5, height 1 along Y, capped | 64 |
+
+All primitives are centered at the origin and include normals and UV0 for the
+existing `basic` shader. Cuboids use the cube mesh with different Transform scales.
+After restarting the editor, choose them from the Inspector's Mesh picker.
+
+Editable OBJ files are in `projects/Sandbox/assets/meshes/source/primitives/`;
+runtime `.bin` files are in `projects/Sandbox/assets/meshes/bin/primitives/`.
+Regenerate both with Python 3.10+ and the bundled bgfx `geometryc`:
+
+```powershell
+python tools/generate_primitives.py
+```
+
+The script keeps geometry uncompressed and uses the winding required by the
+engine's current camera and culling state. It preserves the catalog and stable
+asset IDs. Python and `geometryc` are not needed to load the checked-in binaries.
+Use `--geometryc <path>` for a different compiler or `--assets-root <path>` to
+generate the files for another project; registering them in that project's
+catalog is a separate step.
+
 Sample controls:
 
 - `W`, `A`, `S`, `D` — move the controlled entity.
@@ -221,6 +337,8 @@ Current suites cover:
   or the game package;
 - scene entity ownership and generations, persistent ID lookup and restoration,
   mandatory identity protection, and active camera validation and cleanup;
+- editor resource component addition, replacement, Undo/Redo, saved-state tracking,
+  and scene round trips that preserve physics components;
 - scene file creation and replacement, byte limits, unsafe paths, preservation of
   original data on failure, and temporary-file cleanup;
 - on Windows, file identity after replacement, blocked readers, and injected WinAPI failures for
