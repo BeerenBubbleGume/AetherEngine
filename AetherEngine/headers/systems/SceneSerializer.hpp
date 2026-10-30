@@ -11,9 +11,11 @@
 
 #include "assets/AssetManager.hpp"
 #include "scene/Scene.hpp"
+#include "security/PathSecurity.hpp"
 
 
 namespace AetherEngine::systems {
+    inline constexpr int SceneFileAlreadyExistsError = 4;
     struct SceneSerializerError {
         int code;
         std::string message;
@@ -29,7 +31,8 @@ namespace AetherEngine::systems {
         SceneSerializer& operator=(const SceneSerializer&) = default;
 
         [[nodiscard]] static auto createSceneSerializer(const std::filesystem::path &scenesPath) -> SceneSerializerPtr;
-        [[nodiscard]] auto serializeScene(const scene::Scene &scene, std::string_view fileStem = {}) const -> std::expected<void, SceneSerializerError>;
+        [[nodiscard]] auto serializeScene(const scene::Scene &scene, std::string_view fileStem = {},
+            security::FileWriteMode mode = security::FileWriteMode::Replace) const -> std::expected<void, SceneSerializerError>;
 
         [[nodiscard]] auto deserializeScene(
             std::string_view sceneName

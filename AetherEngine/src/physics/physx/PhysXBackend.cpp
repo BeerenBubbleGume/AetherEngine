@@ -209,7 +209,7 @@ namespace AetherEngine::physics {
         return handle;
     }
 
-    auto PhysXBackend::destroyBody(BodyHandle handle) -> void {
+    auto PhysXBackend::destroyBody(BodyHandle handle) noexcept -> void {
         const auto bodyIt = m_bodies.find(handle.value);
         if (bodyIt == m_bodies.end()) {
             return;

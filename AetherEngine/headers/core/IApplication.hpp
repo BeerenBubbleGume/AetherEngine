@@ -16,6 +16,8 @@ namespace AetherEngine::core {
         virtual ~IApplication() = default;
         virtual auto init(EngineContext& ctx) -> std::expected<void, EngineError> = 0;
         virtual auto onEvent(const SDL_Event& event) -> void { (void)event; }
+        // OS close requests can be deferred by applications with unsaved work.
+        virtual auto onQuitRequested(EngineContext& ctx) -> void { ctx.requestQuit(); }
         virtual auto update(float dt, EngineContext& ctx) -> void = 0;
         virtual auto render(EngineContext& ctx) -> void = 0;
         virtual auto shutdown(EngineContext& ctx) -> void { (void)ctx; }

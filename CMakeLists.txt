@@ -219,10 +219,66 @@ if (BUILD_TESTING)
             tests/EditorComponentCommandsTests.cpp
             AetherEditor/src/commands/ComponentCommands.cpp
             AetherEditor/src/commands/EntityCommands.cpp
+            AetherEditor/src/commands/EntitySnapshot.cpp
             AetherEditor/src/commands/CommandHistory.cpp)
     target_include_directories(aether_editor_component_commands_tests PRIVATE AetherEditor/headers)
     target_link_libraries(aether_editor_component_commands_tests PRIVATE AetherEngine)
     add_test(NAME editor_component_commands_regressions COMMAND aether_editor_component_commands_tests)
+
+    add_executable(aether_editor_entity_snapshot_tests
+            tests/EditorEntitySnapshotTests.cpp
+            AetherEditor/src/commands/EntitySnapshot.cpp
+            AetherEditor/src/commands/EntityCommands.cpp
+            AetherEditor/src/commands/ComponentCommands.cpp
+            AetherEditor/src/commands/CommandHistory.cpp)
+    target_include_directories(aether_editor_entity_snapshot_tests PRIVATE AetherEditor/headers)
+    target_link_libraries(aether_editor_entity_snapshot_tests PRIVATE AetherEngine)
+    add_test(NAME editor_entity_snapshot_regressions COMMAND aether_editor_entity_snapshot_tests)
+
+    add_executable(aether_editor_simulation_tests
+            tests/EditorSimulationControllerTests.cpp
+            AetherEditor/src/simulation/SimulationController.cpp
+            AetherEditor/src/commands/EntitySnapshot.cpp
+            AetherEditor/src/commands/EntityCommands.cpp
+            AetherEditor/src/commands/CommandHistory.cpp
+            AetherEditor/src/documents/DocumentController.cpp)
+    target_include_directories(aether_editor_simulation_tests PRIVATE AetherEditor/headers)
+    target_link_libraries(aether_editor_simulation_tests PRIVATE AetherEngine)
+    add_test(NAME editor_simulation_regressions COMMAND aether_editor_simulation_tests)
+    set_tests_properties(editor_simulation_regressions PROPERTIES TIMEOUT 30)
+
+    add_executable(aether_editor_document_tests
+            tests/EditorDocumentTests.cpp
+            AetherEditor/src/documents/DocumentController.cpp
+            AetherEditor/src/simulation/SimulationController.cpp
+            AetherEditor/src/commands/EntitySnapshot.cpp)
+    target_include_directories(aether_editor_document_tests PRIVATE AetherEditor/headers)
+    target_link_libraries(aether_editor_document_tests PRIVATE AetherEngine)
+    add_test(NAME editor_document_regressions COMMAND aether_editor_document_tests)
+    set_tests_properties(editor_document_regressions PROPERTIES TIMEOUT 30)
+
+    add_executable(aether_scene_asset_binding_tests tests/SceneAssetBindingTests.cpp)
+    target_link_libraries(aether_scene_asset_binding_tests PRIVATE AetherEngine)
+    target_compile_definitions(aether_scene_asset_binding_tests PRIVATE
+            AETHER_TEST_ASSETS_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/projects/Sandbox/assets")
+    add_test(NAME scene_asset_binding_regressions COMMAND aether_scene_asset_binding_tests)
+    set_tests_properties(scene_asset_binding_regressions PROPERTIES TIMEOUT 30)
+
+    add_executable(aether_editor_workspace_tests
+            tests/EditorWorkspaceTests.cpp
+            AetherEditor/src/ui/EditorWorkspace.cpp
+            AetherEditor/src/ui/ImGuiBgfxRenderer.cpp
+            AetherEditor/src/panels/InspectorPanel.cpp
+            AetherEditor/src/panels/HierarchyPanel.cpp
+            AetherEditor/src/panels/SceneViewportPanel.cpp
+            AetherEditor/src/panels/ConsolePanel.cpp
+            AetherEditor/src/panels/AssetBrowserPanel.cpp
+            AetherEditor/src/commands/ComponentCommands.cpp
+            AetherEditor/src/commands/CommandHistory.cpp)
+    target_include_directories(aether_editor_workspace_tests PRIVATE AetherEditor/headers assets/shaders/generated)
+    target_link_libraries(aether_editor_workspace_tests PRIVATE AetherEngine imgui::imgui)
+    add_test(NAME editor_workspace_regressions COMMAND aether_editor_workspace_tests)
+    set_tests_properties(editor_workspace_regressions PROPERTIES TIMEOUT 30)
 
     add_executable(aether_project_paths_tests tests/ProjectPathsTests.cpp)
     target_link_libraries(aether_project_paths_tests PRIVATE AetherEngine)
@@ -248,7 +304,7 @@ if (BUILD_TESTING)
         add_executable(aether_scene_write_win32_fault_tests tests/PathSecurityWin32FaultTests.cpp)
         target_include_directories(aether_scene_write_win32_fault_tests PRIVATE AetherEngine/headers)
         foreach(scenario short_writes write_failure partial_failure flush_failure
-                metadata_failure collision collisions_exhausted)
+                metadata_failure collision collisions_exhausted create_new_race)
             add_test(NAME scene_write_win32_${scenario}
                     COMMAND aether_scene_write_win32_fault_tests ${scenario})
             set_tests_properties(scene_write_win32_${scenario} PROPERTIES TIMEOUT 30)
@@ -285,6 +341,8 @@ add_executable(AetherEditor
         AetherEditor/headers/commands/EditorCommand.hpp
         AetherEditor/src/commands/EntityCommands.cpp
         AetherEditor/headers/commands/EntityCommands.hpp
+        AetherEditor/src/commands/EntitySnapshot.cpp
+        AetherEditor/headers/commands/EntitySnapshot.hpp
         AetherEditor/src/commands/ComponentCommands.cpp
         AetherEditor/headers/commands/ComponentCommands.hpp
         AetherEditor/src/ui/EditorWorkspace.cpp
@@ -310,6 +368,8 @@ add_executable(AetherEditor
         AetherEditor/headers/panels/AssetBrowserPanel.hpp
         AetherEditor/src/panels/ConsolePanel.cpp
         AetherEditor/headers/panels/ConsolePanel.hpp
+        AetherEditor/src/simulation/SimulationController.cpp
+        AetherEditor/headers/simulation/SimulationController.hpp
 )
 
 set(AETHER_IMGUI_SHADER_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/assets/shaders/generated")
@@ -373,6 +433,44 @@ target_link_libraries(AetherEditor PRIVATE
         imgui::imgui
 )
 
+if (WIN32 AND AETHER_PHYSICS_BACKEND_NORMALIZED STREQUAL "physx")
+    # PhysX loads Common/Foundation on demand. vcpkg z-applocal can miss these
+    # delay imports, and the SDK's UNKNOWN imported targets do not describe DLLs
+    # for TARGET_RUNTIME_DLLS. Stage the CPU runtime from the selected SDK.
+    foreach(physx_config DEBUG RELEASE)
+        set(AETHER_PHYSX_RUNTIME_${physx_config})
+        set(physx_bin_dir "${OMNIVERSE-PHYSX-SDK_${physx_config}_BIN_DIR}")
+        if (EXISTS "${physx_bin_dir}/PhysX_64.dll")
+            foreach(physx_dll PhysX_64 PhysXCommon_64 PhysXFoundation_64)
+                if (NOT EXISTS "${physx_bin_dir}/${physx_dll}.dll")
+                    message(FATAL_ERROR "Missing PhysX runtime: ${physx_bin_dir}/${physx_dll}.dll")
+                endif()
+                list(APPEND AETHER_PHYSX_RUNTIME_${physx_config}
+                        "${physx_bin_dir}/${physx_dll}.dll")
+            endforeach()
+        endif()
+    endforeach()
+    # Static SDKs need no DLLs; release-only SDKs also serve Debug consumers.
+    if (NOT AETHER_PHYSX_RUNTIME_DEBUG)
+        set(AETHER_PHYSX_RUNTIME_DEBUG ${AETHER_PHYSX_RUNTIME_RELEASE})
+    endif()
+    if (AETHER_PHYSX_RUNTIME_RELEASE)
+        get_property(aether_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+        foreach(aether_target IN LISTS aether_targets)
+            get_target_property(aether_target_type ${aether_target} TYPE)
+            if (aether_target_type STREQUAL "EXECUTABLE")
+                add_custom_command(TARGET ${aether_target} POST_BUILD
+                        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                                "$<IF:$<CONFIG:Debug>,${AETHER_PHYSX_RUNTIME_DEBUG},${AETHER_PHYSX_RUNTIME_RELEASE}>"
+                                "$<TARGET_FILE_DIR:${aether_target}>"
+                        COMMAND_EXPAND_LISTS
+                        COMMENT "Staging PhysX runtime for ${aether_target}"
+                        VERBATIM)
+            endif()
+        endforeach()
+    endif()
+endif()
+
 if (MSVC)
     set(hardened_targets AetherEngine smb AetherEditor)
     set(hardened_executables smb AetherEditor)
@@ -392,7 +490,7 @@ if (MSVC)
         list(APPEND hardened_targets aether_project_paths_tests)
         list(APPEND hardened_executables aether_project_paths_tests)
     endif()
-    foreach(scene_test aether_scene_write_tests aether_scene_write_win32_fault_tests aether_scene_entity_tests aether_logger_tests aether_editor_asset_catalog_tests aether_editor_component_commands_tests)
+    foreach(scene_test aether_scene_write_tests aether_scene_write_win32_fault_tests aether_scene_entity_tests aether_logger_tests aether_editor_asset_catalog_tests aether_editor_component_commands_tests aether_editor_entity_snapshot_tests aether_editor_simulation_tests aether_editor_document_tests aether_scene_asset_binding_tests aether_editor_workspace_tests)
         if (TARGET ${scene_test})
             list(APPEND hardened_targets ${scene_test})
             list(APPEND hardened_executables ${scene_test})

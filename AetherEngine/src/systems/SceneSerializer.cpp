@@ -429,7 +429,8 @@ auto AetherEngine::systems::SceneSerializer::createSceneSerializer(const std::fi
     return SceneSerializerPtr(new SceneSerializer(*canonicalScenes), SceneSerializerDeleter{});
 }
 
-auto AetherEngine::systems::SceneSerializer::serializeScene(const scene::Scene &scene, const std::string_view fileStem) const -> std::expected<void, SceneSerializerError> {
+auto AetherEngine::systems::SceneSerializer::serializeScene(const scene::Scene &scene, const std::string_view fileStem,
+    security::FileWriteMode mode) const -> std::expected<void, SceneSerializerError> {
     const auto currentScenesPath = security::resolveDirectoryWithin(
         m_scenesPath.parent_path(),
         m_scenesPath.filename().string()
@@ -518,11 +519,13 @@ auto AetherEngine::systems::SceneSerializer::serializeScene(const scene::Scene &
             reinterpret_cast<const std::uint8_t*>(serialized.data()),
             serialized.size()
         },
-        MaxSceneBytes
+        MaxSceneBytes,
+        mode
     );
     if (!writeResult) {
         return std::unexpected(makeError(
-            FileSystemErrorCode,
+            writeResult.error().code == security::PathSecurityErrorCode::AlreadyExists
+                ? SceneFileAlreadyExistsError : FileSystemErrorCode,
             "Failed to securely write scene file: " + writeResult.error().message
         ));
     }

@@ -83,7 +83,8 @@ namespace AetherEditor::panels {
         AetherEngine::scene::Scene& scene,
         const core::EditorSession& session,
         commands::CommandHistory& history,
-        const AetherEngine::assets::AssetRegistry& registry
+        const AetherEngine::assets::AssetRegistry& registry,
+        std::span<const AetherEngine::systems::SceneAssetBindingError> errors
     ) -> bool {
         bool changed = false;
         bool transformEditActive = false;
@@ -92,6 +93,16 @@ namespace AetherEditor::panels {
                 ImGui::TextUnformatted("No entity selected");
             } else if (const auto entity = scene.findEntityById(*session.selectedEntity)) {
                 changed = drawEntity(scene, *entity, history, registry, transformEditActive);
+                const auto* mesh = scene.tryGetComponent<AetherEngine::components::MeshComponent>(*entity);
+                const auto* material = scene.tryGetComponent<AetherEngine::components::MaterialComponent>(*entity);
+                for (const auto& error : errors) {
+                    if ((mesh && mesh->asset.id == error.asset) || (material && material->asset.id == error.asset)) {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{1.0f, 0.45f, 0.4f, 1.0f});
+                        ImGui::TextWrapped("%s", error.message.c_str());
+                        ImGui::PopStyleColor();
+                        ImGui::TextWrapped("Rendering is skipped until the asset is available. Choose another asset or use View > Retry Missing Assets.");
+                    }
+                }
             } else {
                 ImGui::TextUnformatted("Selected entity no longer exists");
             }

@@ -31,11 +31,11 @@ namespace AetherEngine::systems {
         using PhysicsSystemPtr = std::unique_ptr<PhysicsSystem, PhysicsSystemDeleter>;
 
         [[nodiscard]] static PhysicsSystemPtr createPhysicsSystem();
-        [[nodiscard]] auto init() -> std::expected<void, PhysicsError>;
+        [[nodiscard]] auto init() const -> std::expected<void, PhysicsError>;
         auto shutdown() -> void;
 
         auto fixedUpdate(scene::Scene& scene, float fixedDelta) -> void;
-        auto clearSceneBodies() -> void;
+        auto clearSceneBodies() noexcept -> void;
     private:
         auto syncActorsFromScene(scene::Scene& scene) -> void;
         auto syncSceneFromActors(scene::Scene& scene) -> void;

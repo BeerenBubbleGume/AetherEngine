@@ -285,7 +285,7 @@ namespace AetherEngine::physics {
         return handle;
     }
 
-    auto JoltBackend::destroyBody(BodyHandle handle) -> void {
+    auto JoltBackend::destroyBody(BodyHandle handle) noexcept -> void {
         const auto bodyIt = m_bodies.find(handle.value);
         if (!m_physicsSystem || bodyIt == m_bodies.end()) {
             return;

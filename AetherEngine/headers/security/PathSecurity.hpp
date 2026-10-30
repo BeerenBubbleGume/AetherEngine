@@ -10,8 +10,11 @@
 #include <vector>
 
 namespace AetherEngine::security {
+    enum class FileWriteMode { Replace, CreateNew };
+    enum class PathSecurityErrorCode { General, AlreadyExists };
     struct PathSecurityError {
         std::string message;
+        PathSecurityErrorCode code = PathSecurityErrorCode::General;
     };
 
     struct SecureFileContents {
@@ -50,12 +53,14 @@ namespace AetherEngine::security {
 
     // Writes through an OS handle whose final path and type were checked while
     // the non-reparse directory chain remains locked. POSIX uses an anchored
-    // same-directory temporary file and atomic rename.
+    // same-directory temporary file and atomic rename/link. CreateNew never
+    // replaces an existing destination, including one created during the write.
     [[nodiscard]] auto writeRegularFileWithin(
         const std::filesystem::path& canonicalRoot,
         std::string_view requestedPath,
         std::span<const std::uint8_t> contents,
-        std::uint64_t maximumBytes
+        std::uint64_t maximumBytes,
+        FileWriteMode mode = FileWriteMode::Replace
     ) -> std::expected<void, PathSecurityError>;
 
     [[nodiscard]] auto isSafeSceneName(std::string_view sceneName) -> bool;

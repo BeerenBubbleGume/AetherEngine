@@ -64,6 +64,9 @@ namespace AetherEngine::assets {
 
         auto unload(AssetId id) -> void;
         [[nodiscard]] auto reload(AssetId id) -> std::expected<void, AssetError>;
+        // Allows a subsequent load to retry failed resources and dependencies;
+        // ready resources and their handles are untouched.
+        auto retryFailedLoads() -> void;
 
         [[nodiscard]] auto registry() const noexcept -> const AssetRegistry&;
         [[nodiscard]] auto platform() const noexcept -> PlatformProfile;

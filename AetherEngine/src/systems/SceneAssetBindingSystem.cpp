@@ -35,6 +35,7 @@ namespace AetherEngine::systems {
 
         std::unordered_map<assets::AssetId, MeshBinding, assets::AssetIdHash> newBindings;
         std::unordered_map<assets::AssetId, MaterialBinding, assets::AssetIdHash> materialBindings;
+        std::vector<SceneAssetBindingError> errors;
 
         struct BindingCleanup {
             assets::AssetManager& assets;
@@ -74,10 +75,14 @@ namespace AetherEngine::systems {
             auto loaded = m_assets->load(ref);
 
             if (!loaded) {
-                return std::unexpected(SceneAssetBindingError{
+                SceneAssetBindingError error{
                     id,
                     "Failed to load mesh asset: " + loaded.error().message
-                });
+                };
+                if (!m_allowMissingAssets) return std::unexpected(std::move(error));
+                errors.push_back(std::move(error));
+                newBindings.erase(position);
+                continue;
             }
             position->second.runtime = *loaded;
         }
@@ -94,16 +99,21 @@ namespace AetherEngine::systems {
             auto loaded = m_assets->load(ref);
 
             if (!loaded) {
-                return std::unexpected(SceneAssetBindingError{
+                SceneAssetBindingError error{
                     id,
                     "Failed to load material asset: " + loaded.error().message
-                });
+                };
+                if (!m_allowMissingAssets) return std::unexpected(std::move(error));
+                errors.push_back(std::move(error));
+                materialBindings.erase(position);
+                continue;
             }
 
             position->second.runtime = *loaded;
         }
         m_meshes.swap(newBindings);
         m_materials.swap(materialBindings);
+        m_errors.swap(errors);
 
         m_scene = &scene;
 
@@ -134,6 +144,7 @@ namespace AetherEngine::systems {
         }
         m_meshes.clear();
         m_materials.clear();
+        m_errors.clear();
         m_scene = nullptr;
     }
 

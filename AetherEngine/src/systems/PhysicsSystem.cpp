@@ -32,7 +32,7 @@ namespace AetherEngine::systems {
         delete system;
     }
 
-    auto PhysicsSystem::init() -> std::expected<void, PhysicsError> {
+    auto PhysicsSystem::init() const -> std::expected<void, PhysicsError> {
         if (!m_backend) {
             return std::unexpected(
                 PhysicsError{1, "Physics backend is not available"}
@@ -64,7 +64,7 @@ namespace AetherEngine::systems {
         syncSceneFromActors(scene);
     }
 
-    auto PhysicsSystem::clearSceneBodies() -> void {
+    auto PhysicsSystem::clearSceneBodies() noexcept -> void {
         if (m_backend) {
             for (const auto handle: m_actors | std::views::values) {
                 m_backend->destroyBody(handle);

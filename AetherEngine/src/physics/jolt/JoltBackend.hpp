@@ -31,7 +31,7 @@ namespace AetherEngine::physics {
         auto shutdown() -> void override;
 
         [[nodiscard]] auto createBody(const BodyDesc& desc) -> BodyHandle override;
-        auto destroyBody(BodyHandle handle) -> void override;
+        auto destroyBody(BodyHandle handle) noexcept -> void override;
 
         auto setTransform(
             BodyHandle handle,

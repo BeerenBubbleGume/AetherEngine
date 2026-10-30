@@ -2,8 +2,8 @@
 // Created by drhaz on 08.10.2026.
 //
 
-#ifndef SMB_COMPONENTCOMMANDS_HPP
-#define SMB_COMPONENTCOMMANDS_HPP
+#ifndef AETHER_EDITOR_COMPONENTCOMMANDS_HPP
+#define AETHER_EDITOR_COMPONENTCOMMANDS_HPP
 #include <utility>
 
 #include "EditorCommand.hpp"
@@ -96,4 +96,4 @@ namespace AetherEditor::commands {
 } // commands
 // AetherEditor
 
-#endif //SMB_COMPONENTCOMMANDS_HPP
+#endif //AETHER_EDITOR_COMPONENTCOMMANDS_HPP

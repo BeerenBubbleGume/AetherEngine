@@ -41,14 +41,6 @@ namespace AetherEngine {
         [[nodiscard]] auto getState() const -> core::EngineState {return state;}
         static EnginePtr createEngine();
     private:
-        Engine();
-        ~Engine();
-
-        auto processEvents(core::IApplication& app) -> void;
-        auto update(float delta) const -> void;
-        auto replaceScene(scene::Scene::ScenePtr newScene) -> std::expected<void, core::EngineError>;
-
-
         using WindowPtr = std::unique_ptr<Window, Window::WindowDeleter>;
         using InputSystemPtr = std::unique_ptr<systems::InputSystem, systems::InputSystem::InputSystemDeleter>;
         using RenderSystemPtr = std::unique_ptr<systems::RenderSystem, systems::RenderSystem::RenderSystemDeleter>;
@@ -61,6 +53,15 @@ namespace AetherEngine {
         using Clock = std::chrono::steady_clock;
         using Duration = std::chrono::duration<float>;
         using TimePoint = Clock::time_point;
+
+        Engine();
+        ~Engine();
+
+        auto processEvents(core::IApplication& app, core::EngineContext& ctx) -> void;
+        auto update(float delta) const -> void;
+        auto replaceScene(ScenePtr newScene) -> std::expected<void, core::EngineError>;
+        [[nodiscard]] auto exchangeScene(ScenePtr &other) -> std::expected<void, core::EngineError>;
+
         // Declared before systems so logging remains alive throughout teardown.
         logging::Logger m_logger;
         WindowPtr sWindow;

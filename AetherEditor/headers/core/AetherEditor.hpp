@@ -22,6 +22,7 @@
 #include "commands/CommandHistory.hpp"
 #include "documents/DocumentController.hpp"
 #include "documents/SceneEditorDocument.hpp"
+#include "simulation/SimulationController.hpp"
 
 namespace AetherEditor::core {
     class Editor final : public AetherEngine::core::IApplication {
@@ -32,6 +33,7 @@ namespace AetherEditor::core {
 
         auto init(AetherEngine::core::EngineContext &ctx) -> std::expected<void, AetherEngine::core::EngineError> override;
         auto onEvent(const SDL_Event& event) -> void override;
+        auto onQuitRequested(AetherEngine::core::EngineContext& ctx) -> void override;
         auto update(float dt, AetherEngine::core::EngineContext &ctx) -> void override;
         auto render(AetherEngine::core::EngineContext& ctx) -> void override;
         auto shutdown(AetherEngine::core::EngineContext& ctx) -> void override;
@@ -41,18 +43,22 @@ namespace AetherEditor::core {
     private:
         static auto renderBackground(AetherEngine::graphics::RenderExtent extent) -> void;
         auto processWorkspaceActions(AetherEngine::core::EngineContext& ctx, const ui::EditorWorkspaceFrame& frame) -> void;
+        auto processSimulationAction(AetherEngine::core::EngineContext& ctx, ui::SimulationAction action) -> void;
         auto refreshSceneList(AetherEngine::core::EngineContext& ctx) -> void;
         auto scanTextures(AetherEngine::core::EngineContext& ctx) -> void;
         auto processAssetActions(AetherEngine::core::EngineContext& ctx, const panels::AssetBrowserFrame& frame) -> void;
+        auto processEntityActions(AetherEngine::core::EngineContext& ctx, const ui::EditorWorkspaceFrame& frame) -> void;
         auto createEntity(AetherEngine::core::EngineContext& ctx) -> void;
         auto renameEntity(AetherEngine::core::EngineContext& ctx, const panels::RenameEntityRequest& request) -> void;
+        auto deleteEntity(AetherEngine::core::EngineContext& ctx, AetherEngine::scene::EntityId id) -> void;
+        auto duplicateEntity(AetherEngine::core::EngineContext& ctx, AetherEngine::scene::EntityId id) -> void;
         auto processHistoryActions(AetherEngine::core::EngineContext& ctx, const ui::EditorWorkspaceFrame& frame) -> void;
         auto processSaveRequests(AetherEngine::core::EngineContext& ctx, const ui::EditorWorkspaceFrame& frame) -> void;
         auto processDocumentActions(AetherEngine::core::EngineContext& ctx, const ui::EditorWorkspaceFrame& frame) -> void;
         auto updateEditorCamera(AetherEngine::core::EngineContext& ctx, const viewport::SceneViewportFrame& frame, bool applicationFocused) -> void;
         auto renderSceneViewport(AetherEngine::core::EngineContext& ctx, const viewport::SceneViewportFrame& frame) const -> void;
 
-        auto saveAs(AetherEngine::core::EngineContext& ctx, std::string_view filename) -> std::expected<void, AetherEngine::core::EngineError>;
+        auto saveAs(AetherEngine::core::EngineContext& ctx, std::string_view filename, bool overwriteConfirmed = false) -> std::expected<void, AetherEngine::core::EngineError>;
         auto save(AetherEngine::core::EngineContext& ctx) -> std::expected<void, AetherEngine::core::EngineError>;
         auto load(AetherEngine::core::EngineContext& ctx, std::string_view filename) -> std::expected<void, AetherEngine::core::EngineError>;
         auto newScene(AetherEngine::core::EngineContext& ctx, std::string_view name) -> std::expected<void, AetherEngine::core::EngineError>;
@@ -63,6 +69,7 @@ namespace AetherEditor::core {
         using InputRouterPtr  = input::EditorInputRouter::EditorInputRouterPtr;
         using CameraControllerPtr = viewport::EditorCameraController::EditorCameraControllerPtr;
         using DocumentControllerPtr = docs::DocumentController::DocumentControllerPtr;
+        using SimulationControllerPtr = simulation::SimulationController::SimulationControllerPtr;
         AetherEngine::components::TransformComponent m_editorCameraTransform{};
         AetherEngine::components::CameraComponent m_editorCamera{};
 
@@ -71,9 +78,12 @@ namespace AetherEditor::core {
         InputRouterPtr m_inputRouter;
         CameraControllerPtr m_cameraController;
         DocumentControllerPtr m_documentController;
+        SimulationControllerPtr m_simulationController;
         EditorSession m_session{};
         commands::CommandHistory m_history{};
-        std::optional<PendingDocumentAction> m_pendingDocumentAction;
+        bool m_quitRequested = false;
+        bool m_exitApproved = false;
+        std::vector<AetherEngine::systems::SceneAssetBindingError> m_reportedAssetErrors;
         float m_frameDelta = 0.0f;
         bool m_relativeMouseMode = false;
 

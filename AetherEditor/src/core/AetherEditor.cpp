@@ -8,6 +8,7 @@
 
 #include <SDL3/SDL_messagebox.h>
 #include <utility>
+#include <algorithm>
 #include "assets/AssetCatalogService.hpp"
 
 #include "graphics/SceneView.hpp"
@@ -56,6 +57,7 @@ auto AetherEditor::core::Editor::init(
         return std::unexpected(AetherEngine::core::EngineError{4, workspaceInitResult.error().msg});
     }
     m_cameraController = viewport::EditorCameraController::createEditorCameraController();
+    m_simulationController = simulation::SimulationController::createSimulationController();
     m_inputRouter = input::EditorInputRouter::createEditorInputRouter();
     m_documentController->setScene(ctx.getScene());
     scanTextures(ctx);
@@ -77,12 +79,27 @@ auto AetherEditor::core::Editor::onEvent(const SDL_Event& event) -> void {
     }
 }
 
+auto AetherEditor::core::Editor::onQuitRequested(AetherEngine::core::EngineContext&) -> void {
+    // Repeated close events must not replace a pending decision or a Save As
+    // dialog. Commit edits and inspect the authoring document during this frame.
+    if (!m_documentController->hasPendingAction() && (!m_workspace || !m_workspace->hasOpenPopup())) {
+        m_quitRequested = true;
+    }
+}
+
 auto AetherEditor::core::Editor::update(float dt, AetherEngine::core::EngineContext &ctx) -> void {
     m_frameDelta = dt;
     if ((!m_gui || !m_gui->wantsKeyboardCapture()) &&
         ctx.input.wasActionPressed(AetherEngine::systems::InputAction::Quit)) {
-        ctx.requestQuit();
+        onQuitRequested(ctx);
     }
+    const auto errors = ctx.sceneAssetBinding.errors();
+    for (const auto& error : errors) {
+        if (std::ranges::find(m_reportedAssetErrors, error) == m_reportedAssetErrors.end()) {
+            ctx.logger.error("Asset " + AetherEngine::assets::toString(error.asset) + ": " + error.message, "Scene assets");
+        }
+    }
+    m_reportedAssetErrors.assign(errors.begin(), errors.end());
 }
 
 auto AetherEditor::core::Editor::render(AetherEngine::core::EngineContext& ctx) -> void {
@@ -101,7 +118,8 @@ auto AetherEditor::core::Editor::render(AetherEngine::core::EngineContext& ctx) 
         m_session,
         m_history,
         m_documentController->getDocument(),
-        ctx.logger, ctx.assets.registry()
+        ctx.logger, ctx.assets.registry(), ctx.sceneAssetBinding, m_simulationController->isRunning(),
+        m_documentController->hasPendingAction()
     );
 
     processWorkspaceActions(ctx, frame);
@@ -138,17 +156,53 @@ auto AetherEditor::core::Editor::processWorkspaceActions(
     }
 
     processAssetActions(ctx, frame.assets);
+    if (frame.retryAssetsRequested) ctx.assets.retryFailedLoads();
 
-    if (frame.renameEntityRequested) {
-        renameEntity(ctx, *frame.renameEntityRequested);
+    if (!m_simulationController->isRunning() && !m_documentController->hasPendingAction()) {
+        processEntityActions(ctx, frame);
+        processHistoryActions(ctx, frame);
     }
-    if (frame.createEntityRequested) {
-        createEntity(ctx);
-    }
-    processHistoryActions(ctx, frame);
-    processSaveRequests(ctx, frame);
     processDocumentActions(ctx, frame);
     updateDocumentDirty(ctx);
+    if (!m_exitApproved && !m_documentController->hasPendingAction()) {
+        processSimulationAction(ctx, frame.simulationAction);
+    }
+}
+
+auto AetherEditor::core::Editor::processSimulationAction(
+    AetherEngine::core::EngineContext& ctx, ui::SimulationAction action
+) -> void {
+    if (action == ui::SimulationAction::None) {
+        return;
+    }
+
+    std::expected<void, AetherEngine::core::EngineError> result;
+    if (action == ui::SimulationAction::Run) {
+        if (m_simulationController->isRunning() || m_documentController->hasPendingAction()) {
+            return;
+        }
+        m_workspace->finishPendingEdits(ctx.getScene(), m_history);
+        updateDocumentDirty(ctx);
+        result = m_simulationController->start(ctx);
+    } else {
+        if (!m_simulationController->isRunning()) {
+            return;
+        }
+        result = m_simulationController->stop(ctx);
+    }
+
+    if (!result) {
+        ctx.logger.error(result.error().message, "Simulation");
+        showEditorError("Simulation failed", result.error(), ctx.window.getSDLWindow());
+        return;
+    }
+
+    m_inputRouter->cancel();
+    setRelativeMouseMode(ctx.window.getSDLWindow(), false);
+    if (m_session.selectedEntity && !ctx.getScene().findEntityById(*m_session.selectedEntity)) {
+        m_session.selectedEntity.reset();
+    }
+    ctx.logger.info(action == ui::SimulationAction::Run ? "Simulation started" : "Simulation stopped", "Simulation");
 }
 
 auto AetherEditor::core::Editor::refreshSceneList(AetherEngine::core::EngineContext& ctx) -> void {
@@ -191,6 +245,37 @@ auto AetherEditor::core::Editor::processAssetActions(
             ctx.logger.error(created.error().message, "Assets");
             m_workspace->setAssetStatus(created.error().message, true);
         }
+    }
+}
+
+auto AetherEditor::core::Editor::processEntityActions(
+    AetherEngine::core::EngineContext& ctx, const ui::EditorWorkspaceFrame& frame
+) -> void {
+    if (frame.renameEntityRequested) renameEntity(ctx, *frame.renameEntityRequested);
+    if (frame.createEntityRequested) createEntity(ctx);
+    if (frame.deleteEntityRequested) {
+        deleteEntity(ctx, *frame.deleteEntityRequested);
+    } else if (frame.duplicateEntityRequested) {
+        duplicateEntity(ctx, *frame.duplicateEntityRequested);
+    }
+}
+
+auto AetherEditor::core::Editor::deleteEntity(AetherEngine::core::EngineContext& ctx, AetherEngine::scene::EntityId id) -> void {
+    m_workspace->finishPendingEdits(ctx.getScene(), m_history);
+    if (m_history.execute(std::make_unique<commands::DeleteEntityCommand>(id), ctx.getScene()) && m_session.selectedEntity == id) {
+        m_session.selectedEntity.reset();
+    }
+}
+
+auto AetherEditor::core::Editor::duplicateEntity(AetherEngine::core::EngineContext& ctx, AetherEngine::scene::EntityId id) -> void {
+    auto& scene = ctx.getScene();
+    m_workspace->finishPendingEdits(scene, m_history);
+    auto duplicateId = AetherEngine::scene::generateEntityId();
+    while (!duplicateId.isValid() || scene.findEntityById(duplicateId)) {
+        duplicateId = AetherEngine::scene::generateEntityId();
+    }
+    if (m_history.execute(std::make_unique<commands::DuplicateEntityCommand>(id, duplicateId), scene)) {
+        m_session.selectedEntity = duplicateId;
     }
 }
 
@@ -249,12 +334,16 @@ auto AetherEditor::core::Editor::processSaveRequests(
     const ui::EditorWorkspaceFrame& frame
 ) -> void {
     if (frame.saveAsFileStem) {
-        m_workspace->finishPendingEdits(ctx.getScene(), m_history);
-        const auto result = saveAs(ctx, *frame.saveAsFileStem);
+        m_workspace->finishPendingEdits(*m_documentController->getDocument().scene, m_history);
+        const auto result = saveAs(ctx, *frame.saveAsFileStem, frame.overwriteConfirmed);
         if (result) {
             m_workspace->requestCloseSaveAs();
+            refreshSceneList(ctx);
+        } else if (result.error().code == AetherEngine::systems::SceneFileAlreadyExistsError && !frame.overwriteConfirmed) {
+            m_workspace->requestOverwrite(*frame.saveAsFileStem);
         } else {
-            showEditorError("Save As failed", result.error(), ctx.window.getSDLWindow());
+            m_workspace->setSaveAsError(result.error().message);
+            ctx.logger.error(result.error().message, "Save As");
         }
         return;
     }
@@ -263,7 +352,7 @@ auto AetherEditor::core::Editor::processSaveRequests(
         return;
     }
 
-    m_workspace->finishPendingEdits(ctx.getScene(), m_history);
+    m_workspace->finishPendingEdits(*m_documentController->getDocument().scene, m_history);
     if (m_documentController->getDocument().fileStem.empty()) {
         m_workspace->requestOpenSaveAs();
         return;
@@ -271,6 +360,7 @@ auto AetherEditor::core::Editor::processSaveRequests(
 
     const auto result = save(ctx);
     if (!result) {
+        m_documentController->cancelAction();
         showEditorError("Save failed", result.error(), ctx.window.getSDLWindow());
     }
 }
@@ -279,52 +369,48 @@ auto AetherEditor::core::Editor::processDocumentActions(
     AetherEngine::core::EngineContext& ctx,
     const ui::EditorWorkspaceFrame& frame
 ) -> void {
-    updateDocumentDirty(ctx);
-    if (frame.documentActionRequested) {
-        m_workspace->finishPendingEdits(ctx.getScene(), m_history);
+    auto requested = frame.documentActionRequested;
+    if (std::exchange(m_quitRequested, false)) requested = PendingDocumentAction{DocumentActionKind::Quit, {}};
+    if (requested && (!m_simulationController->isRunning() || requested->kind == DocumentActionKind::Quit)) {
+        m_workspace->finishPendingEdits(*m_documentController->getDocument().scene, m_history);
         updateDocumentDirty(ctx);
-        m_pendingDocumentAction = *frame.documentActionRequested;
-
-        if (m_documentController->getDocument().dirty) {
-            m_workspace->requestConfirmLoad();
+        if (m_documentController->requestAction(*requested) && m_documentController->needsConfirmation()) {
+            m_inputRouter->cancel();
+            setRelativeMouseMode(ctx.window.getSDLWindow(), false);
+            m_workspace->requestConfirmLoad(requested->kind);
         }
     }
 
-    const bool actionConfirmed = frame.loadDecision == SceneLoadDecision::DiscardChanges;
-    const bool actionWithoutConfirmation =
-        frame.documentActionRequested.has_value() && !m_documentController->getDocument().dirty;
+    m_documentController->decideAction(frame.loadDecision);
+    if (frame.saveAsCancelled) m_documentController->cancelAction();
 
-    if (frame.loadDecision == SceneLoadDecision::Cancel) {
-        m_pendingDocumentAction.reset();
-        return;
+    auto saveFrame = frame;
+    if (frame.loadDecision == SceneLoadDecision::SaveChanges && m_documentController->awaitingSave()) {
+        saveFrame.saveRequested = true;
     }
-    if (!m_pendingDocumentAction || (!actionConfirmed && !actionWithoutConfirmation)) {
-        return;
+    // A close prompt during Play saves the retained authoring document, never
+    // the active runtime clone. All other simulation save actions remain blocked.
+    if (!m_simulationController->isRunning() || m_documentController->awaitingSave()) {
+        processSaveRequests(ctx, saveFrame);
     }
 
-    const auto action = *m_pendingDocumentAction;
+    const auto action = m_documentController->takeReadyAction();
+    if (!action) return;
     std::expected<void, AetherEngine::core::EngineError> result;
-    switch (action.kind) {
+    switch (action->kind) {
         case DocumentActionKind::NewScene:
-            result = newScene(ctx, action.sceneName);
+            result = newScene(ctx, action->sceneName);
             break;
-
         case DocumentActionKind::OpenScene:
-            result = load(ctx, action.sceneName);
+            result = load(ctx, action->sceneName);
             break;
+        case DocumentActionKind::Quit:
+            m_exitApproved = true;
+            ctx.requestQuit();
+            return;
     }
-
-    if (result) {
-        if (action.kind == DocumentActionKind::OpenScene) {
-            m_workspace->requestCloseLoad();
-        }
-    } else {
-        showEditorError("Scene action failed", result.error(), ctx.window.getSDLWindow());
-    }
-
-    m_pendingDocumentAction.reset();
+    if (!result) showEditorError("Scene action failed", result.error(), ctx.window.getSDLWindow());
 }
-
 auto AetherEditor::core::Editor::updateEditorCamera(
     AetherEngine::core::EngineContext& ctx,
     const viewport::SceneViewportFrame& frame,
@@ -377,6 +463,12 @@ auto AetherEditor::core::Editor::renderSceneViewport(
 }
 
 auto AetherEditor::core::Editor::shutdown(AetherEngine::core::EngineContext& ctx) -> void {
+    if (m_simulationController && m_simulationController->isRunning()) {
+        const auto result = m_simulationController->stop(ctx);
+        if (!result) {
+            ctx.logger.error(result.error().message, "Simulation");
+        }
+    }
     if (m_inputRouter) {
         m_inputRouter->cancel();
     }
@@ -390,8 +482,8 @@ auto AetherEditor::core::Editor::shutdown(AetherEngine::core::EngineContext& ctx
     }
 }
 
-auto AetherEditor::core::Editor::saveAs(AetherEngine::core::EngineContext &ctx, std::string_view filename) -> std::expected<void, AetherEngine::core::EngineError> {
-    auto result = m_documentController->saveAs(ctx, filename);
+auto AetherEditor::core::Editor::saveAs(AetherEngine::core::EngineContext &ctx, std::string_view filename, bool overwriteConfirmed) -> std::expected<void, AetherEngine::core::EngineError> {
+    auto result = m_documentController->saveAs(ctx, filename, overwriteConfirmed);
     if (result) {
         m_history.markSaved();
     }
@@ -440,7 +532,7 @@ auto AetherEditor::core::Editor::updateDocumentDirty(AetherEngine::core::EngineC
         (
             document.fileStem.empty() ||
             m_history.isDirty() ||
-            m_workspace->hasPendingChanges(ctx.getScene())
+            m_workspace->hasPendingChanges(*document.scene)
         )
     );
 }
@@ -453,7 +545,10 @@ auto AetherEditor::core::Editor::createEditor(std::string_view initialFileStem) 
 }
 
 auto AetherEditor::core::Editor::runConfig() const -> AetherEngine::core::EngineRunConfig {
-    return {.updatePhysics = false};
+    if (m_simulationController && m_simulationController->isRunning()) {
+        return {.updatePhysics = true, .allowMissingAssets = true};
+    }
+    return {.updatePhysics = false, .allowMissingAssets = true};
 }
 
 auto AetherEditor::core::Editor::setRelativeMouseMode(SDL_Window *window, bool enabled) -> bool {

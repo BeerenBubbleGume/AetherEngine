@@ -12,6 +12,7 @@
 #include "commands/CommandHistory.hpp"
 #include "scene/Scene.hpp"
 #include "math/Types.hpp"
+#include "systems/SceneAssetBindingSystem.hpp"
 
 namespace AetherEngine::assets {
     class AssetRegistry;
@@ -34,7 +35,8 @@ namespace AetherEditor::panels {
         using InspectorPanelPtr = std::unique_ptr<InspectorPanel, InspectorPanelDeleter>;
         static auto createInspectorPanel() -> InspectorPanelPtr;
         auto draw(bool &open, AetherEngine::scene::Scene &scene, const core::EditorSession &session, commands::CommandHistory& history, const
-                  AetherEngine::assets::AssetRegistry &registry) -> bool;
+                  AetherEngine::assets::AssetRegistry &registry,
+                  std::span<const AetherEngine::systems::SceneAssetBindingError> errors = {}) -> bool;
         auto finishTransformEdit(AetherEngine::scene::Scene& scene, commands::CommandHistory& history) -> void;
         [[nodiscard]] auto hasPendingEdit() const -> bool;
         [[nodiscard]] auto hasPendingChanges(AetherEngine::scene::Scene& scene) const -> bool;

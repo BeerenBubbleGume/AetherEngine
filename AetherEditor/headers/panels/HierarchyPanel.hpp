@@ -19,8 +19,11 @@ namespace AetherEditor::panels {
     };
 
     struct HierarchyFrame {
+        bool focused = false;
         bool createEntityRequested = false;
         std::optional<RenameEntityRequest> renameEntityRequested;
+        std::optional<AetherEngine::scene::EntityId> deleteEntityRequested;
+        std::optional<AetherEngine::scene::EntityId> duplicateEntityRequested;
     };
 
     class HierarchyPanel {
@@ -32,7 +35,7 @@ namespace AetherEditor::panels {
         };
         using HierarchyPanelPtr = std::unique_ptr<HierarchyPanel, HierarchyPanelDeleter>;
         static auto createHierarchyPanel() -> HierarchyPanelPtr;
-        auto draw(bool &open, AetherEngine::scene::Scene& scene, core::EditorSession &session) -> HierarchyFrame;
+        auto draw(bool &open, AetherEngine::scene::Scene& scene, core::EditorSession &session, bool readOnly = false) -> HierarchyFrame;
         auto cancelRename() -> void;
         [[nodiscard]] auto isRenaming() const -> bool;
 
@@ -43,7 +46,7 @@ namespace AetherEditor::panels {
     private:
         auto drawEntityRow(AetherEngine::scene::Scene& scene,
                            const AetherEngine::components::IdentityComponent& identity,
-                           core::EditorSession& session, HierarchyFrame& frame) -> void;
+                           core::EditorSession& session, HierarchyFrame& frame, bool readOnly) -> void;
         auto drawRenameInput(HierarchyFrame& frame) -> void;
         auto finishRename(HierarchyFrame& frame) -> void;
 

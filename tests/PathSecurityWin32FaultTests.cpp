@@ -16,6 +16,16 @@ inline unsigned writes = 0;
 inline unsigned injected = 0;
 inline unsigned creates = 0;
 inline std::filesystem::path collisionPath;
+inline bool createDestinationAtCommit = false;
+
+BOOL WINAPI moveFile(LPCWSTR source, LPCWSTR destination, DWORD flags) {
+    if (createDestinationAtCommit) {
+        scene_write_tests::put(destination, "racing writer");
+        createDestinationAtCommit = false;
+        ++injected;
+    }
+    return ::MoveFileExW(source, destination, flags);
+}
 
 BOOL WINAPI writeFile(HANDLE file, LPCVOID data, DWORD count, LPDWORD written, LPOVERLAPPED overlapped) {
     ++writes;
@@ -101,7 +111,9 @@ HANDLE WINAPI createFile(LPCWSTR name, DWORD access, DWORD sharing, LPSECURITY_A
 #define GetFileInformationByHandle win32_faults::fileInformation
 #define DeleteFileW win32_faults::deleteFile
 #define CreateFileW win32_faults::createFile
+#define MoveFileExW win32_faults::moveFile
 #include "../AetherEngine/src/security/PathSecurity.cpp"
+#undef MoveFileExW
 #undef CreateFileW
 #undef DeleteFileW
 #undef GetFileInformationByHandle
@@ -167,6 +179,19 @@ void exercise(win32_faults::Mode mode, bool existingFile) {
 
 int main(int argc, char** argv) {
     using enum win32_faults::Mode;
+    if (argc == 2 && std::string_view{argv[1]} == "create_new_race") {
+        return run("a destination appearing during Save As is never overwritten", [] {
+            Fixture fixture;
+            win32_faults::createDestinationAtCommit = true;
+            win32_faults::injected = 0;
+            const auto result = fixture.write("new scene", 4096, "assets/scenes/Main scene.scene.json", security::FileWriteMode::CreateNew);
+            require(win32_faults::injected == 1, "Commit collision was not injected");
+            require(!result && result.error().code == security::PathSecurityErrorCode::AlreadyExists,
+                "Commit collision was not reported as an existing file");
+            require(get(fixture.destination) == "racing writer", "Save As overwrote a concurrent writer");
+            require(entries(fixture.scenes).size() == 1, "Conflict leaked a temporary file");
+        });
+    }
     const std::pair<std::string_view, win32_faults::Mode> scenarios[] = {
         {"short_writes", shortWrites}, {"write_failure", writeFailure},
         {"partial_failure", partialFailure}, {"flush_failure", flushFailure},

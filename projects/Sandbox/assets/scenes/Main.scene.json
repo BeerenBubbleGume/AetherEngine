@@ -14,6 +14,18 @@
                     "trigger": false,
                     "type": "Box"
                 },
+                "Material": {
+                    "asset": "44444444444444444444444444444444",
+                    "baseColor": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                "Mesh": {
+                    "asset": "793eafc06137533c8b9fac599b596ef5"
+                },
                 "Rigidbody": {
                     "dynamic": false,
                     "mass": 1.0,
@@ -22,7 +34,7 @@
                 "Transform": {
                     "position": [
                         0.0,
-                        -2.0,
+                        -1.5,
                         0.0
                     ],
                     "rotation": [
@@ -32,9 +44,9 @@
                         0.0
                     ],
                     "scale": [
+                        10.0,
                         1.0,
-                        1.0,
-                        1.0
+                        10.0
                     ]
                 }
             },
@@ -73,9 +85,9 @@
                 },
                 "Transform": {
                     "position": [
-                        2.700000047683716,
-                        -0.30000001192092896,
-                        -1.5499999523162842
+                        2.799999952316284,
+                        -0.949999988079071,
+                        2.299999952316284
                     ],
                     "rotation": [
                         1.0,
@@ -164,6 +176,58 @@
             },
             "id": "11111111111111111111111111111111",
             "name": "Test Camera"
+        },
+        {
+            "components": {
+                "Collider": {
+                    "height": 1.0,
+                    "radius": 0.5,
+                    "size": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ],
+                    "trigger": false,
+                    "type": "Box"
+                },
+                "Material": {
+                    "asset": "44444444444444444444444444444444",
+                    "baseColor": [
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                },
+                "Mesh": {
+                    "asset": "1a057b9e401851b2acd3a18a9664c3a0"
+                },
+                "Rigidbody": {
+                    "dynamic": true,
+                    "mass": 1.0,
+                    "useGravity": true
+                },
+                "Transform": {
+                    "position": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "rotation": [
+                        0.9890158772468567,
+                        0.14780941605567932,
+                        0.0,
+                        0.0
+                    ],
+                    "scale": [
+                        1.0,
+                        1.0,
+                        1.0
+                    ]
+                }
+            },
+            "id": "a8506cef7ea0dd3a0000000000000001",
+            "name": "newEntity"
         }
     ],
     "name": "Main",

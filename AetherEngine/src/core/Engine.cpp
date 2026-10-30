@@ -148,8 +148,12 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
         .getScene = [this]() -> scene::Scene& { return *sScene; },
         .replaceScene = [this](scene::Scene::ScenePtr next) -> std::expected<void, core::EngineError> {
             return replaceScene(std::move(next));
+        },
+        .exchangeScene = [this](ScenePtr& other) -> std::expected<void, core::EngineError> {
+            return exchangeScene(other);
         }
     };
+    sSceneAssetBinding->setAllowMissingAssets(app.runConfig().allowMissingAssets);
     auto appInitResult = app.init(ctx);
     if (!appInitResult) {
         m_logger.error("Failed to init application: " + appInitResult.error().message, "Engine");
@@ -173,7 +177,8 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
 
             accumulator = std::min(accumulator + delta, FIXED_DT * MaxPhysicsSubsteps);
             update(delta);
-            processEvents(app);
+            processEvents(app, ctx);
+            if (state != core::EngineState::Running) break;
             if (runConfig.updatePhysics) {
                 std::size_t substeps = 0;
                 while (accumulator >= FIXED_DT && substeps < MaxPhysicsSubsteps) {
@@ -242,13 +247,15 @@ AetherEngine::Engine::~Engine() {
     SDL_Quit();
 }
 
-auto AetherEngine::Engine::processEvents(core::IApplication& app) -> void {
+auto AetherEngine::Engine::processEvents(core::IApplication& app, core::EngineContext& ctx) -> void {
     SDL_Event event;
 
     while (SDL_PollEvent(&event))
     {
-        if (event.type == SDL_EVENT_QUIT){
-            state = core::EngineState::Stopped;
+        if (event.type == SDL_EVENT_QUIT ||
+            (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
+             event.window.windowID == SDL_GetWindowID(sWindow->getSDLWindow()))) {
+            app.onQuitRequested(ctx);
         }
 
         app.onEvent(event);
@@ -260,7 +267,7 @@ auto AetherEngine::Engine::update(float delta) const -> void {
     sInput->update(delta);
 }
 
-auto AetherEngine::Engine::replaceScene(scene::Scene::ScenePtr newScene) -> std::expected<void, core::EngineError> {
+auto AetherEngine::Engine::replaceScene(ScenePtr newScene) -> std::expected<void, core::EngineError> {
     try {
         if (!newScene) {
             return std::unexpected{core::EngineError{6, "Cannot replace scene with a null scene"}};
@@ -277,4 +284,25 @@ auto AetherEngine::Engine::replaceScene(scene::Scene::ScenePtr newScene) -> std:
         return std::unexpected{core::EngineError{6, "Exception during engine::replaceScene"}};
     }
     return {};
+}
+
+auto AetherEngine::Engine::exchangeScene(ScenePtr &other) -> std::expected<void, core::EngineError> {
+    try {
+        if (!other) {
+            return std::unexpected{core::EngineError{5, "Cannot exchange scene with a null scene"}};
+        }
+        auto bound = sSceneAssetBinding->bindScene(*other);
+        if (!bound) {
+            return std::unexpected{core::EngineError{5, "Failed to bind exchanged scene: " + bound.error().message}};
+        }
+        // Binding is transactional. The remaining commit operations cannot throw.
+        sPhysics->clearSceneBodies();
+        accumulator = 0.0f;
+        sScene.swap(other);
+        return {};
+    } catch (const std::exception& e) {
+        return std::unexpected{core::EngineError{5, "Exception during engine::exchangeScene: " + std::string(e.what())}};
+    } catch (...) {
+        return std::unexpected{core::EngineError{5, "Unknown exception during engine::exchangeScene"}};
+    }
 }

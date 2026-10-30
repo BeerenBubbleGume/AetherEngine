@@ -12,8 +12,11 @@ namespace AetherEditor::panels {
         return HierarchyPanelPtr(new HierarchyPanel(), HierarchyPanelDeleter{});
     }
 
-    auto HierarchyPanel::draw(bool &open, AetherEngine::scene::Scene& scene, core::EditorSession &session) -> HierarchyFrame {
+    auto HierarchyPanel::draw(bool &open, AetherEngine::scene::Scene& scene, core::EditorSession &session, bool readOnly) -> HierarchyFrame {
         HierarchyFrame frame{};
+        if (readOnly) {
+            cancelRename();
+        }
         if (m_rename) {
             const auto entity = scene.findEntityById(m_rename->entityId);
             if (m_rename->scene != &scene || !entity || session.selectedEntity != m_rename->entityId ||
@@ -22,7 +25,10 @@ namespace AetherEditor::panels {
             }
         }
         if (ImGui::Begin("Hierarchy", &open) && open) {
+            frame.focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+            ImGui::BeginDisabled(readOnly);
             frame.createEntityRequested = ImGui::Button("Create Entity");
+            ImGui::EndDisabled();
             ImGui::Separator();
 
             using Identity = AetherEngine::components::IdentityComponent;
@@ -39,7 +45,7 @@ namespace AetherEditor::panels {
 
                 ImGui::PushID(rowId.c_str());
 
-                drawEntityRow(scene, identity, session, frame);
+                drawEntityRow(scene, identity, session, frame, readOnly);
 
                 ImGui::PopID();
             }
@@ -52,7 +58,7 @@ namespace AetherEditor::panels {
 
     auto HierarchyPanel::drawEntityRow(AetherEngine::scene::Scene& scene,
                                       const AetherEngine::components::IdentityComponent& identity,
-                                      core::EditorSession& session, HierarchyFrame& frame) -> void {
+                                      core::EditorSession& session, HierarchyFrame& frame, bool readOnly) -> void {
         if (m_rename && m_rename->entityId == identity.id) {
             drawRenameInput(frame);
             return;
@@ -64,10 +70,21 @@ namespace AetherEditor::panels {
         if (ImGui::Selectable("##Entity", selected, ImGuiSelectableFlags_AllowDoubleClick,
                               ImVec2{0.0f, ImGui::GetFrameHeight()})) {
             session.selectedEntity = identity.id;
-            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+            if (!readOnly && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                 finishRename(frame);
                 m_rename = PendingRename{&scene, identity.id, identity.name, identity.name};
             }
+        }
+        if (!readOnly && ImGui::BeginPopupContextItem("EntityActions")) {
+            finishRename(frame);
+            session.selectedEntity = identity.id;
+            if (ImGui::MenuItem("Duplicate", "Ctrl+D")) {
+                frame.duplicateEntityRequested = identity.id;
+            }
+            if (ImGui::MenuItem("Delete", "Del")) {
+                frame.deleteEntityRequested = identity.id;
+            }
+            ImGui::EndPopup();
         }
         // Keep the widget ID independent of the name and display literal '#' characters.
         const char* label = identity.name.empty() ? "Unnamed entity" : identity.name.c_str();
@@ -93,7 +110,7 @@ namespace AetherEditor::panels {
             }
         }
         if (m_rename && !core::isValidEntityName(m_rename->name)) {
-            ImGui::TextDisabled(m_rename->name.size() > 1024 ? "Name is too long." : "Name cannot be blank.");
+            ImGui::TextDisabled(m_rename->name.size() > core::MaxEntityNameBytes ? "Name is too long." : "Name cannot be blank.");
         }
     }
 

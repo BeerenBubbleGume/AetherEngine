@@ -170,6 +170,23 @@
                     }
                 }
             ]
+        },
+        {
+            "alias": "asset://textures/img",
+            "dependencies": [],
+            "id": "b6845bda6c0d704cf31c84a6c6825b3a",
+            "type": "texture",
+            "variants": [
+                {
+                    "contentHash": 0,
+                    "path": "textures/bin/img.ktx",
+                    "platform": {
+                        "architecture": "any",
+                        "graphics": "any",
+                        "os": "any"
+                    }
+                }
+            ]
         }
     ],
     "version": 1

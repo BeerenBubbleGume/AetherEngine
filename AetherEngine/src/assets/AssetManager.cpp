@@ -252,6 +252,16 @@ namespace AetherEngine::assets {
         return loadEntry(loaded->second);
     }
 
+    auto AssetManager::retryFailedLoads() -> void {
+        if (m_resources) m_resources->retryFailedLoads();
+        for (auto& entry : m_entries) {
+            if (entry.state == AssetLoadState::Failed && entry.referenceCount == 0) {
+                entry.state = AssetLoadState::Unloaded;
+                entry.error.reset();
+            }
+        }
+    }
+
     auto AssetManager::registry() const noexcept -> const AssetRegistry& {
         return m_registry;
     }

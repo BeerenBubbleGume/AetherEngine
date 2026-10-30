@@ -4,6 +4,7 @@
 
 #ifndef SMB_SCENEASSETBINDINGSYSTEM_HPP
 #define SMB_SCENEASSETBINDINGSYSTEM_HPP
+#include <span>
 #include "assets/AssetId.hpp"
 #include "assets/AssetManager.hpp"
 #include "scene/Scene.hpp"
@@ -13,6 +14,7 @@ namespace AetherEngine::systems {
     struct SceneAssetBindingError {
         assets::AssetId asset{};
         std::string message;
+        auto operator==(const SceneAssetBindingError&) const -> bool = default;
     };
     class SceneAssetBindingSystem {
     public:
@@ -30,6 +32,10 @@ namespace AetherEngine::systems {
 
         [[nodiscard]] auto bindScene(scene::Scene& scene) -> std::expected<void, SceneAssetBindingError>;
         [[nodiscard]] auto synchronize(scene::Scene& scene) -> std::expected<void, SceneAssetBindingError>;
+        // Authoring keeps valid bindings and reports unavailable assets. Runtime
+        // applications retain strict, transactional binding by default.
+        auto setAllowMissingAssets(bool allow) noexcept -> void { m_allowMissingAssets = allow; }
+        [[nodiscard]] auto errors() const noexcept -> std::span<const SceneAssetBindingError> { return m_errors; }
         auto unbindScene() noexcept -> void;
 
         [[nodiscard]] auto meshHandle(assets::AssetRef<assets::RuntimeMeshAsset> ref) const -> std::optional<assets::AssetHandle<assets::RuntimeMeshAsset>>;
@@ -38,6 +44,8 @@ namespace AetherEngine::systems {
     private:
         assets::AssetManager* m_assets{nullptr};
         scene::Scene* m_scene{nullptr};
+        bool m_allowMissingAssets = false;
+        std::vector<SceneAssetBindingError> m_errors;
 
         template <typename T>
         struct SceneAssetBinding {

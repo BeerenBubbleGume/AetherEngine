@@ -26,7 +26,7 @@ namespace AetherEngine::physics {
         auto simulate(float fixedDelta) -> void override;
 
         [[nodiscard]] auto createBody(const BodyDesc& desc) -> BodyHandle override;
-        auto destroyBody(BodyHandle handle) -> void override;
+        auto destroyBody(BodyHandle handle) noexcept -> void override;
         [[nodiscard]] auto getTransform(BodyHandle handle) const -> math::Transform override;
 
     private:

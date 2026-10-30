@@ -15,7 +15,7 @@ namespace AetherEditor::docs {
     }
 
     auto DocumentController::saveAs(AetherEngine::core::EngineContext &ctx,
-                                    std::string_view filename) -> std::expected<void, AetherEngine::core::EngineError> {
+                                    std::string_view filename, bool overwriteConfirmed) -> std::expected<void, AetherEngine::core::EngineError> {
         if (!m_document.scene) {
             return std::unexpected(
                 AetherEngine::core::EngineError{2, "No scene to save"}
@@ -27,12 +27,17 @@ namespace AetherEditor::docs {
             );
         }
 
-        auto serialized = ctx.sceneSerializer.serializeScene(*m_document.scene, filename);
+        // Allocate the new name before committing the file to keep the document
+        // metadata unchanged if preparing Save As fails.
+        std::string newFileStem{filename};
+        auto serialized = ctx.sceneSerializer.serializeScene(*m_document.scene, filename,
+            overwriteConfirmed ? AetherEngine::security::FileWriteMode::Replace
+                               : AetherEngine::security::FileWriteMode::CreateNew);
         if (!serialized) {
-            return std::unexpected(AetherEngine::core::EngineError{2, serialized.error().message});
+            return std::unexpected(AetherEngine::core::EngineError{serialized.error().code, serialized.error().message});
         }
-        m_document.fileStem = filename;
-        m_document.dirty = false;
+        m_document.fileStem = std::move(newFileStem);
+        saved();
         return {};
     }
 
@@ -54,8 +59,45 @@ namespace AetherEditor::docs {
         if (!serialized) {
             return std::unexpected(AetherEngine::core::EngineError{2, serialized.error().message});
         }
-        m_document.dirty = false;
+        saved();
         return {};
+    }
+
+    auto DocumentController::saved() -> void {
+        m_document.dirty = false;
+        if (m_actionState == ActionState::Saving) m_actionState = ActionState::Ready;
+    }
+
+    auto DocumentController::requestAction(core::PendingDocumentAction action) -> bool {
+        if (m_pendingAction) return false;
+        m_pendingAction = std::move(action);
+        m_actionState = m_document.dirty ? ActionState::Confirmation : ActionState::Ready;
+        return true;
+    }
+
+    auto DocumentController::decideAction(core::SceneLoadDecision decision) -> void {
+        if (decision == core::SceneLoadDecision::Cancel) {
+            cancelAction();
+        } else if (m_actionState == ActionState::Confirmation) {
+            if (decision == core::SceneLoadDecision::SaveChanges) m_actionState = ActionState::Saving;
+            if (decision == core::SceneLoadDecision::DiscardChanges) m_actionState = ActionState::Ready;
+        }
+    }
+
+    auto DocumentController::cancelAction() -> void {
+        m_pendingAction.reset();
+        m_actionState = ActionState::None;
+    }
+
+    auto DocumentController::needsConfirmation() const -> bool { return m_actionState == ActionState::Confirmation; }
+    auto DocumentController::awaitingSave() const -> bool { return m_actionState == ActionState::Saving; }
+    auto DocumentController::hasPendingAction() const -> bool { return m_pendingAction.has_value(); }
+
+    auto DocumentController::takeReadyAction() -> std::optional<core::PendingDocumentAction> {
+        if (m_actionState != ActionState::Ready) return std::nullopt;
+        auto action = std::move(m_pendingAction);
+        cancelAction();
+        return action;
     }
 
     auto DocumentController::load(AetherEngine::core::EngineContext &ctx,

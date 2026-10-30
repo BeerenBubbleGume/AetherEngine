@@ -14,7 +14,8 @@ namespace AetherEditor::core {
     };
     enum class DocumentActionKind {
         NewScene,
-        OpenScene
+        OpenScene,
+        Quit
     };
     struct PendingDocumentAction {
         DocumentActionKind kind;
@@ -29,6 +30,7 @@ namespace AetherEditor::core {
     };
     enum class SceneLoadDecision {
         None,
+        SaveChanges,
         DiscardChanges,
         Cancel
     };

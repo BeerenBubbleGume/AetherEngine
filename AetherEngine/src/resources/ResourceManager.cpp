@@ -584,6 +584,15 @@ namespace AetherEngine::resources {
         return ResourceManagerPtr(new ResourceManager(std::move(*canonicalRoot)), ResourceManagerDeleter{});
     }
 
+    auto ResourceManager::retryFailedLoads() -> void {
+        m_failedMeshes.clear();
+        m_failedPrograms.clear();
+        m_failedTextures.clear();
+        m_failedMeshRequests.clear();
+        m_failedProgramRequests.clear();
+        m_failedTextureRequests.clear();
+    }
+
     auto ResourceManager::loadMesh(std::string_view filename) -> MeshHandle {
         if (filename.empty() || filename.size() > MaxResourcePathLength) {
             return {};

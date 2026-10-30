@@ -9,9 +9,34 @@
 #include <utility>
 
 #include "EditorCommand.hpp"
+#include "EntitySnapshot.hpp"
 #include "scene/EntityId.hpp"
 
 namespace AetherEditor::commands {
+    class DeleteEntityCommand final : public EditorCommand {
+    public:
+        explicit DeleteEntityCommand(AetherEngine::scene::EntityId entityId) : m_entityId(entityId) {}
+        auto apply(AetherEngine::scene::Scene& scene) -> bool override;
+        auto undo(AetherEngine::scene::Scene& scene) -> bool override;
+
+    private:
+        AetherEngine::scene::EntityId m_entityId;
+        std::optional<EntitySnapshot> m_snapshot;
+    };
+
+    class DuplicateEntityCommand final : public EditorCommand {
+    public:
+        DuplicateEntityCommand(AetherEngine::scene::EntityId sourceId, AetherEngine::scene::EntityId duplicateId)
+            : m_sourceId(sourceId), m_duplicateId(duplicateId) {}
+        auto apply(AetherEngine::scene::Scene& scene) -> bool override;
+        auto undo(AetherEngine::scene::Scene& scene) -> bool override;
+
+    private:
+        AetherEngine::scene::EntityId m_sourceId;
+        AetherEngine::scene::EntityId m_duplicateId;
+        std::optional<EntitySnapshot> m_snapshot;
+    };
+
     class RenameEntityCommand final : public EditorCommand {
     public:
         RenameEntityCommand(AetherEngine::scene::EntityId entityId, std::string before, std::string after)

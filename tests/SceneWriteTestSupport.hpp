@@ -77,9 +77,10 @@ struct Fixture {
     }
 
     auto write(std::string_view contents, std::uint64_t limit = 4096,
-               std::string_view relative = "assets/scenes/Main scene.scene.json") const {
+               std::string_view relative = "assets/scenes/Main scene.scene.json",
+               security::FileWriteMode mode = security::FileWriteMode::Replace) const {
         return security::writeRegularFileWithin(root, relative,
-            {reinterpret_cast<const std::uint8_t*>(contents.data()), contents.size()}, limit);
+            {reinterpret_cast<const std::uint8_t*>(contents.data()), contents.size()}, limit, mode);
     }
 };
 

@@ -18,7 +18,7 @@ namespace AetherEngine::physics {
         virtual auto shutdown() -> void = 0;
 
         [[nodiscard]] virtual auto createBody(const BodyDesc& desc) -> BodyHandle = 0;
-        virtual auto destroyBody(BodyHandle handle) -> void = 0;
+        virtual auto destroyBody(BodyHandle handle) noexcept -> void = 0;
 
         virtual auto setTransform(
             BodyHandle handle,

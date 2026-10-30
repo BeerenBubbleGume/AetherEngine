@@ -10,6 +10,22 @@
 using namespace scene_write_tests;
 
 namespace {
+void createNewDoesNotOverwrite() {
+    Fixture fixture;
+    const auto create = [&](std::string_view contents) {
+        return fixture.write(contents, 4096, "assets/scenes/Main scene.scene.json", security::FileWriteMode::CreateNew);
+    };
+    require(create("original").has_value(), "CreateNew did not publish a new file");
+    const auto before = entries(fixture.base);
+    const auto result = create("replacement");
+    require(!result && result.error().code == security::PathSecurityErrorCode::AlreadyExists,
+        "CreateNew must return a typed conflict");
+    require(get(fixture.destination) == "original", "CreateNew overwrote an existing file");
+    require(entries(fixture.base) == before, "Rejected CreateNew left a temporary file");
+    require(fixture.write("confirmed replacement").has_value(), "Explicit replacement failed");
+    require(get(fixture.destination) == "confirmed replacement", "Replacement did not commit");
+}
+
 void createsAndReplaces() {
     Fixture fixture;
     struct RestoreWorkingDirectory {
@@ -135,6 +151,7 @@ void preservesFileWhenReplacementIsBlocked() {
 
 int main() {
     int failures = 0;
+    failures += run("create new requires explicit replacement for existing files", createNewDoesNotOverwrite);
     failures += run("create binary file and replace shorter/longer from another working directory", createsAndReplaces);
     failures += run("invalid requests preserve files and directories", rejectsInvalidRequests);
     failures += run("symlink destinations and parents", rejectsSymlinks);

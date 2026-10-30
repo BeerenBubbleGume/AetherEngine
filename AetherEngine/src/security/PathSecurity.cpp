@@ -31,6 +31,8 @@
 
 namespace {
     using AetherEngine::security::PathSecurityError;
+    using AetherEngine::security::PathSecurityErrorCode;
+    using AetherEngine::security::FileWriteMode;
 
     constexpr std::size_t MaxPathLength = 4096;
     constexpr std::size_t MaxSceneNameLength = 128;
@@ -435,7 +437,8 @@ namespace {
     auto writeFileByLockedPath(
         const std::filesystem::path& canonicalRoot,
         const std::filesystem::path& candidate,
-        std::span<const std::uint8_t> contents
+        std::span<const std::uint8_t> contents,
+        FileWriteMode mode
     ) -> std::expected<void, PathSecurityError> {
         auto locks = lockDirectoryChain(canonicalRoot, candidate.parent_path());
         if (!locks) {
@@ -455,6 +458,10 @@ namespace {
             return std::unexpected(PathSecurityError{
                 "Refusing to replace a non-regular scene file"
             });
+        }
+
+        if (mode == FileWriteMode::CreateNew && status.type() != std::filesystem::file_type::not_found) {
+            return std::unexpected(PathSecurityError{"The destination file already exists", PathSecurityErrorCode::AlreadyExists});
         }
 
         static std::atomic_uint64_t temporaryCounter{0};
@@ -536,8 +543,14 @@ namespace {
             return std::unexpected(std::move(error));
         }
         temporary.reset();
-        if (!MoveFileExW(temporaryName.c_str(),candidate.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+        if (!MoveFileExW(temporaryName.c_str(), candidate.c_str(),
+                mode == FileWriteMode::Replace ? MOVEFILE_REPLACE_EXISTING : 0)) {
+            const auto errorCode = GetLastError();
             auto error = windowsError("Failed to replace the scene file");
+            if (mode == FileWriteMode::CreateNew &&
+                (errorCode == ERROR_FILE_EXISTS || errorCode == ERROR_ALREADY_EXISTS)) {
+                error = {"The destination file already exists", PathSecurityErrorCode::AlreadyExists};
+            }
             cleanupTemporary();
             return std::unexpected(std::move(error));
         }
@@ -738,7 +751,8 @@ namespace {
     auto writeFileByLockedPath(
         const std::filesystem::path& canonicalRoot,
         const std::filesystem::path& candidate,
-        std::span<const std::uint8_t> contents
+        std::span<const std::uint8_t> contents,
+        FileWriteMode mode
     ) -> std::expected<void, PathSecurityError> {
         if (!isPathWithin(canonicalRoot, candidate)) {
             return std::unexpected(PathSecurityError{"File is outside the trusted root"});
@@ -758,6 +772,9 @@ namespace {
                 return std::unexpected(PathSecurityError{
                     "Refusing to replace a non-regular scene file"
                 });
+            }
+            if (mode == FileWriteMode::CreateNew) {
+                return std::unexpected(PathSecurityError{"The destination file already exists", PathSecurityErrorCode::AlreadyExists});
             }
         } else if (errno != ENOENT) {
             return std::unexpected(posixError("Failed to inspect the destination file"));
@@ -809,10 +826,21 @@ namespace {
             return std::unexpected(posixError("Failed to flush the scene file", errorCode));
         }
         temporary.reset();
-        if (renameat(parent->get(), temporaryName.c_str(), parent->get(), filename.c_str()) != 0) {
+        // linkat publishes the complete file only if the destination is absent.
+        // Unlike a check followed by rename, it cannot overwrite a racing writer.
+        const auto committed = mode == FileWriteMode::CreateNew
+            ? linkat(parent->get(), temporaryName.c_str(), parent->get(), filename.c_str(), 0)
+            : renameat(parent->get(), temporaryName.c_str(), parent->get(), filename.c_str());
+        if (committed != 0) {
             const auto errorCode = errno;
             unlinkat(parent->get(), temporaryName.c_str(), 0);
+            if (mode == FileWriteMode::CreateNew && errorCode == EEXIST) {
+                return std::unexpected(PathSecurityError{"The destination file already exists", PathSecurityErrorCode::AlreadyExists});
+            }
             return std::unexpected(posixError("Failed to atomically replace the scene file", errorCode));
+        }
+        if (mode == FileWriteMode::CreateNew && unlinkat(parent->get(), temporaryName.c_str(), 0) != 0) {
+            return std::unexpected(posixError("Scene was created but its temporary link could not be removed"));
         }
         if (fsync(parent->get()) != 0) {
             return std::unexpected(posixError("Scene was replaced but its directory could not be flushed"));
@@ -924,7 +952,8 @@ auto AetherEngine::security::writeRegularFileWithin(
     const std::filesystem::path& canonicalRoot,
     std::string_view requestedPath,
     std::span<const std::uint8_t> contents,
-    std::uint64_t maximumBytes
+    std::uint64_t maximumBytes,
+    FileWriteMode mode
 ) -> std::expected<void, PathSecurityError> {
     if (contents.empty() || contents.size() > maximumBytes) {
         return std::unexpected(PathSecurityError{
@@ -935,7 +964,7 @@ auto AetherEngine::security::writeRegularFileWithin(
     if (!candidate) {
         return std::unexpected(candidate.error());
     }
-    return writeFileByLockedPath(canonicalRoot, *candidate, contents);
+    return writeFileByLockedPath(canonicalRoot, *candidate, contents, mode);
 }
 
 auto AetherEngine::security::isSafeSceneName(std::string_view sceneName) -> bool {

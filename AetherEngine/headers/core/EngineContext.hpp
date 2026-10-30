@@ -42,10 +42,15 @@ namespace AetherEngine::core {
         std::function<void()> requestQuit;
         std::function<scene::Scene&()> getScene;
         std::function<std::expected<void, EngineError>(scene::Scene::ScenePtr)> replaceScene;
+        // Success swaps ownership: other receives the previous active scene.
+        // Failure (including exceptions) leaves both owners and the active binding intact.
+        // Callbacks must perform all fallible work before committing the swap.
+        std::function<std::expected<void, EngineError>(scene::Scene::ScenePtr&)> exchangeScene;
     };
 
     struct EngineRunConfig {
         bool updatePhysics{true};
+        bool allowMissingAssets{false};
     };
 } // core
 // AetherEngine

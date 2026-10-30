@@ -4,7 +4,8 @@ This repository is a C++23 game-engine playground built around the reusable
 `AetherEngine` static library. It also contains two executable front ends:
 
 - `smb` — a small sample game used to exercise the runtime systems.
-- `AetherEditor` — an ImGui-based editor shell with an independent scene view.
+- `AetherEditor` — an ImGui scene editor prototype with an independent scene view,
+  document editing, Undo/Redo, asset selection, and isolated physics simulation.
 
 The project is currently focused on establishing clean engine boundaries,
 platform-aware asset loading, hardened native-resource handling, and a compact
@@ -22,7 +23,8 @@ specific machine or graphics backend.
 - Runtime loaders for meshes, textures, shaders, and materials.
 - Selectable NVIDIA PhysX and Jolt Physics backends.
 - Fixed-step physics with bounded frame catch-up.
-- ImGui editor integration and a separate editor camera.
+- Dockable editor panels, a separate editor camera, scene documents, entity and
+  component commands, and Play/Stop on a temporary scene copy.
 - Bounded and validated scene, mesh, texture, and shader inputs.
 - Hardened filesystem access for runtime assets and scenes.
 - Thread-safe logging through `EngineContext`, with bounded history and pluggable sinks.
@@ -128,7 +130,8 @@ No comparative throughput claim is made without a workload-specific benchmark.
 - `projects/Sandbox/assets/registry/`, `materials/`, `meshes/`, `textures/`,
   `shaders/` — the project's manifest, dependencies, source and cooked content.
 - `cmake/` — preparation of the disposable runtime asset copy.
-- `tests/` — security, physics-backend, and asset-registry regression tests.
+- `tests/` — security, scene, asset, physics-backend, and editor regression tests.
+- `DEVELOPMENT_PLAN.md` — current implementation assessment and editor-first roadmap (Russian).
 - `third_party/` — checked-in third-party artifacts; the build does not
   automatically execute the bundled unsigned content tools.
 - `vcpkg.json` — dependency manifest.
@@ -186,6 +189,12 @@ cmake -S . -B cmake-build-jolt `
 Valid values are `PhysX` and `Jolt`. PhysX is the default except on macOS,
 where Jolt is used because the vcpkg PhysX port is unavailable.
 
+On Windows, the build explicitly stages the selected configuration's PhysX CPU
+DLLs beside each executable, including tests. PhysX delay-loads
+`PhysXCommon_64.dll`; some versions of `vcpkg z-applocal` miss this dependency,
+which causes an exception (`0xC06D007E`) during physics initialization even though
+linking succeeds. Rebuild the executable to restore its runtime DLLs.
+
 The default authoring project is `projects/Sandbox`. Select another existing
 project at configure time with `-DAETHER_PROJECT_ROOT="D:/projects/MyGame"`.
 It must contain `assets/scenes/`, `assets/shaders/` and
@@ -227,7 +236,10 @@ does not fall back to another project or replace a broken scene with an empty on
 
 Authoring changes belong in the project directory and version control. The
 runtime copy is disposable and is not a location for authoring or persistent game
-saves. Atomic scene writes and an editor document model remain separate work.
+saves. Scene writes use a temporary file, and the editor tracks the document
+filename and unsaved changes. New/Open/Exit offer Save, Discard, or Cancel for a
+dirty document. Save As creates a new file or asks before replacing an existing
+scene; a failed or cancelled save keeps the current document open.
 
 ## Run
 
@@ -269,6 +281,21 @@ Undo removes it and Redo restores it. Assign both a mesh and a material to rende
 an entity. Shaders and textures are selected when creating the material. A physics
 collider, such as the sample Ground, does not provide render geometry.
 
+**Play** in the top bar starts physics simulation on a temporary copy of the
+current scene, including unsaved edits. The button changes to a red **Stop**;
+stopping restores the original scene and preserves its Undo/Redo history and
+unsaved changes. Scene editing, saving, opening scenes, and Undo/Redo are disabled
+during simulation; the editor camera remains available. Simulation changes are
+discarded on Stop, and pressing Play again starts from the original scene.
+Exiting during Play offers to save the retained authoring scene, including its
+unsaved edits; it never writes the simulated transforms into that scene file.
+
+Missing or damaged mesh/material resources are reported in Console and the
+selected object's Inspector. The editor skips their rendering and keeps the
+scene editable and saveable. After repairing a resource file, choose
+**View > Retry Missing Assets** to retry failed loads without unloading working
+resources.
+
 **Create Entity** at the top of the Hierarchy adds and selects an empty entity
 with a default Transform at the origin. Names start at `Entity`, then `Entity (1)`,
 `Entity (2)`, and so on, using the first available name. Assign a mesh and material
@@ -280,6 +307,15 @@ outside the field applies a valid name; Escape cancels. Renaming supports
 Undo/Redo and scene saving, preserves the entity ID, and allows shared display
 names. Blank names are rejected. Hiding the Hierarchy or switching scenes cancels
 an unfinished rename.
+
+Right-click a Hierarchy row for **Duplicate** and **Delete**. With the Hierarchy
+or Scene Viewport focused, **Ctrl+D** duplicates the selected entity and **Delete**
+removes it. Text fields, pending edits, and open popups block these shortcuts.
+Copies keep the original component values and position, share asset references,
+receive a new stable ID and an available `Copy` name, and become selected.
+Undo deletion restores the original ID and all components, including active-camera
+selection when applicable. Duplicating a camera leaves the existing active camera
+selected. Both operations support Undo/Redo and scene saving.
 
 Sandbox includes five registered primitives under `asset://meshes/primitives/`:
 
@@ -403,14 +439,21 @@ DLL search paths.
 
 ## Near-Term Roadmap
 
-1. Add an importer/cooker pipeline that generates asset IDs, dependency data,
-   content hashes, and runtime manifests.
-2. Produce trusted D3D12, Vulkan, OpenGL, and OpenGL ES shader variants.
-3. Add asynchronous loading, job scheduling, and streaming budgets.
-4. Build an editor asset browser with import, reimport, and hot-reload actions.
-5. Expand materials beyond the current single-albedo render path.
-6. Add schema migration, fuzzing corpora, sanitizers, and CI coverage for all
-   supported platform/backend combinations.
+The current focus is completing the scene editor prototype. See
+[DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for the code assessment, physics
+component design, migration decisions, and acceptance criteria updated on
+27 October 2026. P0 protection for unsaved work, Save As replacement, and asset
+load failures is implemented and covered by regression tests; native window
+interaction still needs manual acceptance.
+
+1. Add Rigidbody/Collider editing, physics commands, collision controls, collider
+   previews, and checks for consistent PhysX/Jolt behavior.
+2. Add viewport picking, transform gizmos, focus selected, and camera authoring.
+3. Extend simulation with Pause/Step and a Game viewport, then shared game logic.
+4. Add safe asset reload and a minimal import/reimport pipeline with stable IDs.
+
+Broader rendering, streaming, hierarchy, and prefab work follow these editor
+milestones. Add reproducible Windows/PhysX build and test coverage first, then Jolt.
 
 ## License
 

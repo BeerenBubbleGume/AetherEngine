@@ -47,6 +47,8 @@ namespace AetherEngine::resources {
         auto releaseMesh(MeshHandle handle) -> void;
         auto releaseProgram(ProgramHandle handle) -> void;
         auto releaseTexture(TextureHandle handle) -> void;
+        // Explicit authoring retry; keep resident objects and resource budgets.
+        auto retryFailedLoads() -> void;
     private:
         struct MeshSlot {
             std::optional<graphics::Mesh> object;
