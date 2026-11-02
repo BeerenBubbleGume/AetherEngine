@@ -377,9 +377,11 @@ int main() {
     expect(!serializer->deserializeScene("Deep"), "deep JSON rejection", failures);
 
     constexpr std::string_view DuplicateScene =
-        R"({"version":1,"name":"Duplicate","entities":[{"id":"same"},{"id":"same"}]})";
+        R"({"version":2,"name":"Duplicate","entities":[{"id":"11111111111111111111111111111111","components":{}},{"id":"11111111111111111111111111111111","components":{}}]})";
     expect(writeText(sceneRoot / "Duplicate.scene.json", DuplicateScene), "write duplicate scene", failures);
-    expect(!serializer->deserializeScene("Duplicate"), "duplicate entity id rejection", failures);
+    const auto duplicateScene = serializer->deserializeScene("Duplicate");
+    expect(!duplicateScene && duplicateScene.error().message.find("duplicate entity ids") != std::string::npos,
+        "duplicate entity id rejection in a supported scene version", failures);
 
     bgfx::Init bgfxInit{};
     bgfxInit.type = bgfx::RendererType::Noop;

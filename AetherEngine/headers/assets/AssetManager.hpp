@@ -85,7 +85,7 @@ namespace AetherEngine::assets {
 
         [[nodiscard]] auto loadUntyped(AssetId id, AssetType expectedType)
             -> std::expected<UntypedHandle, AssetError>;
-        [[nodiscard]] auto loadEntry(std::size_t index) -> std::expected<void, AssetError>;
+        [[nodiscard]] auto loadEntry(std::size_t index, bool reload = false) -> std::expected<void, AssetError>;
         [[nodiscard]] auto getUntyped(UntypedHandle handle, AssetType expectedType) const
             -> const RuntimeAsset*;
         auto releaseDependencies(const AssetRecord& record) -> void;

@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_set>
+#include <type_traits>
 
 using AetherEngine::scene::Entity;
 using AetherEngine::scene::EntityId;
@@ -12,6 +13,9 @@ using AetherEngine::scene::EntityIdHash;
 using AetherEngine::scene::Scene;
 using AetherEngine::components::CameraComponent;
 using AetherEngine::components::IdentityComponent;
+
+static_assert(!std::is_move_constructible_v<Scene> && !std::is_move_assignable_v<Scene>);
+static_assert(std::is_move_constructible_v<Scene::ScenePtr> && std::is_move_assignable_v<Scene::ScenePtr>);
 
 namespace {
 struct Marker { int value = 7; };

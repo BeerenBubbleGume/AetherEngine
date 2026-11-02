@@ -102,10 +102,7 @@ auto AetherEditor::core::Editor::update(float dt, AetherEngine::core::EngineCont
     m_reportedAssetErrors.assign(errors.begin(), errors.end());
 }
 
-auto AetherEditor::core::Editor::render(AetherEngine::core::EngineContext& ctx) -> void {
-    const auto backbufferExtent = ctx.renderer.backbufferExtent();
-    renderBackground(backbufferExtent);
-
+auto AetherEditor::core::Editor::prepareRender(AetherEngine::core::EngineContext& ctx) -> void {
     m_gui->beginFrame();
     auto* window = ctx.window.getSDLWindow();
     const bool applicationFocused =
@@ -124,8 +121,13 @@ auto AetherEditor::core::Editor::render(AetherEngine::core::EngineContext& ctx) 
 
     processWorkspaceActions(ctx, frame);
     updateEditorCamera(ctx, frame.viewport, applicationFocused);
-    renderSceneViewport(ctx, frame.viewport);
+    m_preparedViewport = frame.viewport;
+}
 
+auto AetherEditor::core::Editor::render(AetherEngine::core::EngineContext& ctx) -> void {
+    const auto backbufferExtent = ctx.renderer.backbufferExtent();
+    renderBackground(backbufferExtent);
+    renderSceneViewport(ctx, m_preparedViewport);
     m_gui->endFrame(backbufferExtent);
 }
 

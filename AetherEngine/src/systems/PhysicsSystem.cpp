@@ -6,22 +6,30 @@
 
 #include "physics/IPhysicsBackend.hpp"
 #include "physics/PhysicsBackendFactory.hpp"
+#include "logging/Logger.hpp"
 
 namespace AetherEngine::systems {
     constexpr std::size_t MaxPhysicsActors = 512;
-
-    PhysicsSystem::PhysicsSystem(std::unique_ptr<physics::IPhysicsBackend> backend)
-        : m_backend(std::move(backend)) {
+    constexpr int ActorLimitError = 4;
+    namespace {
+        auto sameDescription(const physics::BodyDesc& a, const physics::BodyDesc& b) -> bool {
+            return a.transform.position == b.transform.position && a.transform.rotation == b.transform.rotation &&
+                   a.collider == b.collider && a.mass == b.mass && a.dynamic == b.dynamic && a.useGravity == b.useGravity;
+        }
     }
 
-    PhysicsSystem::PhysicsSystemPtr PhysicsSystem::createPhysicsSystem() {
+    PhysicsSystem::PhysicsSystem(std::unique_ptr<physics::IPhysicsBackend> backend, logging::Logger* logger)
+        : m_backend(std::move(backend)), m_logger(logger) {
+    }
+
+    PhysicsSystem::PhysicsSystemPtr PhysicsSystem::createPhysicsSystem(logging::Logger* logger) {
         auto backend = physics::createPhysicsBackend();
         if (!backend) {
             return {};
         }
 
         return PhysicsSystemPtr(
-            new PhysicsSystem(std::move(backend)),
+            new PhysicsSystem(std::move(backend), logger),
             PhysicsSystemDeleter{}
         );
     }
@@ -43,6 +51,8 @@ namespace AetherEngine::systems {
 
     auto PhysicsSystem::shutdown() -> void {
         m_actors.clear();
+        m_failedBodies.clear();
+        m_errors.clear();
         if (m_backend) {
             m_backend->shutdown();
         }
@@ -54,6 +64,8 @@ namespace AetherEngine::systems {
     ) -> void {
         destroyRemovedActors(scene);
         createMissingActors(scene);
+        m_errors.clear();
+        for (const auto& [handle, failed] : m_failedBodies) m_errors.push_back(failed.diagnostic);
         syncActorsFromScene(scene);
         /*applyPendingForcesAndImpulses();*/
 
@@ -71,6 +83,8 @@ namespace AetherEngine::systems {
             }
         }
         m_actors.clear();
+        m_failedBodies.clear();
+        m_errors.clear();
     }
 
     auto PhysicsSystem::syncActorsFromScene(scene::Scene& scene) -> void {
@@ -139,9 +153,6 @@ namespace AetherEngine::systems {
         >();
 
         for (auto handle : view) {
-            if (m_actors.size() >= MaxPhysicsActors) {
-                break;
-            }
             if (!m_actors.contains(handle)) {
                 createActorForEntity(scene, {.handle = handle, .scene = &scene});
             }
@@ -170,10 +181,38 @@ namespace AetherEngine::systems {
             .dynamic = rigidbody.dynamic,
             .useGravity = rigidbody.useGravity
         };
-        const auto body = m_backend->createBody(desc);
-        if (body.isValid()) {
-            m_actors.emplace(entity.handle, body);
+        if (m_actors.size() >= MaxPhysicsActors) {
+            reportCreationFailure(scene, entity, desc, {ActorLimitError, "Physics actor limit reached (512 bodies)"});
+            return;
         }
+        if (const auto failed = m_failedBodies.find(entity.handle); failed != m_failedBodies.end() &&
+            failed->second.diagnostic.error.code != ActorLimitError && sameDescription(failed->second.description, desc)) {
+            return;
+        }
+        const auto body = m_backend->createBody(desc);
+        if (!body) {
+            reportCreationFailure(scene, entity, desc, body.error());
+            return;
+        }
+        try {
+            m_actors.emplace(entity.handle, *body);
+        } catch (...) {
+            m_backend->destroyBody(*body);
+            throw;
+        }
+        m_failedBodies.erase(entity.handle);
+    }
+
+    auto PhysicsSystem::reportCreationFailure(scene::Scene& scene, scene::Entity entity,
+        const physics::BodyDesc& desc, PhysicsError error) -> void {
+        const auto& identity = scene.getComponent<components::IdentityComponent>(entity);
+        const auto previous = m_failedBodies.find(entity.handle);
+        const bool changed = previous == m_failedBodies.end() || previous->second.diagnostic.error.code != error.code ||
+            previous->second.diagnostic.error.message != error.message;
+        if (changed && m_logger) {
+            m_logger->error("Entity '" + identity.name + "' [" + scene::toString(identity.id) + "]: " + error.message, "Physics");
+        }
+        m_failedBodies.insert_or_assign(entity.handle, FailedBody{desc, {identity.id, identity.name, std::move(error)}});
     }
 
     auto PhysicsSystem::destroyRemovedActors(scene::Scene& scene) -> void {
@@ -182,6 +221,7 @@ namespace AetherEngine::systems {
             components::RigidbodyComponent,
             components::ColliderComponent
         >();
+        std::erase_if(m_failedBodies, [&view](const auto& entry) { return !view.contains(entry.first); });
         for (auto actorIt = m_actors.begin(); actorIt != m_actors.end();) {
             if (!view.contains(actorIt->first)) {
                 if (m_backend) {

@@ -3,6 +3,7 @@
 //
 
 #include "core/AetherEngine.hpp"
+#include "core/ApplicationLifetime.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -69,7 +70,7 @@ auto AetherEngine::Engine::initEngine(const core::EngineInitConfig& config) -> s
     sRender = systems::RenderSystem::createRenderSystem();
     sResource = resources::ResourceManager::createResourceManager(m_paths.assetsRoot);
     sSceneSerializer = systems::SceneSerializer::createSceneSerializer(m_paths.scenesRoot);
-    sPhysics = systems::PhysicsSystem::createPhysicsSystem();
+    sPhysics = systems::PhysicsSystem::createPhysicsSystem(&m_logger);
     if (!sWindow) {
         return std::unexpected{core::EngineError{2, "Failed to create window"}};
     }
@@ -131,6 +132,9 @@ auto AetherEngine::Engine::initEngine(const core::EngineInitConfig& config) -> s
 }
 
 auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, core::EngineError> {
+    if (state != core::EngineState::Initialized) {
+        return std::unexpected(core::EngineError{4, "Engine must be initialized before running an application"});
+    }
     state = core::EngineState::Running;
     TimePoint lastTime = Clock::now();
     constexpr float MaxFrameDelta = 0.25f;
@@ -153,18 +157,15 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
             return exchangeScene(other);
         }
     };
-    sSceneAssetBinding->setAllowMissingAssets(app.runConfig().allowMissingAssets);
-    auto appInitResult = app.init(ctx);
-    if (!appInitResult) {
-        m_logger.error("Failed to init application: " + appInitResult.error().message, "Engine");
-        return std::unexpected{core::EngineError{4, "Failed to init application"}};
-    }
-    auto sceneBindResult = sSceneAssetBinding->bindScene(*sScene);
-    if (!sceneBindResult) {
-        m_logger.error("Failed to bind scene: " + sceneBindResult.error().message, "Engine");
-        return std::unexpected{core::EngineError{4, "Failed to bind scene"}};
-    }
+    core::ApplicationLifetime lifetime(app, ctx, state);
     try {
+        sSceneAssetBinding->setAllowMissingAssets(app.runConfig().allowMissingAssets);
+        if (auto initialized = app.init(ctx); !initialized) {
+            return std::unexpected(core::EngineError{4, "Failed to init application: " + initialized.error().message});
+        }
+        if (auto bound = sSceneAssetBinding->bindScene(*sScene); !bound) {
+            return std::unexpected(core::EngineError{4, "Failed to bind scene: " + bound.error().message});
+        }
         while (state == core::EngineState::Running) {
             TimePoint now = Clock::now();
             auto delta = std::chrono::duration<float>(now - lastTime).count();
@@ -194,27 +195,26 @@ auto AetherEngine::Engine::run(core::IApplication &app) -> std::expected<void, c
             }
 
             app.update(delta, ctx);
+            sRender->beginFrame();
+            app.prepareRender(ctx);
             auto sceneSynchronizeResult = sSceneAssetBinding->synchronize(*sScene);
             if (!sceneSynchronizeResult) {
                 m_logger.error("Failed to synchronize scene: " + sceneSynchronizeResult.error().message, "Engine");
                 state = core::EngineState::Stopped;
                 throw std::runtime_error{sceneSynchronizeResult.error().message};
             }
-            sRender->beginFrame();
             app.render(ctx);
             sRender->endFrame();
         }
+        lifetime.shutdown();
     } catch (const std::exception& e) {
-        app.shutdown(ctx);
         m_logger.error(std::string{"Exception during engine run: "} + e.what(), "Engine");
         return std::unexpected{core::EngineError{5, "Exception during engine run"}};
     } catch (...) {
-        app.shutdown(ctx);
         m_logger.error("Unknown exception during engine run", "Engine");
         return std::unexpected{core::EngineError{5, "Unknown exception during engine run"}};
     }
 
-    app.shutdown(ctx);
     return std::expected<void, core::EngineError>{};
 }
 

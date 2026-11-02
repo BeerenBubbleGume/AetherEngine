@@ -25,6 +25,7 @@
 #include "components/MeshComponent.hpp"
 #include "components/PhysicsComponents.hpp"
 #include "components/TransformComponent.hpp"
+#include "physics/PhysicsValidation.hpp"
 #include "security/PathSecurity.hpp"
 #include "scene/EntityId.hpp"
 
@@ -115,7 +116,7 @@ namespace {
     }
 
     auto positiveFiniteOr(float value, float fallback, float maximum) -> float {
-        return std::isfinite(value) && value > 0.0f && value <= maximum ? value : fallback;
+        return AetherEngine::physics::validPositivePhysicsValue(value, maximum) ? value : fallback;
     }
 
     auto serializeVec3(const AetherEngine::math::Vec3& value) -> Json {
@@ -367,7 +368,7 @@ namespace {
         component.mass = positiveFiniteOr(
             value.value("mass", component.mass),
             component.mass,
-            1'000'000'000.0f
+            AetherEngine::physics::MaxBodyMass
         );
         component.useGravity = value.value("useGravity", component.useGravity);
         return component;
@@ -387,21 +388,18 @@ namespace {
         AetherEngine::components::ColliderComponent component{};
         component.type = deserializeColliderType(value.value("type", Json{}), component.type);
         component.size = deserializeVec3(value.value("size", Json::array()), component.size);
-        if (component.size.x <= 0.0f || component.size.y <= 0.0f || component.size.z <= 0.0f ||
-            component.size.x > MaxScaleMagnitude ||
-            component.size.y > MaxScaleMagnitude ||
-            component.size.z > MaxScaleMagnitude) {
+        if (!AetherEngine::physics::invalidPhysicsField(component).empty()) {
             component.size = AetherEngine::math::Vec3::one();
         }
         component.radius = positiveFiniteOr(
             value.value("radius", component.radius),
             component.radius,
-            MaxScaleMagnitude
+            AetherEngine::physics::MaxColliderDimension
         );
         component.height = positiveFiniteOr(
             value.value("height", component.height),
             component.height,
-            MaxScaleMagnitude
+            AetherEngine::physics::MaxColliderDimension
         );
         component.trigger = value.value("trigger", component.trigger);
         return component;
@@ -492,9 +490,17 @@ auto AetherEngine::systems::SceneSerializer::serializeScene(const scene::Scene &
                 entityBody["components"]["Material"] = serializeMaterial(*material);
             }
             if (const auto* rigidbody = registry.try_get<components::RigidbodyComponent>(entityHandle)) {
+                if (const auto field = physics::invalidPhysicsField(*rigidbody); !field.empty()) {
+                    return std::unexpected(makeError(InvalidFormatErrorCode,
+                        "Entity '" + (identity ? identity->name : fallbackId) + "': invalid " + std::string{field}));
+                }
                 entityBody["components"]["Rigidbody"] = serializeRigidbody(*rigidbody);
             }
             if (const auto* collider = registry.try_get<components::ColliderComponent>(entityHandle)) {
+                if (const auto field = physics::invalidPhysicsField(*collider); !field.empty()) {
+                    return std::unexpected(makeError(InvalidFormatErrorCode,
+                        "Entity '" + (identity ? identity->name : fallbackId) + "': invalid " + std::string{field}));
+                }
                 entityBody["components"]["Collider"] = serializeCollider(*collider);
             }
 

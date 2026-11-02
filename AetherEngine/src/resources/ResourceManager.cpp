@@ -593,12 +593,13 @@ namespace AetherEngine::resources {
         m_failedTextureRequests.clear();
     }
 
-    auto ResourceManager::loadMesh(std::string_view filename) -> MeshHandle {
+    auto ResourceManager::loadMesh(std::string_view filename, ResourceLoadMode mode) -> MeshHandle {
+        const bool cachedLoad = mode == ResourceLoadMode::Cached;
         if (filename.empty() || filename.size() > MaxResourcePathLength) {
             return {};
         }
         const std::string requestKey{filename};
-        if (m_failedMeshRequests.contains(requestKey)) {
+        if (cachedLoad && m_failedMeshRequests.contains(requestKey)) {
             return {};
         }
         if (!m_seenResourceRequests.contains(requestKey)) {
@@ -609,7 +610,7 @@ namespace AetherEngine::resources {
         }
         const auto normalized = security::normalizeRelativePathWithin(m_assetsRoot, filename);
         if (!normalized) {
-            m_failedMeshRequests.insert(requestKey);
+            if (cachedLoad) m_failedMeshRequests.insert(requestKey);
             if (m_rejectionLogCount++ < MaxRejectionLogs) {
                 std::cerr << "Rejected mesh path: " << normalized.error().message << std::endl;
             }
@@ -617,7 +618,7 @@ namespace AetherEngine::resources {
         }
         const std::string key = normalized->generic_string();
 
-        if (const auto cached = m_meshCache.find(key); cached != m_meshCache.end()) {
+        if (const auto cached = m_meshCache.find(key); cachedLoad && cached != m_meshCache.end()) {
             const auto index = static_cast<std::size_t>(cached->second - 1);
             if (cached->second > 0 && index < m_meshes.size() && m_meshes[index].object) {
                 auto& slot = m_meshes[index];
@@ -629,15 +630,17 @@ namespace AetherEngine::resources {
             }
             m_meshCache.erase(cached);
         }
-        if (m_failedMeshes.contains(key)) {
+        if (cachedLoad && m_failedMeshes.contains(key)) {
             return {};
         }
         const auto fail = [&]() -> MeshHandle {
-            m_failedMeshes.insert(key);
-            m_failedMeshRequests.insert(requestKey);
+            if (cachedLoad) {
+                m_failedMeshes.insert(key);
+                m_failedMeshRequests.insert(requestKey);
+            }
             return {};
         };
-        if (m_meshCache.size() >= MaxMeshes) {
+        if (std::ranges::count_if(m_meshes, [](const MeshSlot& slot) { return slot.object.has_value(); }) >= MaxMeshes) {
             std::cerr << "Mesh resource limit reached" << std::endl;
             return fail();
         }
@@ -670,14 +673,15 @@ namespace AetherEngine::resources {
             index = static_cast<std::size_t>(std::distance(m_meshes.begin(), freeSlot));
         }
         auto& slot = m_meshes[index];
-        slot.object.emplace(std::move(mesh));
         slot.cacheKey = key;
+        const auto id = static_cast<uint32_t>(index + 1);
+        if (cachedLoad) m_meshCache[key] = id;
+        // All allocating operations precede publishing ownership/counters.
+        slot.object.emplace(std::move(mesh));
         slot.sourceBytes = source->bytes.size();
         slot.groupCount = groupCount;
         slot.referenceCount = 1;
         m_loadedMeshGroups += groupCount;
-        const auto id = static_cast<uint32_t>(index + 1);
-        m_meshCache[key] = id;
         m_loadedSourceBytes += source->bytes.size();
         return {id};
     }
@@ -685,8 +689,10 @@ namespace AetherEngine::resources {
     auto ResourceManager::loadProgram(
         std::string_view name,
         std::string_view vertexShaderFilename,
-        std::string_view fragmentShaderFilename
+        std::string_view fragmentShaderFilename,
+        ResourceLoadMode mode
     ) -> ProgramHandle {
+        const bool cachedLoad = mode == ResourceLoadMode::Cached;
         if (name.empty() || name.size() > 128 ||
             std::ranges::any_of(name, [](unsigned char character) {
                 return character < 0x20 || character == 0x7f;
@@ -700,7 +706,7 @@ namespace AetherEngine::resources {
             return {};
         }
         const std::string requestKey = programRequestKey(vertexShaderFilename, fragmentShaderFilename);
-        if (m_failedProgramRequests.contains(requestKey)) {
+        if (cachedLoad && m_failedProgramRequests.contains(requestKey)) {
             return {};
         }
         if (!m_seenResourceRequests.contains(requestKey)) {
@@ -718,7 +724,7 @@ namespace AetherEngine::resources {
             fragmentShaderFilename
         );
         if (!vertexShaderPath || !fragmentShaderPath) {
-            m_failedProgramRequests.insert(requestKey);
+            if (cachedLoad) m_failedProgramRequests.insert(requestKey);
             if (m_rejectionLogCount++ < MaxRejectionLogs) {
                 std::cerr << "Rejected shader path outside the asset root or to a non-regular file" << std::endl;
             }
@@ -726,7 +732,7 @@ namespace AetherEngine::resources {
         }
         const std::string key = programCacheKey(*vertexShaderPath, *fragmentShaderPath);
 
-        if (const auto cached = m_programCache.find(key); cached != m_programCache.end()) {
+        if (const auto cached = m_programCache.find(key); cachedLoad && cached != m_programCache.end()) {
             const auto index = static_cast<std::size_t>(cached->second - 1);
             if (cached->second > 0 && index < m_programs.size() && m_programs[index].object) {
                 auto& slot = m_programs[index];
@@ -738,15 +744,17 @@ namespace AetherEngine::resources {
             }
             m_programCache.erase(cached);
         }
-        if (m_failedPrograms.contains(key)) {
+        if (cachedLoad && m_failedPrograms.contains(key)) {
             return {};
         }
         const auto fail = [&]() -> ProgramHandle {
-            m_failedPrograms.insert(key);
-            m_failedProgramRequests.insert(requestKey);
+            if (cachedLoad) {
+                m_failedPrograms.insert(key);
+                m_failedProgramRequests.insert(requestKey);
+            }
             return {};
         };
-        if (m_programCache.size() >= MaxPrograms) {
+        if (std::ranges::count_if(m_programs, [](const ProgramSlot& slot) { return slot.object.has_value(); }) >= MaxPrograms) {
             std::cerr << "Shader program resource limit reached" << std::endl;
             return fail();
         }
@@ -799,22 +807,23 @@ namespace AetherEngine::resources {
             index = static_cast<std::size_t>(std::distance(m_programs.begin(), freeSlot));
         }
         auto& slot = m_programs[index];
-        slot.object.emplace(std::move(program));
         slot.cacheKey = key;
+        const auto id = static_cast<uint32_t>(index + 1);
+        if (cachedLoad) m_programCache[key] = id;
+        slot.object.emplace(std::move(program));
         slot.sourceBytes = sourceBytes;
         slot.referenceCount = 1;
-        const auto id = static_cast<uint32_t>(index + 1);
-        m_programCache[key] = id;
         m_loadedSourceBytes += sourceBytes;
         return {id};
     }
 
-    auto ResourceManager::loadTexture(std::string_view filename) -> TextureHandle {
+    auto ResourceManager::loadTexture(std::string_view filename, ResourceLoadMode mode) -> TextureHandle {
+        const bool cachedLoad = mode == ResourceLoadMode::Cached;
         if (filename.empty() || filename.size() > MaxResourcePathLength) {
             return {};
         }
         const std::string requestKey{filename};
-        if (m_failedTextureRequests.contains(requestKey)) {
+        if (cachedLoad && m_failedTextureRequests.contains(requestKey)) {
             return {};
         }
         if (!m_seenResourceRequests.contains(requestKey)) {
@@ -825,7 +834,7 @@ namespace AetherEngine::resources {
         }
         const auto normalized = security::normalizeRelativePathWithin(m_assetsRoot, filename);
         if (!normalized) {
-            m_failedTextureRequests.insert(requestKey);
+            if (cachedLoad) m_failedTextureRequests.insert(requestKey);
             if (m_rejectionLogCount++ < MaxRejectionLogs) {
                 std::cerr << "Rejected texture path: " << normalized.error().message << std::endl;
             }
@@ -833,7 +842,7 @@ namespace AetherEngine::resources {
         }
         const std::string key = normalized->generic_string();
 
-        if (const auto cached = m_textureCache.find(key); cached != m_textureCache.end()) {
+        if (const auto cached = m_textureCache.find(key); cachedLoad && cached != m_textureCache.end()) {
             const auto index = static_cast<std::size_t>(cached->second - 1);
             if (cached->second > 0 && index < m_textures.size() && m_textures[index].object) {
                 auto& slot = m_textures[index];
@@ -845,15 +854,17 @@ namespace AetherEngine::resources {
             }
             m_textureCache.erase(cached);
         }
-        if (m_failedTextures.contains(key)) {
+        if (cachedLoad && m_failedTextures.contains(key)) {
             return {};
         }
         const auto fail = [&]() -> TextureHandle {
-            m_failedTextures.insert(key);
-            m_failedTextureRequests.insert(requestKey);
+            if (cachedLoad) {
+                m_failedTextures.insert(key);
+                m_failedTextureRequests.insert(requestKey);
+            }
             return {};
         };
-        if (m_textureCache.size() >= MaxTextures) {
+        if (std::ranges::count_if(m_textures, [](const TextureSlot& slot) { return slot.object.has_value(); }) >= MaxTextures) {
             std::cerr << "Texture resource limit reached" << std::endl;
             return fail();
         }
@@ -880,12 +891,12 @@ namespace AetherEngine::resources {
             index = static_cast<std::size_t>(std::distance(m_textures.begin(), freeSlot));
         }
         auto& slot = m_textures[index];
-        slot.object.emplace(std::move(texture));
         slot.cacheKey = key;
+        const auto id = static_cast<uint32_t>(index + 1);
+        if (cachedLoad) m_textureCache[key] = id;
+        slot.object.emplace(std::move(texture));
         slot.sourceBytes = source->bytes.size();
         slot.referenceCount = 1;
-        const auto id = static_cast<uint32_t>(index + 1);
-        m_textureCache[key] = id;
         m_loadedSourceBytes += source->bytes.size();
         return {id};
     }
@@ -925,7 +936,8 @@ namespace AetherEngine::resources {
         if (--slot.referenceCount != 0) {
             return;
         }
-        m_meshCache.erase(slot.cacheKey);
+        if (const auto cached = m_meshCache.find(slot.cacheKey); cached != m_meshCache.end() && cached->second == handle.id)
+            m_meshCache.erase(cached);
         m_loadedSourceBytes -= std::min(m_loadedSourceBytes, slot.sourceBytes);
         m_loadedMeshGroups -= std::min(m_loadedMeshGroups, slot.groupCount);
         slot.object.reset();
@@ -945,7 +957,8 @@ namespace AetherEngine::resources {
         if (--slot.referenceCount != 0) {
             return;
         }
-        m_programCache.erase(slot.cacheKey);
+        if (const auto cached = m_programCache.find(slot.cacheKey); cached != m_programCache.end() && cached->second == handle.id)
+            m_programCache.erase(cached);
         m_loadedSourceBytes -= std::min(m_loadedSourceBytes, slot.sourceBytes);
         slot.object.reset();
         slot.cacheKey.clear();
@@ -963,7 +976,8 @@ namespace AetherEngine::resources {
         if (--slot.referenceCount != 0) {
             return;
         }
-        m_textureCache.erase(slot.cacheKey);
+        if (const auto cached = m_textureCache.find(slot.cacheKey); cached != m_textureCache.end() && cached->second == handle.id)
+            m_textureCache.erase(cached);
         m_loadedSourceBytes -= std::min(m_loadedSourceBytes, slot.sourceBytes);
         slot.object.reset();
         slot.cacheKey.clear();

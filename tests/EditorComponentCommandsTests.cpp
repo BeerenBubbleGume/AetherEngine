@@ -2,12 +2,14 @@
 
 #include <cstdlib>
 #include <memory>
+#include <limits>
 
 #include "commands/CommandHistory.hpp"
 #include "commands/ComponentCommands.hpp"
 #include "commands/EntityCommands.hpp"
 #include "components/PhysicsComponents.hpp"
 #include "components/TransformComponent.hpp"
+#include "physics/PhysicsValidation.hpp"
 #include "systems/SceneSerializer.hpp"
 
 namespace {
@@ -228,6 +230,109 @@ namespace {
                 "Undo/redo did not track the saved state");
     }
 
+    auto physicsHistoryAndSave() -> void {
+        scene_write_tests::Fixture fixture;
+        auto serializer = AetherEngine::systems::SceneSerializer::createSceneSerializer(fixture.scenes);
+        auto scene = Scene::createScene("Physics properties");
+        const auto entity = scene->createEntity("Crate");
+        const auto id = scene->getComponent<components::IdentityComponent>(entity).id;
+        auto& transform = scene->addComponent<components::TransformComponent>(entity).transform;
+        transform.position = {4, 5, 6};
+        transform.scale = {2, 3, 4};
+        const commands::PhysicsComponentState initial{
+            components::RigidbodyComponent{.dynamic = false}, components::ColliderComponent{}};
+        commands::CommandHistory history;
+        require(history.execute(std::make_unique<commands::PhysicsChangeCommand>(id, commands::PhysicsComponentState{}, initial), *scene),
+            "Add Physics failed");
+        history.markSaved();
+        auto edited = initial;
+        edited.rigidbody = components::RigidbodyComponent{.dynamic = true, .mass = 7.5f, .useGravity = false};
+        edited.collider = components::ColliderComponent{.type = components::ColliderType::Capsule,
+            .size = {2, 3, 4}, .radius = 0.75f, .height = 2.5f, .trigger = true};
+        require(history.execute(std::make_unique<commands::PhysicsChangeCommand>(id, initial, edited), *scene), "Physics edit failed");
+        require(commands::PhysicsComponentState::capture(*scene, entity) == edited && history.isDirty(), "Physics fields were lost");
+        require(transform.position == AetherEngine::math::Vec3{4, 5, 6} && transform.scale == AetherEngine::math::Vec3{2, 3, 4},
+            "Physics edit overwrote Transform");
+        require(serializer->serializeScene(*scene).has_value(), "Physics save failed");
+        auto loaded = serializer->deserializeScene("Physics properties");
+        require(loaded && commands::PhysicsComponentState::capture(**loaded, *(*loaded)->findEntityById(id)) == edited,
+            "Physics scene round trip lost properties");
+        require(history.undo(*scene) && !history.isDirty() && commands::PhysicsComponentState::capture(*scene, entity) == initial,
+            "Undo did not restore the full physics state");
+        require(history.redo(*scene) && commands::PhysicsComponentState::capture(*scene, entity) == edited, "Physics redo failed");
+        require(history.execute(std::make_unique<commands::PhysicsChangeCommand>(id, edited, commands::PhysicsComponentState{}), *scene),
+            "Remove Physics failed");
+        require(!scene->hasComponent<components::RigidbodyComponent>(entity) && !scene->hasComponent<components::ColliderComponent>(entity),
+            "Remove Physics left a component");
+        require(history.undo(*scene) && commands::PhysicsComponentState::capture(*scene, entity) == edited,
+            "Undo removal lost physics settings");
+        for (int i = 0; i < 2; ++i) require(history.undo(*scene), "Ordered physics undo failed");
+        require(commands::PhysicsComponentState::capture(*scene, entity) == commands::PhysicsComponentState{}, "Undo Add Physics failed");
+        for (int i = 0; i < 3; ++i) require(history.redo(*scene), "Ordered physics redo failed");
+    }
+
+    auto partialPhysicsAndGuards() -> void {
+        auto scene = Scene::createScene("Partial physics");
+        const auto entity = scene->createEntity("Collider only");
+        const auto id = scene->getComponent<components::IdentityComponent>(entity).id;
+        scene->addComponent<components::ColliderComponent>(entity, components::ColliderComponent{.radius = 3.0f, .trigger = true});
+        const auto partial = commands::PhysicsComponentState::capture(*scene, entity);
+        auto full = partial;
+        full.rigidbody = components::RigidbodyComponent{.dynamic = false};
+        commands::CommandHistory history;
+        require(history.execute(std::make_unique<commands::PhysicsChangeCommand>(id, partial, full), *scene), "Completing partial physics failed");
+        require(history.undo(*scene) && commands::PhysicsComponentState::capture(*scene, entity) == partial,
+            "Undo completion removed or changed the original collider");
+        require(!history.execute(std::make_unique<commands::PhysicsChangeCommand>(id, partial, partial), *scene) && history.canRedo(),
+            "No-op physics edit discarded redo history");
+        for (float invalid : {0.0f, -1.0f, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN(),
+                               AetherEngine::physics::MaxBodyMass * 2.0f}) {
+            auto bad = full;
+            bad.rigidbody->mass = invalid;
+            require(!history.execute(std::make_unique<commands::PhysicsChangeCommand>(id, partial, bad), *scene) &&
+                    commands::PhysicsComponentState::capture(*scene, entity) == partial && !history.canUndo(),
+                "Invalid mass partially added physics or entered history");
+        }
+        auto bad = full;
+        bad.collider->radius = -1;
+        require(!history.execute(std::make_unique<commands::PhysicsChangeCommand>(id, partial, bad), *scene) &&
+                !scene->hasComponent<components::RigidbodyComponent>(entity), "Invalid collider left a newly added body");
+        bad = full;
+        bad.collider->size.x = AetherEngine::physics::MaxColliderDimension * 2.0f;
+        require(!history.execute(std::make_unique<commands::PhysicsChangeCommand>(id, partial, bad), *scene), "Invalid box size accepted");
+        bad = full;
+        bad.collider->type = static_cast<components::ColliderType>(99);
+        require(!history.execute(std::make_unique<commands::PhysicsChangeCommand>(id, partial, bad), *scene), "Invalid shape accepted");
+        require(history.redo(*scene), "Redo completion failed after rejected edits");
+        scene->removeComponent<components::ColliderComponent>(entity);
+        require(!history.undo(*scene) && history.canUndo(), "Undo silently restored an externally removed component");
+        scene->destroyEntity(entity);
+        require(!history.undo(*scene) && history.canUndo(), "Deleted physics target advanced history");
+        require(!history.execute(std::make_unique<commands::PhysicsChangeCommand>(id, commands::PhysicsComponentState{}, full), *scene),
+            "Physics command accepted a deleted entity");
+    }
+
+    auto invalidPhysicsSave() -> void {
+        scene_write_tests::Fixture fixture;
+        auto serializer = AetherEngine::systems::SceneSerializer::createSceneSerializer(fixture.scenes);
+        auto scene = Scene::createScene("Invalid physics");
+        const auto entity = scene->createEntity("Broken crate");
+        auto& body = scene->addComponent<components::RigidbodyComponent>(entity);
+        auto& collider = scene->addComponent<components::ColliderComponent>(entity);
+        require(serializer->serializeScene(*scene).has_value(), "Valid physics save failed");
+        const auto path = fixture.scenes / "Invalid physics.scene.json";
+        const auto saved = scene_write_tests::get(path);
+        body.mass = std::numeric_limits<float>::quiet_NaN();
+        const auto massResult = serializer->serializeScene(*scene);
+        require(!massResult && massResult.error().message.find("Broken crate") != std::string::npos &&
+                massResult.error().message.find("Rigidbody.mass") != std::string::npos, "Invalid mass save lacked a useful diagnostic");
+        body.mass = 1;
+        collider.height = 0;
+        const auto shapeResult = serializer->serializeScene(*scene);
+        require(!shapeResult && shapeResult.error().message.find("Collider.height") != std::string::npos && scene_write_tests::get(path) == saved,
+            "Invalid collider save overwrote the valid file");
+    }
+
     template<class Component, class AddCommand>
     auto rejectsInvalidAdditions(assets::AssetId id) -> void {
         auto scene = Scene::createScene("Command guards");
@@ -254,6 +359,9 @@ namespace {
 
 int main() {
     int failures = 0;
+    failures += scene_write_tests::run("physics properties, ordered history and scene round trip", physicsHistoryAndSave);
+    failures += scene_write_tests::run("partial physics, no-op, invalid values and missing targets", partialPhysicsAndGuards);
+    failures += scene_write_tests::run("invalid physics saves preserve the existing scene", invalidPhysicsSave);
     failures += scene_write_tests::run("entity rename, stable identity, ordered history and scene round trip", renameHistoryAndSave);
     failures += scene_write_tests::run("invalid and unchanged entity names do not enter history", rejectInvalidRename);
     failures += scene_write_tests::run("entity creation, stable IDs, Undo/Redo and scene round trip", createUndoRedoAndSave);

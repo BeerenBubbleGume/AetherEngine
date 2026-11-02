@@ -32,7 +32,10 @@ namespace AetherEngine::scene {
         using ScenePtr = std::unique_ptr<Scene, SceneDeleter>;
         Scene(const Scene&) = delete;
         Scene& operator=(const Scene&) = delete;
-        Scene& operator=(Scene&&) noexcept;
+        // Entity handles and bound systems retain this Scene's address.
+        // Transfer ownership through ScenePtr, never move the Scene itself.
+        Scene(Scene&&) = delete;
+        Scene& operator=(Scene&&) = delete;
 
         static ScenePtr createScene();
         static ScenePtr createScene(std::string_view name);
@@ -57,13 +60,12 @@ namespace AetherEngine::scene {
         auto findEntityByName(std::string_view name) -> std::optional<Entity>;
         auto findEntityById(scene::EntityId id) -> std::optional<Entity>;
 
-        [[nodiscard]] [[nodiscard]] auto isAlive(const Entity &entity) const -> bool;
+        [[nodiscard]] auto isAlive(const Entity &entity) const -> bool;
     private:
         friend class systems::SceneSerializer;
 
         [[nodiscard]] auto getRegistry() const -> const entt::registry &;
         Scene(std::string_view name);
-        Scene(Scene&& other) noexcept;
         Scene() = default;
         ~Scene() = default;
         entt::registry m_registry;

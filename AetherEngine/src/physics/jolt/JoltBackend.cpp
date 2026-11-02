@@ -6,6 +6,9 @@
 
 #include <array>
 #include <cmath>
+#include <numbers>
+#include "physics/PhysicsValidation.hpp"
+#include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
 #include <mutex>
 #include <thread>
 
@@ -236,21 +239,24 @@ namespace AetherEngine::physics {
         m_nextBodyHandle = 1;
     }
 
-    auto JoltBackend::createBody(const BodyDesc& desc) -> BodyHandle {
-        if (!m_physicsSystem || !isValidTransform(desc.transform)) {
-            return {};
+    auto JoltBackend::createBody(const BodyDesc& desc) -> std::expected<BodyHandle, PhysicsError> {
+        if (!m_physicsSystem) {
+            return std::unexpected(PhysicsError{1, "Jolt is not initialized"});
         }
-        if (desc.dynamic && (!std::isfinite(desc.mass) || desc.mass <= 0.0f)) {
-            return {};
+        if (!isValidTransform(desc.transform)) {
+            return std::unexpected(PhysicsError{2, "Transform position or rotation is invalid"});
+        }
+        if (!validPositivePhysicsValue(desc.mass, MaxBodyMass)) {
+            return std::unexpected(PhysicsError{2, "Invalid Rigidbody.mass"});
         }
 
         const auto shape = createShape(desc.collider);
         if (!shape) {
-            return {};
+            return std::unexpected(shape.error());
         }
 
         JPH::BodyCreationSettings settings{
-            shape,
+            shape->GetPtr(),
             toJoltPosition(desc.transform.position),
             toJoltRotation(desc.transform.rotation),
             desc.dynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Static,
@@ -271,17 +277,23 @@ namespace AetherEngine::physics {
             desc.dynamic ? JPH::EActivation::Activate : JPH::EActivation::DontActivate
         );
         if (bodyId.IsInvalid()) {
-            return {};
+            return std::unexpected(PhysicsError{3, "Jolt could not allocate a body (body limit or allocation failure)"});
         }
 
         const auto handle = allocateBodyHandle();
         if (!handle.isValid()) {
             bodyInterface.RemoveBody(bodyId);
             bodyInterface.DestroyBody(bodyId);
-            return {};
+            return std::unexpected(PhysicsError{3, "Jolt body handle limit reached"});
         }
 
-        m_bodies.emplace(handle.value, bodyId);
+        try {
+            m_bodies.emplace(handle.value, bodyId);
+        } catch (...) {
+            bodyInterface.RemoveBody(bodyId);
+            bodyInterface.DestroyBody(bodyId);
+            throw;
+        }
         return handle;
     }
 
@@ -356,14 +368,16 @@ namespace AetherEngine::physics {
 
     auto JoltBackend::createShape(
         const components::ColliderComponent& collider
-    ) -> JPH::ShapeRefC {
+    ) -> std::expected<JPH::ShapeRefC, PhysicsError> {
+        if (const auto field = invalidPhysicsField(collider); !field.empty())
+            return std::unexpected(PhysicsError{2, "Invalid " + std::string{field}});
         JPH::ShapeSettings::ShapeResult result;
         switch (collider.type) {
             case components::ColliderType::Box:
                 if (!validDimension(collider.size.x) ||
                     !validDimension(collider.size.y) ||
                     !validDimension(collider.size.z)) {
-                    return {};
+                    return std::unexpected(PhysicsError{2, "Invalid Collider.size"});
                 }
                 result = JPH::BoxShapeSettings{
                     {collider.size.x, collider.size.y, collider.size.z}
@@ -372,7 +386,7 @@ namespace AetherEngine::physics {
 
             case components::ColliderType::Sphere:
                 if (!validDimension(collider.radius)) {
-                    return {};
+                    return std::unexpected(PhysicsError{2, "Invalid Collider.radius"});
                 }
                 result = JPH::SphereShapeSettings{collider.radius}.Create();
                 break;
@@ -380,19 +394,30 @@ namespace AetherEngine::physics {
             case components::ColliderType::Capsule:
                 if (!validDimension(collider.radius) ||
                     !validDimension(collider.height)) {
-                    return {};
+                    return std::unexpected(PhysicsError{2, "Invalid Capsule dimensions"});
                 }
                 result = JPH::CapsuleShapeSettings{
                     collider.height * 0.5f,
                     collider.radius
                 }.Create();
+                if (!result.HasError()) {
+                    // Engine capsules use X, preserving the existing PhysX/v2
+                    // interpretation. Rotate the shape, not the entity/mesh.
+                    const JPH::ShapeRefC capsule = result.Get();
+                    result = JPH::RotatedTranslatedShapeSettings{
+                        JPH::Vec3::sZero(),
+                        JPH::Quat::sRotation(JPH::Vec3::sAxisZ(), -std::numbers::pi_v<float> * 0.5f),
+                        capsule.GetPtr()
+                    }.Create();
+                }
                 break;
 
             default:
-                return {};
+                return std::unexpected(PhysicsError{2, "Unknown Collider.type"});
         }
 
-        return result.HasError() ? JPH::ShapeRefC{} : result.Get();
+        if (result.HasError()) return std::unexpected(PhysicsError{2, "Jolt geometry: " + std::string{result.GetError().c_str()}});
+        return JPH::ShapeRefC{result.Get()};
     }
 
     auto JoltBackend::allocateBodyHandle() -> BodyHandle {

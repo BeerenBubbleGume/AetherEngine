@@ -21,7 +21,7 @@ namespace AetherEngine::assets {
                 const auto handle = context.resources.loadProgram(
                     context.record.alias,
                     vertex->second.generic_string(),
-                    fragment->second.generic_string()
+                    fragment->second.generic_string(), context.resourceLoadMode
                 );
                 if (!handle.isValid()) {
                     return std::unexpected(AssetError{7, "Failed to load shader asset: " + context.record.alias});

@@ -30,7 +30,7 @@ namespace AetherEngine::physics {
         auto init() -> std::expected<void, PhysicsError> override;
         auto shutdown() -> void override;
 
-        [[nodiscard]] auto createBody(const BodyDesc& desc) -> BodyHandle override;
+        [[nodiscard]] auto createBody(const BodyDesc& desc) -> std::expected<BodyHandle, PhysicsError> override;
         auto destroyBody(BodyHandle handle) noexcept -> void override;
 
         auto setTransform(
@@ -48,7 +48,7 @@ namespace AetherEngine::physics {
 
         [[nodiscard]] static auto createShape(
             const components::ColliderComponent& collider
-        ) -> JPH::ShapeRefC;
+        ) -> std::expected<JPH::ShapeRefC, PhysicsError>;
 
         [[nodiscard]] auto allocateBodyHandle() -> BodyHandle;
 

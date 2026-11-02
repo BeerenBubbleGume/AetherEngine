@@ -126,7 +126,7 @@ namespace AetherEngine::assets {
         return UntypedHandle{static_cast<std::uint32_t>(index), m_entries[index].generation};
     }
 
-    auto AssetManager::loadEntry(std::size_t index) -> std::expected<void, AssetError> {
+    auto AssetManager::loadEntry(std::size_t index, bool reload) -> std::expected<void, AssetError> {
         if (index >= m_entries.size() || !m_resources) {
             return std::unexpected(AssetError{6, "Asset manager is not initialized"});
         }
@@ -158,7 +158,8 @@ namespace AetherEngine::assets {
             .variant = *variant,
             .assetsRoot = m_assetsRoot,
             .resources = *m_resources,
-            .manager = *this
+            .manager = *this,
+            .resourceLoadMode = reload ? resources::ResourceLoadMode::Fresh : resources::ResourceLoadMode::Cached
         };
         auto object = [&]() -> std::expected<std::unique_ptr<RuntimeAsset>, AssetError> {
             try {
@@ -239,17 +240,29 @@ namespace AetherEngine::assets {
         if (entry.state == AssetLoadState::Loading) {
             return std::unexpected(AssetError{5, "Cannot reload an asset while it is loading"});
         }
-        if (const auto* record = m_registry.find(id); record && entry.dependenciesLoaded) {
-            entry.object.reset();
+        // Keep the resident object and its dependency references alive until a
+        // replacement is fully loaded. Existing handles keep their generation.
+        auto previous = std::move(entry);
+        entry = LoadedAssetEntry{
+            .id = previous.id,
+            .type = previous.type,
+            .generation = previous.generation,
+            .referenceCount = previous.referenceCount == 0 ? 1 : previous.referenceCount
+        };
+        try {
+            auto result = loadEntry(loaded->second, true);
+            if (!result) {
+                entry = std::move(previous);
+                return result;
+            }
+        } catch (...) {
+            entry = std::move(previous);
+            throw;
+        }
+        previous.object.reset();
+        if (const auto* record = m_registry.find(id); record && previous.dependenciesLoaded)
             releaseDependencies(*record);
-            entry.dependenciesLoaded = false;
-        } else {
-            entry.object.reset();
-        }
-        if (entry.referenceCount == 0) {
-            entry.referenceCount = 1;
-        }
-        return loadEntry(loaded->second);
+        return {};
     }
 
     auto AssetManager::retryFailedLoads() -> void {

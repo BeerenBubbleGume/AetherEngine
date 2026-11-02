@@ -48,6 +48,25 @@ namespace {
         const auto goodHandle = bindings->meshHandle({Good});
         require(goodHandle && manager->get(*goodHandle), "Valid mesh did not bind");
 
+        const auto extraReference = manager->load(assets::AssetRef<assets::RuntimeMeshAsset>{Good});
+        require(extraReference && *extraReference == *goodHandle, "Could not retain a second reference");
+        const auto* original = manager->get(*goodHandle);
+        const auto cachedResource = resources->loadMesh("meshes/good.bin");
+        require(cachedResource.isValid(), "Could not retain the low-level cached mesh");
+        put(root / "meshes/good.bin", "corrupt replacement");
+        for (int attempt = 0; attempt < 3; ++attempt) {
+            require(!manager->reload(Good), "Reload reused the old cache instead of reading the broken file");
+            require(manager->get(*goodHandle) == original && original->mesh()->isValid(), "Failed reload destroyed the resident mesh");
+            require(bindings->synchronize(*scene).has_value(), "Failed reload invalidated the scene binding");
+        }
+        fs::copy_file(cube, root / "meshes/good.bin", fs::copy_options::overwrite_existing);
+        require(manager->reload(Good).has_value(), "Reload did not retry the repaired file");
+        require(manager->get(*goodHandle) && manager->get(*goodHandle) != original && manager->get(*goodHandle)->mesh()->isValid(),
+            "Successful reload did not replace the object behind the existing handle");
+        require(manager->get(*goodHandle)->mesh() != resources->getMesh(cachedResource), "Fresh reload reused the cached GPU resource");
+        manager->unload(Good);
+        require(manager->get(*goodHandle) != nullptr, "Reload lost an existing reference");
+
         const auto broken = scene->createEntity("Broken mesh");
         scene->addComponent<ae::components::MeshComponent>(broken).asset.id = Broken;
         const auto unknown = scene->createEntity("Missing material");
@@ -88,6 +107,11 @@ namespace {
         auto empty = Scene::createScene("Empty");
         require(bindings->bindScene(*empty).has_value() && !bindings->meshHandle({Good}), "Scene replacement retained stale bindings");
         require(manager->get(*goodHandle) == nullptr, "Repeated synchronize leaked resource references");
+        const auto cachedAgain = resources->loadMesh("meshes/good.bin");
+        require(cachedAgain.id == cachedResource.id && resources->getMesh(cachedResource)->isValid(),
+            "Releasing a fresh resource evicted another owner's cache entry");
+        resources->releaseMesh(cachedAgain);
+        resources->releaseMesh(cachedResource);
     }
 }
 

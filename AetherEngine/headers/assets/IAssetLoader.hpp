@@ -17,6 +17,7 @@ namespace AetherEngine::assets {
         const std::filesystem::path& assetsRoot;
         resources::ResourceManager& resources;
         AssetManager& manager;
+        resources::ResourceLoadMode resourceLoadMode = resources::ResourceLoadMode::Cached;
     };
 
     class IAssetLoader {

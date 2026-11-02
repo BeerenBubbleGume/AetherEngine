@@ -16,7 +16,11 @@ namespace AetherEngine::assets {
 
         class DependencyRollback final {
         public:
-            explicit DependencyRollback(AssetManager& manager) : m_manager(&manager) {}
+            DependencyRollback(AssetManager& manager, std::size_t count) : m_manager(&manager) {
+                // Reserve before acquiring any references: tracking a loaded
+                // dependency must not throw and leak its reference.
+                m_loaded.reserve(count);
+            }
             DependencyRollback(const DependencyRollback&) = delete;
             auto operator=(const DependencyRollback&) -> DependencyRollback& = delete;
 
@@ -128,7 +132,7 @@ namespace AetherEngine::assets {
                     const auto renderState = parseRenderState(
                         body.value("renderState", Json::object())
                     );
-                    DependencyRollback rollback{context.manager};
+                    DependencyRollback rollback{context.manager, usedDependencies.size()};
                     auto shader = context.manager.load(
                         AssetRef<RuntimeShaderAsset>{*shaderId}
                     );

@@ -16,7 +16,7 @@ namespace AetherEngine::assets {
                     return std::unexpected(AssetError{7, "Mesh asset has no cooked path"});
                 }
                 const auto handle = context.resources.loadMesh(
-                    context.variant.cookedPath.generic_string()
+                    context.variant.cookedPath.generic_string(), context.resourceLoadMode
                 );
                 if (!handle.isValid()) {
                     return std::unexpected(AssetError{7, "Failed to load mesh asset: " + context.record.alias});

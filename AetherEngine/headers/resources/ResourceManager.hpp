@@ -20,6 +20,10 @@
 #include "ResourceTypes.hpp"
 
 namespace AetherEngine::resources {
+    // Fresh loads bypass both resident and failed caches. They own a separate
+    // slot, so a failed asset reload cannot evict the still-used version.
+    enum class ResourceLoadMode { Cached, Fresh };
+
     class ResourceManager final {
     public:
         ResourceManager(const ResourceManager&) = delete;
@@ -32,13 +36,14 @@ namespace AetherEngine::resources {
         using ResourceManagerPtr = std::unique_ptr<ResourceManager, ResourceManagerDeleter>;
         static ResourceManagerPtr createResourceManager(const std::filesystem::path& assetsRoot);
 
-        [[nodiscard]] auto loadMesh(std::string_view filename) -> MeshHandle;
+        [[nodiscard]] auto loadMesh(std::string_view filename, ResourceLoadMode mode = ResourceLoadMode::Cached) -> MeshHandle;
         [[nodiscard]] auto loadProgram(
             std::string_view name,
             std::string_view vertexShaderFilename,
-            std::string_view fragmentShaderFilename
+            std::string_view fragmentShaderFilename,
+            ResourceLoadMode mode = ResourceLoadMode::Cached
         ) -> ProgramHandle;
-        [[nodiscard]] auto loadTexture(std::string_view filename) -> TextureHandle;
+        [[nodiscard]] auto loadTexture(std::string_view filename, ResourceLoadMode mode = ResourceLoadMode::Cached) -> TextureHandle;
 
         [[nodiscard]] auto getMesh(MeshHandle handle) const -> const graphics::Mesh*;
         [[nodiscard]] auto getProgram(ProgramHandle handle) const -> const graphics::ShaderProgram*;

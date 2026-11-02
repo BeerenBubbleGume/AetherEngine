@@ -35,6 +35,7 @@ namespace AetherEditor::core {
         auto onEvent(const SDL_Event& event) -> void override;
         auto onQuitRequested(AetherEngine::core::EngineContext& ctx) -> void override;
         auto update(float dt, AetherEngine::core::EngineContext &ctx) -> void override;
+        auto prepareRender(AetherEngine::core::EngineContext& ctx) -> void override;
         auto render(AetherEngine::core::EngineContext& ctx) -> void override;
         auto shutdown(AetherEngine::core::EngineContext& ctx) -> void override;
 
@@ -85,6 +86,7 @@ namespace AetherEditor::core {
         bool m_exitApproved = false;
         std::vector<AetherEngine::systems::SceneAssetBindingError> m_reportedAssetErrors;
         float m_frameDelta = 0.0f;
+        viewport::SceneViewportFrame m_preparedViewport{};
         bool m_relativeMouseMode = false;
 
         auto setRelativeMouseMode(SDL_Window* window, bool enabled) -> bool;

@@ -8,6 +8,7 @@
 #include "commands/EntityCommands.hpp"
 #include "commands/EntitySnapshot.hpp"
 #include "core/EngineContext.hpp"
+#include "core/ApplicationLifetime.hpp"
 #include "documents/DocumentController.hpp"
 #include "systems/PhysicsSystem.hpp"
 #include "systems/RenderSystem.hpp"
@@ -96,6 +97,49 @@ namespace {
             return result;
         }
     };
+
+    auto applicationCleanup() -> void {
+        namespace core = AetherEngine::core;
+        struct App final : core::IApplication {
+            int stops = 0;
+            bool throwOnStop = false;
+            auto init(EngineContext&) -> Result override { return {}; }
+            auto update(float, EngineContext&) -> void override {}
+            auto render(EngineContext&) -> void override {}
+            auto shutdown(EngineContext&) -> void override {
+                ++stops;
+                if (throwOnStop) throw std::runtime_error("shutdown failure");
+            }
+        };
+        Fixture f;
+        auto ctx = f.context();
+        for (bool throwingShutdown : {false, true}) {
+            App app;
+            app.throwOnStop = throwingShutdown;
+            auto state = core::EngineState::Running;
+            try {
+                core::ApplicationLifetime lifetime(app, ctx, state);
+                throw std::runtime_error("initialization failure");
+            } catch (const std::runtime_error& error) {
+                require(std::string_view{error.what()} == "initialization failure", "Cleanup replaced the original error");
+            }
+            require(app.stops == 1 && state == core::EngineState::Stopped, "Failed initialization did not clean up exactly once");
+        }
+        App app;
+        app.throwOnStop = true;
+        auto state = core::EngineState::Running;
+        try {
+            core::ApplicationLifetime lifetime(app, ctx, state);
+            lifetime.shutdown();
+        } catch (const std::runtime_error&) {}
+        require(app.stops == 1 && state == core::EngineState::Stopped, "Throwing explicit shutdown was repeated");
+        const auto earlyReturn = [&]() -> Result {
+            core::ApplicationLifetime lifetime(app, ctx, state);
+            return std::unexpected(EngineError{4, "bind failure"});
+        };
+        app.throwOnStop = false;
+        require(!earlyReturn() && app.stops == 2, "Returned error skipped application cleanup");
+    }
 
     auto populate(Scene& scene) -> void {
         const auto entity = scene.createEntityWithId(Rich, "Camera and body");
@@ -299,6 +343,7 @@ namespace {
 
 int main() {
     int failures = 0;
+    failures += scene_write_tests::run("application cleanup on early return, exception and throwing shutdown", applicationCleanup);
     failures += scene_write_tests::run("clone all scene data, isolate runtime changes and restore original ownership", roundTrip);
     failures += scene_write_tests::run("empty scenes and repeated Start/Stop guards", guardsAndEmptyScene);
     failures += scene_write_tests::run("missing callbacks, returned errors, exceptions and retries", callbackFailures);

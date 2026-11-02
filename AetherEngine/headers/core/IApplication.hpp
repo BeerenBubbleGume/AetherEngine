@@ -19,6 +19,9 @@ namespace AetherEngine::core {
         // OS close requests can be deferred by applications with unsaved work.
         virtual auto onQuitRequested(EngineContext& ctx) -> void { ctx.requestQuit(); }
         virtual auto update(float dt, EngineContext& ctx) -> void = 0;
+        // UI/authoring changes are committed here, before asset synchronization
+        // and drawing. render() consumes the resulting scene and bindings.
+        virtual auto prepareRender(EngineContext& ctx) -> void { (void)ctx; }
         virtual auto render(EngineContext& ctx) -> void = 0;
         virtual auto shutdown(EngineContext& ctx) -> void { (void)ctx; }
         [[nodiscard]] virtual auto runConfig() const -> EngineRunConfig {return {};}

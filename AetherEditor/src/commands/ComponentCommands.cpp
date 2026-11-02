@@ -5,6 +5,7 @@
 #include "commands/ComponentCommands.hpp"
 
 #include "components/TransformComponent.hpp"
+#include "physics/PhysicsValidation.hpp"
 #include "scene/Scene.hpp"
 
 namespace {
@@ -112,6 +113,57 @@ namespace AetherEditor::commands {
             return false;
         }
         component->asset = value;
+        return true;
+    }
+
+    auto PhysicsComponentState::capture(AetherEngine::scene::Scene& scene, AetherEngine::scene::Entity entity) -> PhysicsComponentState {
+        PhysicsComponentState state;
+        if (const auto* body = scene.tryGetComponent<AetherEngine::components::RigidbodyComponent>(entity)) state.rigidbody = *body;
+        if (const auto* shape = scene.tryGetComponent<AetherEngine::components::ColliderComponent>(entity)) state.collider = *shape;
+        return state;
+    }
+
+    auto PhysicsChangeCommand::apply(AetherEngine::scene::Scene &scene) -> bool {
+        return setComponents(scene, m_before, m_after);
+    }
+
+    auto PhysicsChangeCommand::undo(AetherEngine::scene::Scene &scene) -> bool {
+        return setComponents(scene, m_after, m_before);
+    }
+
+    auto PhysicsChangeCommand::setComponents(AetherEngine::scene::Scene &scene,
+        const PhysicsComponentState& expected, const PhysicsComponentState& value) const -> bool {
+        using namespace AetherEngine::components;
+        using AetherEngine::physics::invalidPhysicsField;
+        const auto entity = scene.findEntityById(m_entityId);
+        if (!entity || expected == value || PhysicsComponentState::capture(scene, *entity) != expected ||
+            (value.rigidbody && !invalidPhysicsField(*value.rigidbody).empty()) ||
+            (value.collider && !invalidPhysicsField(*value.collider).empty())) {
+            return false;
+        }
+
+        // Perform allocations before overwriting/removing existing components.
+        // If the second addition fails, roll back the first one as well.
+        bool addedBody = false;
+        bool addedCollider = false;
+        try {
+            if (value.rigidbody && !expected.rigidbody) {
+                scene.addComponent<RigidbodyComponent>(*entity, *value.rigidbody);
+                addedBody = true;
+            }
+            if (value.collider && !expected.collider) {
+                scene.addComponent<ColliderComponent>(*entity, *value.collider);
+                addedCollider = true;
+            }
+        } catch (...) {
+            if (addedBody) scene.removeComponent<RigidbodyComponent>(*entity);
+            if (addedCollider) scene.removeComponent<ColliderComponent>(*entity);
+            throw;
+        }
+        if (value.rigidbody) scene.getComponent<RigidbodyComponent>(*entity) = *value.rigidbody;
+        else if (expected.rigidbody) scene.removeComponent<RigidbodyComponent>(*entity);
+        if (value.collider) scene.getComponent<ColliderComponent>(*entity) = *value.collider;
+        else if (expected.collider) scene.removeComponent<ColliderComponent>(*entity);
         return true;
     }
 } // commands

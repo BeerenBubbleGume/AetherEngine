@@ -17,7 +17,7 @@ namespace AetherEngine::physics {
         virtual auto init() -> std::expected<void, PhysicsError> = 0;
         virtual auto shutdown() -> void = 0;
 
-        [[nodiscard]] virtual auto createBody(const BodyDesc& desc) -> BodyHandle = 0;
+        [[nodiscard]] virtual auto createBody(const BodyDesc& desc) -> std::expected<BodyHandle, PhysicsError> = 0;
         virtual auto destroyBody(BodyHandle handle) noexcept -> void = 0;
 
         virtual auto setTransform(

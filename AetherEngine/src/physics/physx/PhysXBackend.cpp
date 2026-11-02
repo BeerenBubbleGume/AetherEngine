@@ -5,6 +5,7 @@
 #include "PhysXBackend.hpp"
 
 #include <cmath>
+#include "physics/PhysicsValidation.hpp"
 
 namespace AetherEngine::physics {
     namespace {
@@ -142,19 +143,22 @@ namespace AetherEngine::physics {
         m_scene->fetchResults(true);
     }
 
-    auto PhysXBackend::createBody(const BodyDesc& desc) -> BodyHandle {
+    auto PhysXBackend::createBody(const BodyDesc& desc) -> std::expected<BodyHandle, PhysicsError> {
         if (!m_physics || !m_scene || !m_defaultMaterial) {
-            return {};
+            return std::unexpected(PhysicsError{1, "PhysX is not initialized"});
         }
 
         const auto pxTransform = toValidPxTransform(desc.transform);
+        if (!pxTransform) return std::unexpected(PhysicsError{2, "Transform position or rotation is invalid"});
+        if (const auto field = invalidPhysicsField(desc.collider); !field.empty())
+            return std::unexpected(PhysicsError{2, "Invalid " + std::string{field}});
         const auto pxCollider = createGeometry(desc.collider);
-        if (!pxTransform || !pxCollider) {
-            return {};
+        if (!pxCollider) {
+            return std::unexpected(PhysicsError{2, "PhysX rejected collider geometry"});
         }
 
-        if (desc.dynamic && (!std::isfinite(desc.mass) || desc.mass <= 0.0f)) {
-            return {};
+        if (!validPositivePhysicsValue(desc.mass, MaxBodyMass)) {
+            return std::unexpected(PhysicsError{2, "Invalid Rigidbody.mass"});
         }
 
         physx::PxRigidActor* body = desc.dynamic
@@ -165,7 +169,7 @@ namespace AetherEngine::physics {
                 m_physics->createRigidStatic(*pxTransform)
             );
         if (!body) {
-            return {};
+            return std::unexpected(PhysicsError{3, "PhysX could not allocate an actor"});
         }
 
         physx::PxShape* shape = m_physics->createShape(
@@ -174,7 +178,7 @@ namespace AetherEngine::physics {
         );
         if (!shape) {
             body->release();
-            return {};
+            return std::unexpected(PhysicsError{3, "PhysX could not allocate a shape"});
         }
 
         if (desc.collider.trigger) {
@@ -185,7 +189,7 @@ namespace AetherEngine::physics {
         if (!body->attachShape(*shape)) {
             shape->release();
             body->release();
-            return {};
+            return std::unexpected(PhysicsError{3, "PhysX could not attach the collider"});
         }
         shape->release();
 
@@ -195,17 +199,26 @@ namespace AetherEngine::physics {
                 physx::PxActorFlag::eDISABLE_GRAVITY,
                 !desc.useGravity
             );
-            dynamicBody->setMass(desc.mass);
+            // Sensors still have geometry and need the same mass properties.
+            if (!physx::PxRigidBodyExt::setMassAndUpdateInertia(*dynamicBody, desc.mass, nullptr, true)) {
+                body->release();
+                return std::unexpected(PhysicsError{2, "PhysX could not calculate mass and inertia for this collider"});
+            }
         }
 
         const auto handle = allocateBodyHandle();
         if (!handle.isValid()) {
             body->release();
-            return {};
+            return std::unexpected(PhysicsError{3, "PhysX body handle limit reached"});
         }
 
+        try {
+            m_bodies.emplace(handle.value, body);
+        } catch (...) {
+            body->release();
+            throw;
+        }
         m_scene->addActor(*body);
-        m_bodies.emplace(handle.value, body);
         return handle;
     }
 

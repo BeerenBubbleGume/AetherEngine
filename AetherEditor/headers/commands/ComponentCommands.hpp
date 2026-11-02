@@ -5,11 +5,14 @@
 #ifndef AETHER_EDITOR_COMPONENTCOMMANDS_HPP
 #define AETHER_EDITOR_COMPONENTCOMMANDS_HPP
 #include <utility>
+#include <optional>
 
 #include "EditorCommand.hpp"
 #include "components/MaterialComponent.hpp"
 #include "components/MeshComponent.hpp"
 #include "math/Types.hpp"
+#include "components/PhysicsComponents.hpp"
+#include "scene/Entity.hpp"
 #include "scene/EntityId.hpp"
 
 namespace AetherEditor::commands {
@@ -92,6 +95,33 @@ namespace AetherEditor::commands {
         AetherEngine::scene::EntityId m_entityId;
         MaterialRef m_before;
         MaterialRef m_after;
+    };
+
+    struct PhysicsComponentState {
+        std::optional<AetherEngine::components::RigidbodyComponent> rigidbody;
+        std::optional<AetherEngine::components::ColliderComponent> collider;
+
+        static auto capture(AetherEngine::scene::Scene& scene, AetherEngine::scene::Entity entity) -> PhysicsComponentState;
+        auto operator==(const PhysicsComponentState&) const -> bool = default;
+    };
+
+    class PhysicsChangeCommand final : public EditorCommand {
+    public:
+        PhysicsChangeCommand(AetherEngine::scene::EntityId entityId, PhysicsComponentState before, PhysicsComponentState after)
+            : m_entityId(entityId), m_before(std::move(before)), m_after(std::move(after)) {}
+
+        auto apply(AetherEngine::scene::Scene &scene) -> bool override;
+        auto undo(AetherEngine::scene::Scene &scene) -> bool override;
+
+    private:
+        auto setComponents(
+            AetherEngine::scene::Scene& scene,
+            const PhysicsComponentState& expected,
+            const PhysicsComponentState& value
+        ) const -> bool;
+        AetherEngine::scene::EntityId m_entityId;
+        PhysicsComponentState m_before;
+        PhysicsComponentState m_after;
     };
 } // commands
 // AetherEditor

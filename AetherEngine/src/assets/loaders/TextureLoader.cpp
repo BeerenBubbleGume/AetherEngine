@@ -16,7 +16,7 @@ namespace AetherEngine::assets {
                     return std::unexpected(AssetError{7, "Texture asset has no cooked path"});
                 }
                 const auto path = context.variant.cookedPath.generic_u8string();
-                const auto handle = context.resources.loadTexture(std::string{path.begin(), path.end()});
+                const auto handle = context.resources.loadTexture(std::string{path.begin(), path.end()}, context.resourceLoadMode);
                 if (!handle.isValid()) {
                     return std::unexpected(AssetError{7, "Failed to load texture asset: " + context.record.alias});
                 }

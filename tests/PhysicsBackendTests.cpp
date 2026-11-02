@@ -1,8 +1,15 @@
+#include <array>
 #include <cmath>
 #include <iostream>
 #include <string_view>
+#include <vector>
+#include "logging/Logger.hpp"
+#if defined(AETHER_PHYSICS_BACKEND_PHYSX)
+#include <PxPhysicsAPI.h>
+#endif
 
 #include "physics/PhysicsBackendFactory.hpp"
+#include "systems/PhysicsSystem.hpp"
 
 namespace {
     auto expect(bool condition, std::string_view message, int& failures) -> void {
@@ -24,6 +31,162 @@ namespace {
             .type = AetherEngine::components::ColliderType::Sphere,
             .radius = radius
         };
+    }
+
+    auto createBody(AetherEngine::physics::IPhysicsBackend& backend, const AetherEngine::physics::BodyDesc& desc, int& failures)
+        -> AetherEngine::physics::BodyHandle {
+        const auto result = backend.createBody(desc);
+        if (!result) {
+            std::cerr << "Body creation failed: " << result.error().message << '\n';
+            ++failures;
+        }
+        return result.value_or(AetherEngine::physics::BodyHandle{});
+    }
+
+    auto capsuleAxis(int& failures) -> void {
+        namespace ae = AetherEngine;
+        auto backend = ae::physics::createPhysicsBackend();
+        if (!backend || !backend->init()) { expect(false, "capsule test initialization", failures); return; }
+        ae::physics::BodyDesc capsule{.collider = {.type = ae::components::ColliderType::Capsule, .radius = 0.5f, .height = 4.0f}, .dynamic = false};
+        const auto obstacle = createBody(*backend, capsule, failures);
+        ae::physics::BodyDesc ball{.transform = {.position = {1, 3, 0}}, .collider = sphereCollider(0.25f)};
+        const auto supported = createBody(*backend, ball, failures);
+        ball.transform.position = {0, 3, 2};
+        const auto unsupported = createBody(*backend, ball, failures);
+        for (int i = 0; i < 120; ++i) backend->simulate(1.0f / 60.0f);
+        expect(backend->getTransform(supported).position.y > 0.5f, "capsule extends along engine-local X", failures);
+        expect(backend->getTransform(unsupported).position.y < -5.0f, "capsule does not extend along Z", failures);
+        expect(backend->getTransform(obstacle).rotation == ae::math::Quat::identity(), "capsule adaptation must not rotate the entity", failures);
+    }
+
+#if defined(AETHER_PHYSICS_BACKEND_PHYSX)
+    auto physxMassProperties(int& failures) -> void {
+        namespace ae = AetherEngine;
+        auto backend = ae::physics::createPhysicsBackend();
+        if (!backend || !backend->init()) { expect(false, "inertia test initialization", failures); return; }
+        physx::PxScene* scene = nullptr;
+        PxGetPhysics().getScenes(&scene, 1);
+        expect(scene != nullptr, "PhysX scene is available", failures);
+        if (!scene) return;
+        for (bool sensor : {false, true}) {
+            ae::physics::BodyDesc desc{.collider = {.size = {1, 2, 3}, .trigger = sensor}, .mass = 6, .useGravity = false};
+            const auto handle = createBody(*backend, desc, failures);
+            physx::PxActor* actor = nullptr;
+            scene->getActors(physx::PxActorTypeFlag::eRIGID_DYNAMIC, &actor, 1);
+            auto* body = actor ? actor->is<physx::PxRigidDynamic>() : nullptr;
+            expect(body != nullptr, "created PhysX dynamic body", failures);
+            if (body) {
+                const auto inertia = body->getMassSpaceInertiaTensor();
+                expect(std::abs(body->getMass() - 6.0f) < 1.0e-4f &&
+                    std::abs(inertia.x - 26.0f) < 1.0e-4f && std::abs(inertia.y - 20.0f) < 1.0e-4f &&
+                    std::abs(inertia.z - 10.0f) < 1.0e-4f, "box and sensor inertia matches dimensions and mass", failures);
+                body->setAngularDamping(0);
+                body->addTorque({26, 0, 0}, physx::PxForceMode::eIMPULSE);
+                backend->simulate(1.0f / 60.0f);
+                expect(std::abs(body->getAngularVelocity().x - 1.0f) < 1.0e-4f,
+                    "angular response uses the calculated inertia", failures);
+            }
+            backend->destroyBody(handle);
+        }
+    }
+#endif
+
+    auto physicsDiagnostics(int& failures) -> void {
+        namespace ae = AetherEngine;
+        ae::logging::Logger logger;
+        auto physics = ae::systems::PhysicsSystem::createPhysicsSystem(&logger);
+        if (!physics || !physics->init()) { expect(false, "diagnostics test initialization", failures); return; }
+        auto scene = ae::scene::Scene::createScene("Diagnostics");
+        const auto add = [&](int i) {
+            const auto entity = scene->createEntity("Body " + std::to_string(i));
+            scene->addComponent<ae::components::TransformComponent>(entity).transform.position.x = static_cast<float>(i) * 3.0f;
+            scene->addComponent<ae::components::RigidbodyComponent>(entity).dynamic = false;
+            scene->addComponent<ae::components::ColliderComponent>(entity);
+            return entity;
+        };
+        const auto invalid = add(0);
+        scene->getComponent<ae::components::ColliderComponent>(invalid).size.x = 0;
+        for (int i = 0; i < 3; ++i) physics->fixedUpdate(*scene, 0);
+        expect(physics->errors().size() == 1 && physics->errors()[0].entityName == "Body 0" &&
+            physics->errors()[0].error.message.find("Collider.size") != std::string::npos,
+            "invalid body identifies the entity and field", failures);
+        const auto messages = logger.snapshot();
+        expect(messages.size() == 1 && messages[0].category == "Physics" && messages[0].message.find("Body 0") != std::string::npos,
+            "repeated body failure logs once to the console", failures);
+        scene->getComponent<ae::components::ColliderComponent>(invalid).size.x = 0.5f;
+        physics->fixedUpdate(*scene, 0);
+        expect(physics->errors().empty(), "correcting invalid geometry retries creation", failures);
+        std::vector<ae::scene::Entity> entities{invalid};
+        for (int i = 1; i <= 512; ++i) entities.push_back(add(i));
+        physics->fixedUpdate(*scene, 0);
+        expect(physics->errors().size() == 1 && physics->errors()[0].error.message.find("512") != std::string::npos,
+            "actor limit reports the uncreated entity", failures);
+        if (physics->errors().size() == 1) {
+            const auto failedId = physics->errors()[0].entityId;
+            const auto victim = scene->getComponent<ae::components::IdentityComponent>(entities[0]).id != failedId ? entities[0] : entities[1];
+            scene->destroyEntity(victim);
+            physics->fixedUpdate(*scene, 0);
+            expect(physics->errors().empty(), "freeing an actor slot retries the skipped entity", failures);
+        }
+        physics->clearSceneBodies();
+        expect(physics->errors().empty(), "clearing scene bodies clears diagnostics", failures);
+    }
+
+    auto physicsSystemFreeFall(int& failures) -> void {
+        namespace ae = AetherEngine;
+        auto physics = ae::systems::PhysicsSystem::createPhysicsSystem();
+        const bool initialized = physics && physics->init().has_value();
+        expect(initialized, "initialize PhysicsSystem for free fall", failures);
+        if (!initialized) return;
+
+        // Main's rabbit and tilted cube: removing their initial intersections
+        // with the ground must leave pure world-Y gravity, independent of shape
+        // orientation and visual scale. Exercise the ECS/backend round trip.
+        for (bool withFloor : {false, true}) {
+            auto scene = ae::scene::Scene::createScene("Free fall");
+            std::array<ae::math::Transform, 2> initial{};
+            initial[0].position = {2.8f, withFloor ? 4.0f : -0.95f, 2.3f};
+            initial[1].position = {0.0f, withFloor ? 4.0f : 0.0f, 0.0f};
+            initial[1].rotation = ae::math::Quat::fromAxisAngleDegrees({1, 0, 0}, 17.0f);
+            initial[1].scale = {2, 3, 4};
+            const std::array entities{scene->createEntity("Rabbit"), scene->createEntity("Cube")};
+            for (std::size_t i = 0; i < entities.size(); ++i) {
+                scene->addComponent<ae::components::TransformComponent>(entities[i], ae::components::TransformComponent{.transform = initial[i]});
+                scene->addComponent<ae::components::RigidbodyComponent>(entities[i]);
+                auto collider = boxCollider(1.0f);
+                if (i == 0) collider.size = {1.2f, 1.8f, 1.2f};
+                scene->addComponent<ae::components::ColliderComponent>(entities[i], collider);
+            }
+            if (withFloor) {
+                const auto ground = scene->createEntity("Ground");
+                scene->addComponent<ae::components::TransformComponent>(ground,
+                    ae::components::TransformComponent{.transform = {.position = {0, -1.5f, 0}}});
+                scene->addComponent<ae::components::RigidbodyComponent>(ground, ae::components::RigidbodyComponent{.dynamic = false});
+                auto collider = boxCollider();
+                collider.size = {12, 0.5f, 6};
+                scene->addComponent<ae::components::ColliderComponent>(ground, collider);
+            }
+            // Recreating scene bodies must also reset their falling velocity.
+            std::array<ae::math::Vec3, 2> firstRunPositions{};
+            for (int run = 0; run < 2; ++run) {
+                for (std::size_t i = 0; i < entities.size(); ++i)
+                    scene->getComponent<ae::components::TransformComponent>(entities[i]).transform = initial[i];
+                const int steps = withFloor ? 30 : 120; // Raised shapes have not reached the floor after 0.5 s.
+                for (int step = 0; step < steps; ++step) physics->fixedUpdate(*scene, 1.0f / 60.0f);
+                for (std::size_t i = 0; i < entities.size(); ++i) {
+                    const auto& result = scene->getComponent<ae::components::TransformComponent>(entities[i]).transform;
+                    expect(std::abs(result.position.x - initial[i].position.x) < 1.0e-4f &&
+                           std::abs(result.position.z - initial[i].position.z) < 1.0e-4f,
+                        "unobstructed PhysicsSystem fall has no lateral velocity", failures);
+                    expect(result.position.y < initial[i].position.y - 0.5f, "PhysicsSystem gravity points down", failures);
+                    if (run == 0) firstRunPositions[i] = result.position;
+                    else expect((result.position - firstRunPositions[i]).length() < 1.0e-4f,
+                        "recreating physics bodies resets falling velocity", failures);
+                    expect(result.scale == initial[i].scale, "physics synchronization preserves visual scale", failures);
+                }
+                physics->clearSceneBodies();
+            }
+        }
     }
 }
 
@@ -53,7 +216,7 @@ int main() {
         .dynamic = false
     };
     floorDesc.collider.size = {10.0f, 1.0f, 10.0f};
-    const auto floor = backend->createBody(floorDesc);
+    const auto floor = createBody(*backend, floorDesc, failures);
     expect(floor.isValid(), "create static box", failures);
 
     const AetherEngine::physics::BodyDesc fallingDesc{
@@ -65,7 +228,7 @@ int main() {
         .dynamic = true,
         .useGravity = true
     };
-    const auto fallingBody = backend->createBody(fallingDesc);
+    const auto fallingBody = createBody(*backend, fallingDesc, failures);
     expect(fallingBody.isValid(), "create dynamic sphere", failures);
 
     const AetherEngine::physics::BodyDesc floatingDesc{
@@ -81,7 +244,7 @@ int main() {
         .dynamic = true,
         .useGravity = false
     };
-    const auto floatingBody = backend->createBody(floatingDesc);
+    const auto floatingBody = createBody(*backend, floatingDesc, failures);
     expect(floatingBody.isValid(), "create gravity-free dynamic capsule", failures);
 
     AetherEngine::physics::BodyDesc triggerDesc{
@@ -92,13 +255,13 @@ int main() {
         .dynamic = false
     };
     triggerDesc.collider.trigger = true;
-    const auto trigger = backend->createBody(triggerDesc);
+    const auto trigger = createBody(*backend, triggerDesc, failures);
     expect(trigger.isValid(), "create trigger body", failures);
 
     AetherEngine::physics::BodyDesc invalidMassDesc = fallingDesc;
     invalidMassDesc.mass = 0.0f;
     expect(
-        !backend->createBody(invalidMassDesc).isValid(),
+        !backend->createBody(invalidMassDesc).has_value(),
         "reject invalid dynamic mass",
         failures
     );
@@ -106,7 +269,7 @@ int main() {
     AetherEngine::physics::BodyDesc invalidColliderDesc = fallingDesc;
     invalidColliderDesc.collider.radius = -1.0f;
     expect(
-        !backend->createBody(invalidColliderDesc).isValid(),
+        !backend->createBody(invalidColliderDesc).has_value(),
         "reject invalid collider dimensions",
         failures
     );
@@ -157,6 +320,13 @@ int main() {
     const auto reinitialized = backend->init();
     expect(reinitialized.has_value(), "backend can be reinitialized after shutdown", failures);
     backend->shutdown();
+
+    physicsSystemFreeFall(failures);
+    capsuleAxis(failures);
+    physicsDiagnostics(failures);
+#if defined(AETHER_PHYSICS_BACKEND_PHYSX)
+    physxMassProperties(failures);
+#endif
 
     if (failures == 0) {
         std::cout << "Physics backend regression tests passed\n";

@@ -76,7 +76,7 @@ namespace AetherEditor::ui {
 
     auto EditorWorkspace::finishPendingEdits(AetherEngine::scene::Scene &scene,
         commands::CommandHistory &history) const -> void {
-        m_inspector->finishTransformEdit(scene, history);
+        m_inspector->finishPendingEdits(scene, history);
     }
 
     auto EditorWorkspace::requestOpenSaveAs() -> void {
@@ -159,7 +159,7 @@ namespace AetherEditor::ui {
                 m_inspector->draw(m_showInspector, scene, session, history, registry, bindings.errors());
             ImGui::EndDisabled();
         } else {
-            m_inspector->finishTransformEdit(scene, history);
+            m_inspector->finishPendingEdits(scene, history);
         }
         if (m_showSceneViewport) {
             frame.viewport = m_sceneViewport->draw(m_showSceneViewport, camera);
@@ -404,7 +404,7 @@ namespace AetherEditor::ui {
         const bool undoPressed = ImGui::Shortcut(ImGuiMod_Ctrl  | ImGuiKey_Z, flags);
         const bool redoPressed = ImGui::Shortcut(ImGuiMod_Ctrl  | ImGuiKey_Y, flags);
 
-        const bool redoShiftZPressed = ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Y, flags);
+        const bool redoShiftZPressed = ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z, flags);
         const bool savePressed = ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S, flags);
         if (ImGui::IsPopupOpen(
             nullptr,

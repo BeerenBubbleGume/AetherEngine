@@ -32,10 +32,8 @@ namespace AetherEngine::systems {
                 if (!isValidScancode(event.key.scancode)) {
                     break;
                 }
-                m_keyPressed[event.key.scancode] = true;
-                if (m_keyReleased[event.key.scancode]) {
-                    m_keyReleased[event.key.scancode] = false;
-                }
+                if (!event.key.repeat && !m_keyDown[event.key.scancode])
+                    m_keyPressed[event.key.scancode] = true;
                 m_keyDown[event.key.scancode] = true;
                 break;
             }
@@ -43,7 +41,6 @@ namespace AetherEngine::systems {
                 if (!isValidScancode(event.key.scancode)) {
                     break;
                 }
-                m_keyPressed[event.key.scancode] = false;
                 if (m_keyDown[event.key.scancode]) {
                     m_keyReleased[event.key.scancode] = true;
                 }

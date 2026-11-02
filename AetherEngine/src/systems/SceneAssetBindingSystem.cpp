@@ -33,6 +33,19 @@ namespace AetherEngine::systems {
             ++count;
         }
 
+        // Mutable component references prevent a reliable revision counter for
+        // now. Still avoid load/unload churn when the reference sets are stable.
+        const auto unchanged = [this](const auto& required, const auto& bindings) {
+            if (required.size() != bindings.size()) return false;
+            for (const auto& [id, users] : required) {
+                const auto found = bindings.find(id);
+                if (found == bindings.end() || found->second.users != users || !m_assets->get(found->second.runtime)) return false;
+            }
+            return true;
+        };
+        if (m_scene == &scene && m_errors.empty() && unchanged(requiredMeshes, m_meshes) && unchanged(requiredMaterials, m_materials))
+            return {};
+
         std::unordered_map<assets::AssetId, MeshBinding, assets::AssetIdHash> newBindings;
         std::unordered_map<assets::AssetId, MaterialBinding, assets::AssetIdHash> materialBindings;
         std::vector<SceneAssetBindingError> errors;
@@ -127,7 +140,6 @@ namespace AetherEngine::systems {
                 "Cannot synchronize a scene that is not bound"
             });
         }
-        /*TODO: implement new synchronization logic*/
         return bindScene(scene);
     }
 
