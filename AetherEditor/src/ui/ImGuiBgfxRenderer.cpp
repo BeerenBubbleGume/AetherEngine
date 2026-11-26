@@ -8,149 +8,9 @@
 #include <limits>
 
 #include <bx/math.h>
-
-#if defined(_WIN32)
-#include "imgui_fs_dx11.bin.h"
-#include "imgui_fs_essl.bin.h"
-#include "imgui_fs_glsl.bin.h"
-#include "imgui_fs_spv.bin.h"
-#include "imgui_vs_dx11.bin.h"
-#include "imgui_vs_essl.bin.h"
-#include "imgui_vs_glsl.bin.h"
-#include "imgui_vs_spv.bin.h"
-#elif defined(__APPLE__)
-#include "imgui_fs_essl.bin.h"
-#include "imgui_fs_glsl.bin.h"
-#include "imgui_fs_mtl.bin.h"
-#include "imgui_fs_spv.bin.h"
-#include "imgui_vs_essl.bin.h"
-#include "imgui_vs_glsl.bin.h"
-#include "imgui_vs_mtl.bin.h"
-#include "imgui_vs_spv.bin.h"
-#else
-#include "imgui_fs_essl.bin.h"
-#include "imgui_fs_glsl.bin.h"
-#include "imgui_fs_spv.bin.h"
-#include "imgui_vs_essl.bin.h"
-#include "imgui_vs_glsl.bin.h"
-#include "imgui_vs_spv.bin.h"
-#endif
+#include "utils/BgfxShaderHelper.hpp"
 
 namespace AetherEditor::ui {
-    namespace {
-        struct ShaderBinary {
-            const uint8_t* data{nullptr};
-            uint32_t size{0};
-
-            [[nodiscard]] auto isValid() const -> bool {
-                return data != nullptr && size > 0;
-            }
-        };
-
-        template<typename T, size_t Size>
-        constexpr auto shaderBinary(const T (&data)[Size]) -> ShaderBinary {
-            return {
-                reinterpret_cast<const uint8_t*>(data),
-                static_cast<uint32_t>(sizeof(data))
-            };
-        }
-
-        auto vertexShaderFor(bgfx::RendererType::Enum renderer) -> ShaderBinary {
-            switch (renderer) {
-#if defined(_WIN32)
-                case bgfx::RendererType::Direct3D11:
-                case bgfx::RendererType::Direct3D12: return shaderBinary(imgui_vs_dx11);
-#elif defined(__APPLE__)
-                case bgfx::RendererType::Metal: return shaderBinary(imgui_vs_mtl);
-#endif
-                case bgfx::RendererType::OpenGLES: return shaderBinary(imgui_vs_essl);
-                case bgfx::RendererType::OpenGL: return shaderBinary(imgui_vs_glsl);
-                case bgfx::RendererType::Vulkan: return shaderBinary(imgui_vs_spv);
-                default: return {};
-            }
-        }
-
-        auto fragmentShaderFor(bgfx::RendererType::Enum renderer) -> ShaderBinary {
-            switch (renderer) {
-#if defined(_WIN32)
-                case bgfx::RendererType::Direct3D11:
-                case bgfx::RendererType::Direct3D12: return shaderBinary(imgui_fs_dx11);
-#elif defined(__APPLE__)
-                case bgfx::RendererType::Metal: return shaderBinary(imgui_fs_mtl);
-#endif
-                case bgfx::RendererType::OpenGLES: return shaderBinary(imgui_fs_essl);
-                case bgfx::RendererType::OpenGL: return shaderBinary(imgui_fs_glsl);
-                case bgfx::RendererType::Vulkan: return shaderBinary(imgui_fs_spv);
-                default: return {};
-            }
-        }
-
-        template<typename Handle>
-        auto destroyIfValid(Handle& handle) -> void {
-            if (bgfx::isValid(handle)) {
-                bgfx::destroy(handle);
-                handle = BGFX_INVALID_HANDLE;
-            }
-        }
-
-        constexpr uint32_t ImGuiSamplerLinear =
-            BGFX_SAMPLER_U_CLAMP |
-            BGFX_SAMPLER_V_CLAMP |
-            BGFX_SAMPLER_W_CLAMP;
-
-        constexpr uint32_t ImGuiSamplerNearest =
-            ImGuiSamplerLinear |
-            BGFX_SAMPLER_MIN_POINT |
-            BGFX_SAMPLER_MAG_POINT |
-            BGFX_SAMPLER_MIP_POINT;
-
-        auto currentRendererState() -> ImGuiBgfxRendererState* {
-            if (ImGui::GetCurrentContext() == nullptr) {
-                return nullptr;
-            }
-            return static_cast<ImGuiBgfxRendererState*>(ImGui::GetPlatformIO().Renderer_RenderState);
-        }
-
-        auto resetRenderStateCallback(const ImDrawList*, const ImDrawCmd*) -> void {
-            if (auto* state = currentRendererState()) {
-                state->samplerFlags = ImGuiSamplerLinear;
-            }
-        }
-
-        auto setSamplerLinearCallback(const ImDrawList*, const ImDrawCmd*) -> void {
-            if (auto* state = currentRendererState()) {
-                state->samplerFlags = ImGuiSamplerLinear;
-            }
-        }
-
-        auto setSamplerNearestCallback(const ImDrawList*, const ImDrawCmd*) -> void {
-            if (auto* state = currentRendererState()) {
-                state->samplerFlags = ImGuiSamplerNearest;
-            }
-        }
-
-        constexpr uint64_t ImGuiRenderState =
-            BGFX_STATE_WRITE_RGB |
-            BGFX_STATE_WRITE_A |
-            // Equivalent to disabled depth testing for UI (always passes and
-            // never writes depth), while avoiding a D3D11 debug-layer state
-            // alias that trips bgfx's state-cache ref-count assertion.
-            BGFX_STATE_DEPTH_TEST_ALWAYS |
-            BGFX_STATE_MSAA |
-            BGFX_STATE_BLEND_FUNC(
-                BGFX_STATE_BLEND_SRC_ALPHA,
-                BGFX_STATE_BLEND_INV_SRC_ALPHA
-            );
-
-        constexpr int MaxImGuiCommandLists = 1024;
-        constexpr int MaxImGuiVerticesPerList = 1'000'000;
-        constexpr int MaxImGuiIndicesPerList = 2'000'000;
-        constexpr int MaxImGuiCommandsPerList = 100'000;
-        constexpr std::size_t MaxImGuiCommandsPerFrame = 100'000;
-        constexpr int MaxImGuiTextureUpdatesPerFrame = 4096;
-        constexpr std::uint64_t MaxImGuiTextureBytes = 64ULL * 1024ULL * 1024ULL;
-    }
-
     auto ImGuiBgfxRenderer::createRenderer() -> ImGuiBgfxRendererPtr {
         return ImGuiBgfxRendererPtr(new ImGuiBgfxRenderer(), ImGuiBgfxRendererDeleter{});
     }
@@ -181,8 +41,7 @@ namespace AetherEditor::ui {
         static_assert(offsetof(ImDrawVert, col) == 16, "Unexpected ImDrawVert::col offset");
 
         const auto renderer = bgfx::getRendererType();
-        const auto vertexBinary = vertexShaderFor(renderer);
-        const auto fragmentBinary = fragmentShaderFor(renderer);
+        const auto [vertexBinary, fragmentBinary] = utils::imguiShadersFor(renderer);
         if (!vertexBinary.isValid() || !fragmentBinary.isValid()) {
             return std::unexpected(core::EditorError{3, "The active bgfx renderer has no embedded ImGui shaders"});
         }
@@ -190,21 +49,21 @@ namespace AetherEditor::ui {
         auto vertexShader = bgfx::createShader(bgfx::makeRef(vertexBinary.data, vertexBinary.size));
         auto fragmentShader = bgfx::createShader(bgfx::makeRef(fragmentBinary.data, fragmentBinary.size));
         if (!bgfx::isValid(vertexShader) || !bgfx::isValid(fragmentShader)) {
-            destroyIfValid(vertexShader);
-            destroyIfValid(fragmentShader);
+            utils::destroyIfValid(vertexShader);
+            utils::destroyIfValid(fragmentShader);
             return std::unexpected(core::EditorError{4, "Failed to create ImGui shaders"});
         }
 
         m_program = bgfx::createProgram(vertexShader, fragmentShader, false);
-        destroyIfValid(vertexShader);
-        destroyIfValid(fragmentShader);
+        utils::destroyIfValid(vertexShader);
+        utils::destroyIfValid(fragmentShader);
         if (!bgfx::isValid(m_program)) {
             return std::unexpected(core::EditorError{5, "Failed to create ImGui shader program"});
         }
 
         m_sampler = bgfx::createUniform("s_imguiTexture", bgfx::UniformType::Sampler);
         if (!bgfx::isValid(m_sampler)) {
-            destroyIfValid(m_program);
+            utils::destroyIfValid(m_program);
             return std::unexpected(core::EditorError{6, "Failed to create ImGui sampler uniform"});
         }
 
@@ -217,9 +76,9 @@ namespace AetherEditor::ui {
         auto& platformIo = ImGui::GetPlatformIO();
         platformIo.Renderer_TextureMaxWidth = static_cast<int>(bgfx::getCaps()->limits.maxTextureSize);
         platformIo.Renderer_TextureMaxHeight = static_cast<int>(bgfx::getCaps()->limits.maxTextureSize);
-        platformIo.DrawCallback_ResetRenderState = resetRenderStateCallback;
-        platformIo.DrawCallback_SetSamplerLinear = setSamplerLinearCallback;
-        platformIo.DrawCallback_SetSamplerNearest = setSamplerNearestCallback;
+        platformIo.DrawCallback_ResetRenderState = utils::resetRenderStateCallback;
+        platformIo.DrawCallback_SetSamplerLinear = utils::setSamplerLinearCallback;
+        platformIo.DrawCallback_SetSamplerNearest = utils::setSamplerNearestCallback;
 
         m_initialized = true;
         return {};
@@ -246,8 +105,8 @@ namespace AetherEditor::ui {
             }
         }
 
-        destroyIfValid(m_sampler);
-        destroyIfValid(m_program);
+        utils::destroyIfValid(m_sampler);
+        utils::destroyIfValid(m_program);
         m_initialized = false;
     }
 
@@ -280,7 +139,7 @@ namespace AetherEditor::ui {
             !std::isfinite(drawData->DisplaySize.x) || !std::isfinite(drawData->DisplaySize.y) ||
             !std::isfinite(drawData->FramebufferScale.x) || !std::isfinite(drawData->FramebufferScale.y) ||
             drawData->CmdListsCount < 0 ||
-            drawData->CmdListsCount > MaxImGuiCommandLists ||
+            drawData->CmdListsCount > utils::MaxImGuiCommandLists ||
             drawData->CmdListsCount != drawData->CmdLists.Size ||
             (drawData->CmdListsCount > 0 && drawData->CmdLists.Data == nullptr)) {
             return;
@@ -324,10 +183,10 @@ namespace AetherEditor::ui {
         }
 
         auto& platformIo = ImGui::GetPlatformIO();
-        ImGuiBgfxRendererState rendererState{
+        utils::ImGuiBgfxRendererState rendererState{
             .encoder = encoder,
             .viewId = viewId,
-            .samplerFlags = ImGuiSamplerLinear
+            .samplerFlags = utils::ImGuiSamplerLinear
         };
         platformIo.Renderer_RenderState = &rendererState;
 
@@ -337,10 +196,10 @@ namespace AetherEditor::ui {
             if (drawList == nullptr ||
                 drawList->VtxBuffer.Size <= 0 ||
                 drawList->IdxBuffer.Size <= 0 ||
-                drawList->VtxBuffer.Size > MaxImGuiVerticesPerList ||
-                drawList->IdxBuffer.Size > MaxImGuiIndicesPerList ||
+                drawList->VtxBuffer.Size > utils::MaxImGuiVerticesPerList ||
+                drawList->IdxBuffer.Size > utils::MaxImGuiIndicesPerList ||
                 drawList->CmdBuffer.Size < 0 ||
-                drawList->CmdBuffer.Size > MaxImGuiCommandsPerList ||
+                drawList->CmdBuffer.Size > utils::MaxImGuiCommandsPerList ||
                 drawList->VtxBuffer.Data == nullptr ||
                 drawList->IdxBuffer.Data == nullptr ||
                 (drawList->CmdBuffer.Size > 0 && drawList->CmdBuffer.Data == nullptr)) {
@@ -373,7 +232,7 @@ namespace AetherEditor::ui {
             );
 
             for (const ImDrawCmd& command : drawList->CmdBuffer) {
-                if (submittedCommands >= MaxImGuiCommandsPerFrame) {
+                if (submittedCommands >= utils::MaxImGuiCommandsPerFrame) {
                     break;
                 }
                 if (command.UserCallback != nullptr) {
@@ -413,13 +272,13 @@ namespace AetherEditor::ui {
                 const auto scissorWidth = static_cast<uint16_t>(std::ceil(clippedMaxX) - scissorX);
                 const auto scissorHeight = static_cast<uint16_t>(std::ceil(clippedMaxY) - scissorY);
 
-                const auto texture = textureHandle(command.GetTexID());
+                const auto texture = utils::textureHandle(command.GetTexID());
                 if (!bgfx::isValid(texture)) {
                     continue;
                 }
 
                 encoder->setScissor(scissorX, scissorY, scissorWidth, scissorHeight);
-                encoder->setState(ImGuiRenderState);
+                encoder->setState(utils::ImGuiRenderState);
                 encoder->setTexture(0, m_sampler, texture, rendererState.samplerFlags);
                 encoder->setVertexBuffer(
                     0,
@@ -431,27 +290,13 @@ namespace AetherEditor::ui {
                 encoder->submit(viewId, m_program);
                 ++submittedCommands;
             }
-            if (submittedCommands >= MaxImGuiCommandsPerFrame) {
+            if (submittedCommands >= utils::MaxImGuiCommandsPerFrame) {
                 break;
             }
         }
 
         platformIo.Renderer_RenderState = nullptr;
         bgfx::end(encoder);
-    }
-
-    auto ImGuiBgfxRenderer::textureId(bgfx::TextureHandle texture) -> ImTextureID {
-        if (!bgfx::isValid(texture)) {
-            return ImTextureID_Invalid;
-        }
-        return static_cast<ImTextureID>(texture.idx) + 1;
-    }
-
-    auto ImGuiBgfxRenderer::textureHandle(ImTextureID id) -> bgfx::TextureHandle {
-        if (id == ImTextureID_Invalid || id > static_cast<ImTextureID>(std::numeric_limits<uint16_t>::max())) {
-            return BGFX_INVALID_HANDLE;
-        }
-        return {static_cast<uint16_t>(id - 1)};
     }
 
     ImGuiBgfxRenderer::~ImGuiBgfxRenderer() {
@@ -464,7 +309,7 @@ namespace AetherEditor::ui {
         }
 
         if (drawData->Textures->Size < 0 ||
-            drawData->Textures->Size > MaxImGuiTextureUpdatesPerFrame ||
+            drawData->Textures->Size > utils::MaxImGuiTextureUpdatesPerFrame ||
             (drawData->Textures->Size > 0 && drawData->Textures->Data == nullptr)) {
             return;
         }
@@ -505,7 +350,7 @@ namespace AetherEditor::ui {
             static_cast<std::uint64_t>(texture.Height) *
             static_cast<std::uint64_t>(texture.BytesPerPixel);
         const auto* caps = bgfx::getCaps();
-        if (dataSize > MaxImGuiTextureBytes ||
+        if (dataSize > utils::MaxImGuiTextureBytes ||
             dataSize > std::numeric_limits<uint32_t>::max() ||
             caps == nullptr ||
             texture.Width > caps->limits.maxTextureSize ||
@@ -515,7 +360,7 @@ namespace AetherEditor::ui {
                 false,
                 1,
                 bgfx::TextureFormat::RGBA8,
-                ImGuiSamplerLinear
+                utils::ImGuiSamplerLinear
             )) {
             return false;
         }
@@ -528,7 +373,7 @@ namespace AetherEditor::ui {
             false,
             1,
             bgfx::TextureFormat::RGBA8,
-            ImGuiSamplerLinear,
+            utils::ImGuiSamplerLinear,
             nullptr
         );
 
@@ -549,7 +394,7 @@ namespace AetherEditor::ui {
         }
 
         bgfx::setName(handle, "ImGui texture");
-        texture.SetTexID(textureId(handle));
+        texture.SetTexID(utils::textureId(handle));
         texture.SetStatus(ImTextureStatus_OK);
         return true;
     }
@@ -569,14 +414,14 @@ namespace AetherEditor::ui {
             static_cast<std::uint64_t>(texture.Width) *
             static_cast<std::uint64_t>(texture.Height) *
             static_cast<std::uint64_t>(texture.BytesPerPixel);
-        if (fullTextureBytes > MaxImGuiTextureBytes ||
+        if (fullTextureBytes > utils::MaxImGuiTextureBytes ||
             texture.Updates.Size < 0 ||
-            texture.Updates.Size > MaxImGuiTextureUpdatesPerFrame ||
+            texture.Updates.Size > utils::MaxImGuiTextureUpdatesPerFrame ||
             (texture.Updates.Size > 0 && texture.Updates.Data == nullptr)) {
             return false;
         }
 
-        const auto handle = textureHandle(texture.GetTexID());
+        const auto handle = utils::textureHandle(texture.GetTexID());
         if (!bgfx::isValid(handle)) {
             return false;
         }
@@ -625,8 +470,8 @@ namespace AetherEditor::ui {
     }
 
     auto ImGuiBgfxRenderer::destroyTexture(ImTextureData& texture) -> void {
-        auto handle = textureHandle(texture.GetTexID());
-        destroyIfValid(handle);
+        auto handle = utils::textureHandle(texture.GetTexID());
+        utils::destroyIfValid(handle);
         texture.SetTexID(ImTextureID_Invalid);
         texture.SetStatus(ImTextureStatus_Destroyed);
     }

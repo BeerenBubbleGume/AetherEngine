@@ -402,15 +402,21 @@ namespace AetherEditor::panels {
         }
         ImGui::TextWrapped("Collider dimensions are independent of Transform Scale.");
 
-        before = commands::PhysicsComponentState::capture(scene, entity);
-        bool trigger = component.trigger;
-        if (ImGui::Checkbox("Sensor / Trigger", &trigger)) {
+        const auto drawColliderFlag = [&](const char* label, bool AetherEngine::components::ColliderComponent::*field) {
+            bool value = component.*field;
+            if (!ImGui::Checkbox(label, &value)) return;
             finishPendingEdits(scene, history);
-            auto after = before;
-            after.collider->trigger = trigger;
-            changed = history.execute(std::make_unique<commands::PhysicsChangeCommand>(entityId, before, after), scene) || changed;
-        }
-        if (component.trigger) ImGui::TextWrapped("No collision response. Trigger events are not available yet.");
+            const auto previous = commands::PhysicsComponentState::capture(scene, entity);
+            auto after = previous;
+            (*after.collider).*field = value;
+            changed = history.execute(std::make_unique<commands::PhysicsChangeCommand>(entityId, previous, after), scene) || changed;
+        };
+        using AetherEngine::components::ColliderComponent;
+        drawColliderFlag("Collision Enabled", &ColliderComponent::collisionEnabled);
+        ImGui::BeginDisabled(!component.collisionEnabled);
+        drawColliderFlag("Sensor / Trigger", &ColliderComponent::trigger);
+        ImGui::EndDisabled();
+        if (component.collisionEnabled && component.trigger) ImGui::TextWrapped("No collision response. Trigger events are not available yet.");
         ImGui::PopID();
         return changed;
     }

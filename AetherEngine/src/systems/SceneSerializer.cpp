@@ -35,6 +35,7 @@ namespace {
     constexpr int FileSystemErrorCode = 1;
     constexpr int ParseErrorCode = 2;
     constexpr int InvalidFormatErrorCode = 3;
+    constexpr int CurrentSceneVersion = 3;
     constexpr std::uint64_t MiB = 1024ULL * 1024ULL;
     constexpr std::uint64_t MaxSceneBytes = 16ULL * MiB;
     constexpr std::size_t MaxSceneEntities = 10000;
@@ -380,7 +381,8 @@ namespace {
             {"size", serializeVec3(component.size)},
             {"radius", component.radius},
             {"height", component.height},
-            {"trigger", component.trigger}
+            {"trigger", component.trigger},
+            {"collisionEnabled", component.collisionEnabled}
         };
     }
 
@@ -455,7 +457,7 @@ auto AetherEngine::systems::SceneSerializer::serializeScene(const scene::Scene &
     }
 
     Json sceneBody;
-    sceneBody["version"] = 2;
+    sceneBody["version"] = CurrentSceneVersion;
     sceneBody["name"] = std::string{scene.getName()};
     sceneBody["activeCamera"] = nullptr;
     sceneBody["entities"] = Json::array();
@@ -575,8 +577,9 @@ auto AetherEngine::systems::SceneSerializer::deserializeScene(std::string_view s
         if (!sceneBody.is_object()) {
             return std::unexpected(makeError(InvalidFormatErrorCode, "Scene root must be a JSON object"));
         }
-        if (!sceneBody.contains("version") || !sceneBody.at("version").is_number_integer() ||
-            sceneBody.at("version").get<int>() != 2) {
+        const auto version = sceneBody.find("version");
+        if (version == sceneBody.end() || !version->is_number_integer() ||
+            (*version != 2 && *version != CurrentSceneVersion)) {
             return std::unexpected(makeError(InvalidFormatErrorCode, "Unsupported or missing scene version"));
         }
 
@@ -673,10 +676,17 @@ auto AetherEngine::systems::SceneSerializer::deserializeScene(std::string_view s
                     );
                 }
                 if (componentsBody.contains("Collider")) {
-                    scene->addComponent<components::ColliderComponent>(
-                        entity,
-                        deserializeCollider(componentsBody.at("Collider"))
-                    );
+                    const auto& fields = componentsBody.at("Collider");
+                    auto collider = deserializeCollider(fields);
+                    if (*version == CurrentSceneVersion) {
+                        const auto enabled = fields.find("collisionEnabled");
+                        if (enabled == fields.end() || !enabled->is_boolean()) {
+                            return std::unexpected(makeError(InvalidFormatErrorCode,
+                                "Entity '" + name + "': Collider.collisionEnabled must be a boolean"));
+                        }
+                        collider.collisionEnabled = enabled->get<bool>();
+                    }
+                    scene->addComponent<components::ColliderComponent>(entity, collider);
                 }
             }
         }

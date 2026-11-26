@@ -28,11 +28,13 @@ namespace AetherEngine::physics {
     namespace {
         constexpr JPH::ObjectLayer NonMovingLayer = 0;
         constexpr JPH::ObjectLayer MovingLayer = 1;
-        constexpr JPH::ObjectLayer LayerCount = 2;
+        constexpr JPH::ObjectLayer NoCollisionLayer = 2;
+        constexpr JPH::ObjectLayer LayerCount = 3;
 
         const JPH::BroadPhaseLayer NonMovingBroadPhaseLayer{0};
         const JPH::BroadPhaseLayer MovingBroadPhaseLayer{1};
-        constexpr JPH::uint BroadPhaseLayerCount = 2;
+        const JPH::BroadPhaseLayer CollisionBroadPhaseLayer{2};
+        constexpr JPH::uint BroadPhaseLayerCount = 3;
 
         constexpr JPH::uint MaxBodies = 1024;
         constexpr JPH::uint NumBodyMutexes = 0;
@@ -106,6 +108,7 @@ namespace AetherEngine::physics {
         BroadPhaseLayerInterface() {
             m_objectToBroadPhase[NonMovingLayer] = NonMovingBroadPhaseLayer;
             m_objectToBroadPhase[MovingLayer] = MovingBroadPhaseLayer;
+            m_objectToBroadPhase[NoCollisionLayer] = CollisionBroadPhaseLayer;
         }
 
         [[nodiscard]] auto GetNumBroadPhaseLayers() const -> JPH::uint override {
@@ -130,6 +133,9 @@ namespace AetherEngine::physics {
             if (layer == MovingBroadPhaseLayer) {
                 return "MOVING";
             }
+            if (layer == CollisionBroadPhaseLayer) {
+                return "COLLISION";
+            }
             return "INVALID";
         }
 #endif
@@ -145,6 +151,7 @@ namespace AetherEngine::physics {
             JPH::ObjectLayer objectLayer,
             JPH::BroadPhaseLayer broadPhaseLayer
         ) const -> bool override {
+            if (objectLayer == NoCollisionLayer || broadPhaseLayer == CollisionBroadPhaseLayer) return false;
             return objectLayer == NonMovingLayer
                 ? broadPhaseLayer == MovingBroadPhaseLayer
                 : objectLayer == MovingLayer;
@@ -158,6 +165,7 @@ namespace AetherEngine::physics {
             JPH::ObjectLayer first,
             JPH::ObjectLayer second
         ) const -> bool override {
+            if (first == NoCollisionLayer || second == NoCollisionLayer) return false;
             return first == NonMovingLayer
                 ? second == MovingLayer
                 : first == MovingLayer;
@@ -260,11 +268,11 @@ namespace AetherEngine::physics {
             toJoltPosition(desc.transform.position),
             toJoltRotation(desc.transform.rotation),
             desc.dynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Static,
-            desc.dynamic ? MovingLayer : NonMovingLayer
+            desc.collider.collisionEnabled ? desc.dynamic ? MovingLayer : NonMovingLayer : NoCollisionLayer
         };
         settings.mFriction = 0.5f;
         settings.mRestitution = 0.5f;
-        settings.mIsSensor = desc.collider.trigger;
+        settings.mIsSensor = desc.collider.collisionEnabled && desc.collider.trigger;
         settings.mGravityFactor = desc.useGravity ? 1.0f : 0.0f;
         if (desc.dynamic) {
             settings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;

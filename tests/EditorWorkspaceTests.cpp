@@ -147,6 +147,14 @@ namespace {
         require(!collider.trigger && f.history.undo(*f.scene) && collider.trigger, "Trigger checkbox history failed");
         f.history.clear();
 
+        f.activate("Collider", "Collision Enabled");
+        require(!collider.collisionEnabled && collider.trigger && body.useGravity, "Disabling collisions changed sensor or gravity");
+        f.activate("Collider", "Sensor / Trigger");
+        require(collider.trigger, "Disabled sensor checkbox accepted input");
+        require(f.history.undo(*f.scene) && collider.collisionEnabled && !f.history.canUndo(), "Collision Enabled undo failed");
+        require(f.history.redo(*f.scene) && !collider.collisionEnabled, "Collision Enabled redo failed");
+        f.history.clear();
+
         f.beginNumber("Collider", "Radius", "0.75");
         f.key(ImGuiKey_Enter);
         require(collider.radius == 0.75f && collider.height == 2.0f && body.mass == 25.0f, "Radius edit changed unrelated fields");

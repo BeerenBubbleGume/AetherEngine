@@ -26,6 +26,7 @@ namespace AetherEngine::components {
         float radius{0.5f};
         float height{1.0f}; // Capsule cylinder length along local X in both backends.
         bool trigger{false};
+        bool collisionEnabled{true};
         auto operator==(const ColliderComponent&) const -> bool = default;
     };
 }

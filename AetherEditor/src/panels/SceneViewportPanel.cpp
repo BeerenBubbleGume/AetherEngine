@@ -4,7 +4,7 @@
 
 #include "panels/SceneViewportPanel.hpp"
 
-#include "ui/ImGuiBgfxRenderer.hpp"
+#include "utils/BgfxShaderHelper.hpp"
 
 namespace {
 
@@ -137,7 +137,7 @@ namespace AetherEditor::panels {
                     if (!bgfx::isValid(colorTexture)) {
                         ImGui::TextUnformatted("Viewport color texture is invalid");
                     } else {
-                        const auto textureId = ui::ImGuiBgfxRenderer::textureId(colorTexture);
+                        const auto textureId = utils::textureId(colorTexture);
 
                         const bool flipY = bgfx::getCaps()->originBottomLeft;
 

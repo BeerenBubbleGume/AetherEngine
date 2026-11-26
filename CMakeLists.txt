@@ -375,28 +375,41 @@ add_executable(AetherEditor
         AetherEditor/headers/panels/ConsolePanel.hpp
         AetherEditor/src/simulation/SimulationController.cpp
         AetherEditor/headers/simulation/SimulationController.hpp
+        AetherEditor/src/viewport/ColliderOutlineRenderer.cpp
+        AetherEditor/headers/viewport/ColliderOutlineRenderer.hpp
+        AetherEditor/headers/utils/BgfxShaderHelper.hpp
 )
 
-set(AETHER_IMGUI_SHADER_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/assets/shaders/generated")
-set(AETHER_IMGUI_SHADER_HEADERS
-        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_fs_dx11.bin.h"
-        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_fs_essl.bin.h"
-        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_fs_glsl.bin.h"
-        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_fs_mtl.bin.h"
-        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_fs_spv.bin.h"
-        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_vs_dx11.bin.h"
-        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_vs_essl.bin.h"
-        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_vs_glsl.bin.h"
-        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_vs_mtl.bin.h"
-        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}/imgui_vs_spv.bin.h"
+set(AETHER_EDITOR_SHADER_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/assets/shaders/generated")
+set(AETHER_EDITOR_SHADER_HEADERS
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/collider_outline_vs_dx11.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/collider_outline_vs_essl.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/collider_outline_vs_glsl.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/collider_outline_vs_mtl.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/collider_outline_vs_spv.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/collider_outline_fs_dx11.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/collider_outline_fs_essl.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/collider_outline_fs_glsl.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/collider_outline_fs_mtl.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/collider_outline_fs_spv.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/imgui_fs_dx11.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/imgui_fs_essl.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/imgui_fs_glsl.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/imgui_fs_mtl.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/imgui_fs_spv.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/imgui_vs_dx11.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/imgui_vs_essl.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/imgui_vs_glsl.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/imgui_vs_mtl.bin.h"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}/imgui_vs_spv.bin.h"
 )
 
-target_sources(AetherEditor PRIVATE ${AETHER_IMGUI_SHADER_HEADERS})
+target_sources(AetherEditor PRIVATE ${AETHER_EDITOR_SHADER_HEADERS})
 
 target_include_directories(smb PRIVATE smb/headers)
 target_include_directories(AetherEditor PRIVATE
         AetherEditor/headers
-        "${AETHER_IMGUI_SHADER_OUTPUT_DIR}"
+        "${AETHER_EDITOR_SHADER_OUTPUT_DIR}"
 )
 
 set(AETHER_RUNTIME_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")

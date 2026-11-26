@@ -59,7 +59,9 @@ Important ownership boundaries:
 - Materials are assets of their own and load shader/texture dependencies
   through the same manager.
 
-The default project scene uses schema version 2 and contains only asset IDs.
+Scenes store asset references as IDs. The reader supports schema versions 2 and 3.
+Opening a v2 scene enables collisions for all colliders. Saving writes v3 and
+stores each collider's `collisionEnabled` boolean independently of `trigger`.
 Physical paths are isolated in the project's `assets/registry/runtime-assets.json`;
 material dependency metadata lives in its `assets/materials/`.
 

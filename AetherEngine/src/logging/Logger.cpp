@@ -1,9 +1,9 @@
 #include "logging/Logger.hpp"
 
 #include <algorithm>
-#include <atomic>
 #include <exception>
 #include <mutex>
+#include <memory>
 #include <utility>
 
 #include <spdlog/logger.h>
@@ -44,7 +44,7 @@ namespace AetherEngine::logging {
                     .truncated = message.payload.size() > Logger::MaxMessageBytes ||
                         message.logger_name.size() > Logger::MaxCategoryBytes
                 });
-                const auto sinks = m_sinks.load();
+                const auto sinks = std::atomic_load(&m_sinks);
                 {
                     const std::lock_guard lock{m_historyMutex};
                     record->sequence = m_nextSequence++;
@@ -125,11 +125,11 @@ namespace AetherEngine::logging {
                 }
                 std::shared_ptr<const SinkList> previous;
                 const std::lock_guard lock{m_sinkMutex};
-                previous = m_sinks.load();
+                previous = std::atomic_load(&m_sinks);
                 if (std::find(previous->begin(), previous->end(), sink) == previous->end()) {
                     auto next = std::make_shared<SinkList>(*previous);
                     next->push_back(std::move(sink));
-                    m_sinks.store(std::move(next));
+                    std::atomic_store(&m_sinks, std::shared_ptr<const SinkList>{std::move(next)});
                 }
             }
 
@@ -138,11 +138,11 @@ namespace AetherEngine::logging {
                 // removing the last reference to a sink with a custom destructor.
                 std::shared_ptr<const SinkList> previous;
                 const std::lock_guard lock{m_sinkMutex};
-                previous = m_sinks.load();
+                previous = std::atomic_load(&m_sinks);
                 if (std::find(previous->begin(), previous->end(), sink) != previous->end()) {
                     auto next = std::make_shared<SinkList>(*previous);
                     std::erase(*next, sink);
-                    m_sinks.store(std::move(next));
+                    std::atomic_store(&m_sinks, std::shared_ptr<const SinkList>{std::move(next)});
                 }
             }
 
@@ -156,7 +156,9 @@ namespace AetherEngine::logging {
             std::uint64_t m_nextSequence{1};
             std::mutex m_sinkMutex;
             // Copy the list only on subscription changes, not on every log.
-            std::atomic<std::shared_ptr<const SinkList>> m_sinks{std::make_shared<const SinkList>()};
+            // Use the shared_ptr atomic functions for libc++ versions without
+            // the C++20 atomic<shared_ptr<T>> specialization.
+            std::shared_ptr<const SinkList> m_sinks{std::make_shared<const SinkList>()};
         };
 
         class BackendLogger final : public spdlog::logger {

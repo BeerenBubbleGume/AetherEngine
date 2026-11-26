@@ -181,10 +181,11 @@ namespace AetherEngine::physics {
             return std::unexpected(PhysicsError{3, "PhysX could not allocate a shape"});
         }
 
-        if (desc.collider.trigger) {
-            shape->setFlag(physx::PxShapeFlag::eSIMULATION_SHAPE, false);
-            shape->setFlag(physx::PxShapeFlag::eTRIGGER_SHAPE, true);
-        }
+        const auto& collider = desc.collider;
+        shape->setFlag(physx::PxShapeFlag::eSIMULATION_SHAPE,
+               collider.collisionEnabled && !collider.trigger);
+        shape->setFlag(physx::PxShapeFlag::eTRIGGER_SHAPE,
+                       collider.collisionEnabled && collider.trigger);
 
         if (!body->attachShape(*shape)) {
             shape->release();

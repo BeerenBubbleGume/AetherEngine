@@ -16,12 +16,6 @@
 
 
 namespace AetherEditor::ui {
-    struct ImGuiBgfxRendererState final {
-        bgfx::Encoder* encoder{nullptr};
-        bgfx::ViewId viewId{0};
-        uint32_t samplerFlags{0};
-    };
-
     class ImGuiBgfxRenderer final {
     public:
         struct ImGuiBgfxRendererDeleter {
@@ -46,9 +40,6 @@ namespace AetherEditor::ui {
             bgfx::ViewId viewId,
             AetherEngine::graphics::RenderExtent extent
         ) -> void;
-
-        [[nodiscard]] static auto textureId(bgfx::TextureHandle texture) -> ImTextureID;
-        [[nodiscard]] static auto textureHandle(ImTextureID textureId) -> bgfx::TextureHandle;
 
     private:
         ImGuiBgfxRenderer() = default;

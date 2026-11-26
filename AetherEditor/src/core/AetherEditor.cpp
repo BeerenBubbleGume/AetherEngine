@@ -60,6 +60,11 @@ auto AetherEditor::core::Editor::init(
     m_simulationController = simulation::SimulationController::createSimulationController();
     m_inputRouter = input::EditorInputRouter::createEditorInputRouter();
     m_documentController->setScene(ctx.getScene());
+    m_colliderOutlineRenderer = viewport::ColliderOutlineRenderer::create();
+    auto colliderOutlineInitResult = m_colliderOutlineRenderer->init();
+    if (!colliderOutlineInitResult) {
+        return std::unexpected(AetherEngine::core::EngineError{4, colliderOutlineInitResult.error().msg});
+    }
     scanTextures(ctx);
     ctx.logger.info("Editor initialized", "Editor");
     return {};
@@ -462,6 +467,23 @@ auto AetherEditor::core::Editor::renderSceneViewport(
     };
 
     ctx.renderer.renderScene(ctx.getScene(), ctx.assets, ctx.sceneAssetBinding, view);
+    renderCollider(ctx.getScene(), view);
+}
+
+auto AetherEditor::core::Editor::renderCollider(AetherEngine::scene::Scene &scene, const AetherEngine::graphics::SceneView &view) const -> void {
+    if (!m_session.selectedEntity.has_value()) {
+        return;
+    }
+    const auto obj = scene.findEntityById(*m_session.selectedEntity);
+    if (!obj) {
+        return;
+    }
+    const auto objTransform = scene.tryGetComponent<AetherEngine::components::TransformComponent>(*obj);
+    const auto objCollider = scene.tryGetComponent<AetherEngine::components::ColliderComponent>(*obj);
+    if (!objTransform || !objCollider) {
+        return;
+    }
+    m_colliderOutlineRenderer->draw(view, *objCollider, objTransform->transform);
 }
 
 auto AetherEditor::core::Editor::shutdown(AetherEngine::core::EngineContext& ctx) -> void {

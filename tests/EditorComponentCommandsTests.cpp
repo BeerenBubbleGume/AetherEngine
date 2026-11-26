@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <memory>
 #include <limits>
+#include <nlohmann/json.hpp>
 
 #include "commands/CommandHistory.hpp"
 #include "commands/ComponentCommands.hpp"
@@ -248,7 +249,7 @@ namespace {
         auto edited = initial;
         edited.rigidbody = components::RigidbodyComponent{.dynamic = true, .mass = 7.5f, .useGravity = false};
         edited.collider = components::ColliderComponent{.type = components::ColliderType::Capsule,
-            .size = {2, 3, 4}, .radius = 0.75f, .height = 2.5f, .trigger = true};
+            .size = {2, 3, 4}, .radius = 0.75f, .height = 2.5f, .trigger = true, .collisionEnabled = false};
         require(history.execute(std::make_unique<commands::PhysicsChangeCommand>(id, initial, edited), *scene), "Physics edit failed");
         require(commands::PhysicsComponentState::capture(*scene, entity) == edited && history.isDirty(), "Physics fields were lost");
         require(transform.position == AetherEngine::math::Vec3{4, 5, 6} && transform.scale == AetherEngine::math::Vec3{2, 3, 4},
@@ -269,6 +270,32 @@ namespace {
         for (int i = 0; i < 2; ++i) require(history.undo(*scene), "Ordered physics undo failed");
         require(commands::PhysicsComponentState::capture(*scene, entity) == commands::PhysicsComponentState{}, "Undo Add Physics failed");
         for (int i = 0; i < 3; ++i) require(history.redo(*scene), "Ordered physics redo failed");
+    }
+
+    auto migrateColliderOnSave() -> void {
+        scene_write_tests::Fixture fixture;
+        auto serializer = AetherEngine::systems::SceneSerializer::createSceneSerializer(fixture.scenes);
+        const auto path = fixture.scenes / "Legacy.scene.json";
+        const std::string legacy = R"({"version":2,"name":"Legacy","entities":[{"id":"11111111111111111111111111111111","name":"Crate","components":{"Collider":{"trigger":true}}}]})";
+        scene_write_tests::put(path, legacy);
+        auto loaded = serializer->deserializeScene("Legacy");
+        require(loaded.has_value(), "Could not open v2 scene");
+        const auto entity = (*loaded)->findEntityByName("Crate");
+        require(entity && (*loaded)->getComponent<components::ColliderComponent>(*entity).collisionEnabled,
+            "Legacy collider should have collisions enabled");
+        require(scene_write_tests::get(path) == legacy, "Opening a v2 scene rewrote the file");
+        require(serializer->serializeScene(**loaded).has_value(), "Could not upgrade v2 scene on save");
+        auto saved = nlohmann::json::parse(scene_write_tests::get(path));
+        auto& fields = saved.at("entities").at(0).at("components").at("Collider");
+        require(saved.at("version") == 3 && fields.at("collisionEnabled") == true && fields.at("trigger") == true,
+            "Explicit save did not write a v3 collider with legacy settings");
+
+        fields.erase("collisionEnabled");
+        scene_write_tests::put(path, saved.dump());
+        require(!serializer->deserializeScene("Legacy"), "Accepted a v3 collider without collisionEnabled");
+        fields["collisionEnabled"] = "false";
+        scene_write_tests::put(path, saved.dump());
+        require(!serializer->deserializeScene("Legacy"), "Accepted a string as collisionEnabled");
     }
 
     auto partialPhysicsAndGuards() -> void {
@@ -360,6 +387,7 @@ namespace {
 int main() {
     int failures = 0;
     failures += scene_write_tests::run("physics properties, ordered history and scene round trip", physicsHistoryAndSave);
+    failures += scene_write_tests::run("legacy collider migration on explicit save", migrateColliderOnSave);
     failures += scene_write_tests::run("partial physics, no-op, invalid values and missing targets", partialPhysicsAndGuards);
     failures += scene_write_tests::run("invalid physics saves preserve the existing scene", invalidPhysicsSave);
     failures += scene_write_tests::run("entity rename, stable identity, ordered history and scene round trip", renameHistoryAndSave);

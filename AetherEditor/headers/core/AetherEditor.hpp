@@ -23,6 +23,7 @@
 #include "documents/DocumentController.hpp"
 #include "documents/SceneEditorDocument.hpp"
 #include "simulation/SimulationController.hpp"
+#include "viewport/ColliderOutlineRenderer.hpp"
 
 namespace AetherEditor::core {
     class Editor final : public AetherEngine::core::IApplication {
@@ -58,6 +59,7 @@ namespace AetherEditor::core {
         auto processDocumentActions(AetherEngine::core::EngineContext& ctx, const ui::EditorWorkspaceFrame& frame) -> void;
         auto updateEditorCamera(AetherEngine::core::EngineContext& ctx, const viewport::SceneViewportFrame& frame, bool applicationFocused) -> void;
         auto renderSceneViewport(AetherEngine::core::EngineContext& ctx, const viewport::SceneViewportFrame& frame) const -> void;
+        auto renderCollider(AetherEngine::scene::Scene& scene, const AetherEngine::graphics::SceneView &view) const -> void;
 
         auto saveAs(AetherEngine::core::EngineContext& ctx, std::string_view filename, bool overwriteConfirmed = false) -> std::expected<void, AetherEngine::core::EngineError>;
         auto save(AetherEngine::core::EngineContext& ctx) -> std::expected<void, AetherEngine::core::EngineError>;
@@ -71,6 +73,7 @@ namespace AetherEditor::core {
         using CameraControllerPtr = viewport::EditorCameraController::EditorCameraControllerPtr;
         using DocumentControllerPtr = docs::DocumentController::DocumentControllerPtr;
         using SimulationControllerPtr = simulation::SimulationController::SimulationControllerPtr;
+        using ColliderOutlineRendererPtr = viewport::ColliderOutlineRenderer::ColliderOutlineRendererPtr;
         AetherEngine::components::TransformComponent m_editorCameraTransform{};
         AetherEngine::components::CameraComponent m_editorCamera{};
 
@@ -80,6 +83,7 @@ namespace AetherEditor::core {
         CameraControllerPtr m_cameraController;
         DocumentControllerPtr m_documentController;
         SimulationControllerPtr m_simulationController;
+        ColliderOutlineRendererPtr m_colliderOutlineRenderer;
         EditorSession m_session{};
         commands::CommandHistory m_history{};
         bool m_quitRequested = false;

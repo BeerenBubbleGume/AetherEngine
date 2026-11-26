@@ -132,6 +132,50 @@ namespace {
         expect(physics->errors().empty(), "clearing scene bodies clears diagnostics", failures);
     }
 
+    auto physicsSystemCollisionEnabled(int& failures) -> void {
+        namespace ae = AetherEngine;
+        auto physics = ae::systems::PhysicsSystem::createPhysicsSystem();
+        if (!physics || !physics->init()) {
+            expect(false, "initialize PhysicsSystem for collisionEnabled", failures);
+            return;
+        }
+
+        const auto run = [&](bool cubeEnabled, bool floorEnabled, bool sensor, const char* expectation) {
+            auto scene = ae::scene::Scene::createScene("Collision enabled");
+            const auto floor = scene->createEntity("Floor");
+            scene->addComponent<ae::components::TransformComponent>(floor).transform.position.y = -1.0f;
+            scene->addComponent<ae::components::RigidbodyComponent>(floor).dynamic = false;
+            scene->addComponent<ae::components::ColliderComponent>(floor,
+                ae::components::ColliderComponent{.size = {10, 1, 10}, .collisionEnabled = floorEnabled});
+
+            const auto cube = scene->createEntity("Cube");
+            scene->addComponent<ae::components::TransformComponent>(cube).transform.position.y = 3.0f;
+            scene->addComponent<ae::components::RigidbodyComponent>(cube);
+            scene->addComponent<ae::components::ColliderComponent>(cube,
+                ae::components::ColliderComponent{.size = {0.5f, 0.5f, 0.5f}, .trigger = sensor, .collisionEnabled = cubeEnabled});
+
+            constexpr float dt = 1.0f / 60.0f;
+            const auto& pose = scene->getComponent<ae::components::TransformComponent>(cube).transform;
+            for (int i = 0; i < 240; ++i) physics->fixedUpdate(*scene, dt);
+            const float y = pose.position.y;
+            physics->fixedUpdate(*scene, dt);
+            const float nextY = pose.position.y;
+            expect(physics->errors().empty(), "collisionEnabled scene has no body creation errors", failures);
+            if (cubeEnabled && floorEnabled) {
+                // Floor top at Y=0, cube half-height 0.5. Allow SDK contact tolerances.
+                expect(std::abs(y - 0.5f) < 0.05f && std::abs(nextY - y) < 0.01f, expectation, failures);
+            } else {
+                expect(y < -2.5f && nextY < y, expectation, failures);
+            }
+            physics->clearSceneBodies();
+        };
+
+        run(true, true, false, "cube comes to rest on the enabled floor");
+        run(false, true, false, "collision-disabled cube passes through the floor and continues falling");
+        run(true, false, false, "cube passes through a collision-disabled floor and continues falling");
+        run(false, true, true, "collision-disabled cube with trigger set continues falling through the floor");
+    }
+
     auto physicsSystemFreeFall(int& failures) -> void {
         namespace ae = AetherEngine;
         auto physics = ae::systems::PhysicsSystem::createPhysicsSystem();
@@ -322,6 +366,7 @@ int main() {
     backend->shutdown();
 
     physicsSystemFreeFall(failures);
+    physicsSystemCollisionEnabled(failures);
     capsuleAxis(failures);
     physicsDiagnostics(failures);
 #if defined(AETHER_PHYSICS_BACKEND_PHYSX)
